@@ -1,0 +1,372 @@
+// src/app/api/bookings/post-process/route.ts
+import { NextResponse } from 'next/server';
+import { adminDb } from '@/lib/firebaseAdmin';
+import { Timestamp } from 'firebase-admin/firestore';
+import { incrementSystemStats } from '@/lib/systemStatsUtils';
+import { sendBookingConfirmationEmail } from '@/ai/flows/sendBookingEmailFlow';
+import { getBaseUrl } from '@/lib/config';
+import { generateInvoicePdf } from '@/lib/invoiceGenerator';
+
+// Define ADMIN_EMAIL - should match your AuthContext
+const ADMIN_EMAIL = "fixbro.in@gmail.com"; 
+
+export async function POST(request: Request) {
+  try {
+    const { bookingDocId } = await request.json();
+
+    if (!bookingDocId) {
+      return NextResponse.json({ error: 'Missing bookingDocId' }, { status: 400 });
+    }
+
+    // 1. Fetch the full booking data from server-side Firestore
+    const bookingDoc = await adminDb.collection('bookings').doc(bookingDocId).get();
+    if (!bookingDoc.exists) {
+      return NextResponse.json({ error: 'Booking not found' }, { status: 404 });
+    }
+
+    const booking = bookingDoc.data() as any;
+    const userId = booking.userId;
+    const isCompleted = booking.status === 'Completed';
+    const isCancelled = booking.status === 'Cancelled';
+
+    // 2. Fetch App Settings for Email/WhatsApp
+    const [appConfigDoc, marketingConfigDoc, seoSettingsDoc] = await Promise.all([
+        adminDb.collection('webSettings').doc('applicationConfig').get(),
+        adminDb.collection('webSettings').doc('marketingAutomation').get(),
+        adminDb.collection('seoSettings').doc('global').get()
+    ]);
+
+    const appConfig = appConfigDoc.data() as any;
+    const marketingConfig = marketingConfigDoc.data() as any;
+    const seoSettings = seoSettingsDoc.data() as any;
+
+    // --- EXECUTE ALL TASKS IN PARALLEL ON SERVER ---
+    const tasks: Promise<any>[] = [];
+
+    // --- NEW: Track Total Bookings (First time only) ---
+    if (!booking.isStatsTracked) {
+        tasks.push(incrementSystemStats({ totalBookings: 1 }));
+        tasks.push(adminDb.collection('bookings').doc(bookingDocId).update({ isStatsTracked: true }));
+    }
+
+    // A. Update User "hasBooking" status
+    if (userId) {
+        tasks.push(adminDb.collection('users').doc(userId).set({ hasBooking: true }, { merge: true }));
+    }
+
+    // --- NEW: Update Provider's withrawableBalance and System Stats on Completion ---
+    const isCashPayment = (method: string) => method === 'Pay After Service' || method === 'Cash on Delivery';
+    if (isCompleted && booking.providerId) {
+        const calculateProviderFee = (bookingAmount: number, feeType?: string, feeValue?: number): number => {
+            if (!feeType || !feeValue || feeValue <= 0) return 0;
+            if (feeType === 'fixed') return feeValue;
+            if (feeType === 'percentage') return (bookingAmount * feeValue) / 100;
+            return 0;
+        };
+
+        const commission = calculateProviderFee(booking.totalAmount, appConfig.providerFeeType, appConfig.providerFeeValue);
+
+        // --- Increment System Stats ---
+        if (!booking.isCompletionStatsTracked) {
+            tasks.push(incrementSystemStats({ 
+                completedBookings: 1, 
+                totalRevenue: booking.totalAmount,
+                earnedCommission: commission
+            }));
+            tasks.push(adminDb.collection('bookings').doc(bookingDocId).update({ isCompletionStatsTracked: true }));
+        }
+
+        const providerDocRef = adminDb.collection('users').doc(booking.providerId);
+        tasks.push(adminDb.runTransaction(async (transaction) => {
+            const providerDoc = await transaction.get(providerDocRef);
+            const providerData = providerDoc.exists ? providerDoc.data() : {};
+            const currentWithdrawableBalance = providerData?.withdrawableBalance || 0;
+            const commission = calculateProviderFee(booking.totalAmount, appConfig.providerFeeType, appConfig.providerFeeValue);
+            
+            // Monthly Stats Logic
+            const now = new Date();
+            const monthKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+            let stats = providerData?.monthlyStats || { monthKey, gross: 0, commission: 0, cashCollected: 0, withdrawals: 0, onlineNet: 0, cashCommission: 0 };
+            
+            // Reset if it's a new month
+            if (stats.monthKey !== monthKey) {
+                stats = { monthKey, gross: 0, commission: 0, cashCollected: 0, withdrawals: 0, onlineNet: 0, cashCommission: 0 };
+            }
+
+            let balanceChange = 0;
+            stats.gross += booking.totalAmount;
+            stats.commission += commission;
+
+            if (isCashPayment(booking.paymentMethod)) {
+                balanceChange = -commission;
+                stats.cashCollected += booking.totalAmount;
+                stats.cashCommission += commission;
+            } else {
+                balanceChange = (booking.totalAmount - commission);
+                stats.onlineNet += (booking.totalAmount - commission);
+            }
+            
+            transaction.set(providerDocRef, { 
+                withdrawableBalance: currentWithdrawableBalance + balanceChange,
+                monthlyStats: stats
+            }, { merge: true });
+        }));
+    }
+
+    // B. User Dashboard Notification
+    if (userId) {
+        tasks.push(adminDb.collection('userNotifications').add({
+            userId,
+            title: isCompleted ? "Service Completed!" : "Booking Confirmed!",
+            message: isCompleted 
+                ? `Your booking ${booking.bookingId} has been successfully completed. Thank you!`
+                : `Your booking ${booking.bookingId} is ${booking.status}.`,
+            type: isCompleted ? 'success' : 'info',
+            href: `/my-bookings`,
+            read: false,
+            createdAt: Timestamp.now()
+        }));
+    }
+
+    // C. Admin Dashboard Notification
+    const adminQuery = await adminDb.collection('users').where('email', '==', ADMIN_EMAIL).limit(1).get();
+    if (!adminQuery.empty) {
+        const adminUid = adminQuery.docs[0].id;
+        tasks.push(adminDb.collection('userNotifications').add({
+            userId: adminUid,
+            title: isCompleted ? "Job Completed!" : "New Booking Received!",
+            message: isCompleted 
+                ? `Booking ${booking.bookingId} for ${booking.customerName} is now complete. Total: ₹${booking.totalAmount.toFixed(2)}.`
+                : `ID: ${booking.bookingId} by ${booking.customerName}. Total: ₹${booking.totalAmount.toFixed(2)}.`,
+            type: isCompleted ? 'info' : 'admin_alert',
+            href: `/admin/bookings`,
+            read: false,
+            createdAt: Timestamp.now()
+        }));
+    }
+
+    // D. Trigger Actual Push Notifications
+    const triggerPush = async (pUserId: string, pTitle: string, pBody: string, pHref: string) => {
+        try {
+            await fetch(`${getBaseUrl()}/api/send-push`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ userId: pUserId, title: pTitle, body: pBody, href: pHref }),
+            });
+        } catch (e) {
+            console.error(`Error triggering push for ${pUserId}:`, e);
+        }
+    };
+
+    if (userId) {
+        tasks.push(triggerPush(
+            userId, 
+            isCompleted ? "Service Completed!" : "Booking Confirmed!", 
+            isCompleted 
+                ? `Your service ${booking.bookingId} is now complete.`
+                : `Your booking ${booking.bookingId} is confirmed.`, 
+            "/my-bookings"
+        ));
+    }
+
+    if (!adminQuery.empty) {
+        const adminUid = adminQuery.docs[0].id;
+        tasks.push(triggerPush(
+            adminUid, 
+            isCompleted ? "Booking Complete" : "New Booking", 
+            `ID: ${booking.bookingId} for ${booking.customerName} is ${booking.status}.`, 
+            `/admin/bookings`
+        ));
+    }
+
+    // E. Promo Code Usage Update (Only on initial confirmation)
+    if (booking.discountCode && !isCompleted) {
+        const promoQuery = await adminDb.collection('adminPromoCodes').where('code', '==', booking.discountCode).limit(1).get();
+        if (!promoQuery.empty) {
+            tasks.push(promoQuery.docs[0].ref.update({ 
+                usesCount: (promoQuery.docs[0].data().usesCount || 0) + 1 
+            }));
+        }
+    }
+
+    // F. Send Email (Genkit Flow)
+    const servicesSummary = booking.services.map((s: any) => `${s.name} (x${s.quantity})`).join(', ');
+    
+    // GENERATE PDF FOR COMPLETION EMAIL
+    let invoicePdfBase64 = "";
+    if (isCompleted) {
+        try {
+            const companyDetails = {
+                name: seoSettings?.websiteName || "FixBro",
+                address: appConfig?.companyAddress || "#44 G S Palya Road Konappana Agrahara Electronic City Phase 2 -560100",
+                contactEmail: appConfig?.companyEmail || 'support@fixbro.in',
+                contactMobile: appConfig?.companyPhone || '+91-7353113455',
+            };
+            const pdfDataUri = await generateInvoicePdf(booking, companyDetails);
+            if (pdfDataUri && pdfDataUri.includes(',')) {
+                invoicePdfBase64 = pdfDataUri.split(',')[1];
+            }
+        } catch (pdfErr) {
+            console.error("Error generating invoice PDF for email:", pdfErr);
+        }
+    }
+
+    const emailFlowInput = {
+        emailType: isCompleted ? ('booking_completion' as const) : ('booking_confirmation' as const),
+        bookingId: booking.bookingId,
+        customerName: booking.customerName,
+        customerEmail: booking.customerEmail,
+        customerPhone: booking.customerPhone,
+        addressLine1: booking.addressLine1,
+        addressLine2: booking.addressLine2,
+        city: booking.city,
+        state: booking.state,
+        pincode: booking.pincode,
+        latitude: booking.latitude,
+        longitude: booking.longitude,
+        scheduledDate: booking.scheduledDate,
+        scheduledTimeSlot: booking.scheduledTimeSlot,
+        services: booking.services,
+        subTotal: booking.subTotal,
+        visitingCharge: booking.visitingCharge || 0,
+        discountAmount: booking.discountAmount || 0,
+        discountCode: booking.discountCode,
+        taxAmount: booking.taxAmount,
+        totalAmount: booking.totalAmount,
+        paymentMethod: booking.paymentMethod,
+        status: booking.status,
+        siteName: seoSettings?.websiteName || "FixBro",
+        logoUrl: seoSettings?.logoUrl,
+        smtpHost: appConfig.smtpHost,
+        smtpPort: appConfig.smtpPort,
+        smtpUser: appConfig.smtpUser,
+        smtpPass: appConfig.smtpPass,
+        senderEmail: appConfig.senderEmail,
+        invoicePdfBase64: invoicePdfBase64 || undefined,
+        additionalCharges: booking.additionalCharges,
+        appliedPlatformFees: booking.appliedPlatformFees?.map((fee: any) => ({ 
+            name: fee.name, 
+            amount: fee.calculatedFeeAmount + fee.taxAmountOnFee 
+        })),
+    };
+    tasks.push(sendBookingConfirmationEmail(emailFlowInput));
+
+    // G. Send WhatsApp
+    if (marketingConfig?.isWhatsAppEnabled) {
+        if (isCompleted && marketingConfig.whatsAppOnBookingCompleted?.enabled) {
+            tasks.push(fetch(`${getBaseUrl()}/api/whatsapp/send`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    to: booking.customerPhone,
+                    templateName: marketingConfig.whatsAppOnBookingCompleted.templateName,
+                    parameters: [booking.bookingId],
+                }),
+            }).catch(e => console.error("WhatsApp Completion Error:", e)));
+        } else if (!isCompleted && marketingConfig.whatsAppOnBookingConfirmed?.enabled) {
+            tasks.push(fetch(`${getBaseUrl()}/api/whatsapp/send`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    to: booking.customerPhone,
+                    templateName: marketingConfig.whatsAppOnBookingConfirmed.templateName,
+                    parameters: [booking.bookingId, servicesSummary, booking.scheduledDate],
+                }),
+            }).catch(e => console.error("WhatsApp Confirmation Error:", e)));
+        } else if (isCancelled && marketingConfig.whatsAppOnBookingCancelled?.enabled) {
+            tasks.push(fetch(`${getBaseUrl()}/api/whatsapp/send`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    to: booking.customerPhone,
+                    templateName: marketingConfig.whatsAppOnBookingCancelled.templateName,
+                    parameters: [booking.bookingId],
+                }),
+            }).catch(e => console.error("WhatsApp Cancellation Error:", e)));
+        }
+    }
+
+    // --- NEW: Referral Reward Logic on Completion ---
+    if (isCompleted && userId) {
+        const referralTask = adminDb.runTransaction(async (transaction) => {
+            // 1. Check if this user was referred
+            const referralQuery = await adminDb.collection('referrals')
+                .where('referredUserId', '==', userId)
+                .where('status', '==', 'pending')
+                .limit(1)
+                .get();
+
+            if (referralQuery.empty) return;
+
+            const referralDoc = referralQuery.docs[0];
+            const referralData = referralDoc.data() as any;
+
+            // 2. Check if this is the user's FIRST completed booking
+            const completedBookingsQuery = await adminDb.collection('bookings')
+                .where('userId', '==', userId)
+                .where('status', '==', 'Completed')
+                .get();
+            
+            // If count is > 1, it's not the first one (this one is already counted because we are in post-process)
+            if (completedBookingsQuery.size > 1) return;
+
+            // 3. Check minimum booking value requirement
+            const referralSettingsDoc = await adminDb.collection('appConfiguration').doc('referral').get();
+            const referralSettings = referralSettingsDoc.exists ? referralSettingsDoc.data() : null;
+            
+            if (!referralSettings?.isReferralSystemEnabled) return;
+            
+            const minVal = referralSettings.minBookingValueForBonus || 0;
+            if (booking.totalAmount < minVal) return;
+
+            // 4. Calculate Bonus
+            let bonusAmount = referralData.referrerBonus || 0;
+            if (referralSettings.bonusType === 'percentage') {
+                bonusAmount = (booking.totalAmount * (referralSettings.referrerBonus || 0)) / 100;
+            }
+
+            // 5. Credit Referrer
+            const referrerDocRef = adminDb.collection('users').doc(referralData.referrerId);
+            const referrerDoc = await transaction.get(referrerDocRef);
+            
+            if (referrerDoc.exists) {
+                const currentBalance = referrerDoc.data()?.walletBalance || 0;
+                const newBalance = currentBalance + bonusAmount;
+                
+                // Optional: Check max earnings limit
+                const maxEarnings = referralSettings.maxEarningsPerReferrer;
+                if (!maxEarnings || newBalance <= maxEarnings) {
+                    transaction.update(referrerDocRef, { walletBalance: newBalance });
+                    
+                    // 6. Update Referral Status
+                    transaction.update(referralDoc.ref, { 
+                        status: 'completed',
+                        earnedAmount: bonusAmount,
+                        completedAt: Timestamp.now(),
+                        bookingId: booking.bookingId
+                    });
+
+                    // 7. Notify Referrer
+                    const notification: any = {
+                        userId: referralData.referrerId,
+                        title: "Referral Bonus Credited!",
+                        message: `Your friend ${booking.customerName} completed their first booking. ₹${bonusAmount.toFixed(2)} has been added to your wallet.`,
+                        type: 'success',
+                        href: '/referral?tab=wallet',
+                        read: false,
+                        createdAt: Timestamp.now()
+                    };
+                    transaction.set(adminDb.collection('userNotifications').doc(), notification);
+                }
+            }
+        });
+        tasks.push(referralTask);
+    }
+
+    return NextResponse.json({ success: true });
+
+  } catch (error: any) {
+    console.error('Error in post-process API:', error);
+    return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
+  }
+}
