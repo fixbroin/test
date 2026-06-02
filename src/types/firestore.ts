@@ -181,6 +181,7 @@ export interface AppliedPlatformFeeItem {
 export interface FirestoreBooking {
   id?: string; // Firestore document ID (optional before creation)
   bookingId: string; // User-friendly booking ID (e.g., FIXBRO-TIMESTAMP-RANDOM)
+  bookingNumber?: number; // Sequential Member ID for bookings
   userId?: string; // If user is logged in
   providerId?: string; // ID of the assigned provider
   customerName: string;
@@ -211,6 +212,8 @@ export interface FirestoreBooking {
   razorpaySignature?: string;
   status: BookingStatus;
   notes?: string; // Any special instructions from customer
+  previousScheduledDate?: string; // NEW: Store previous date before reschedule
+  previousScheduledTimeSlot?: string; // NEW: Store previous slot before reschedule
   estimatedEndTime?: string; // Work-only completion time (ISO string)
   createdAt: Timestamp;
   updatedAt?: Timestamp;
@@ -219,6 +222,13 @@ export interface FirestoreBooking {
   cancellationPaymentId?: string;
   isStatsTracked?: boolean;
   isCompletionStatsTracked?: boolean;
+  isConfirmationEmailSent?: boolean;
+  
+  // Smart Tagging & Auto-Dispatch Fields
+  coverageType?: 'provider_match' | 'admin_only';
+  suggestedProviderIds?: string[];
+  autoAssigned?: boolean;
+  isProviderNotified?: boolean;
 }
 
 export interface Address {
@@ -240,6 +250,7 @@ export interface Address {
 export interface FirestoreUser {
   id: string; // Firestore document ID, should be same as Firebase Auth UID
   uid: string;
+  userNumber?: number; // Sequential Member ID
   email: string | null;
   displayName: string | null;
   mobileNumber?: string | null;
@@ -575,6 +586,7 @@ export interface AppSettings {
   isChatEnabled?: boolean; // Added for compatibility with appDefaults.ts
   isProviderRegistrationEnabled?: boolean; // For toggling registration
   maxProviderRadiusKm?: number; // New for provider work area
+  autoDispatchRadiusKm?: number; // New: Configurable radius for automatic assignment
   
   // Login Settings
   enableEmailPasswordLogin?: boolean;
@@ -588,6 +600,8 @@ export interface AppSettings {
   // Provider Fee Settings
   providerFeeType?: ProviderFeeType;
   providerFeeValue?: number;
+
+  enableStatusUpdateEmails?: boolean; // New: Toggle for generic status update emails
 
   loaderType?: string; // Added for compatibility with appDefaults.ts
 
@@ -865,6 +879,7 @@ export interface UserActivity {
   id?: string; // Firestore document ID
   userId?: string | null; // Firebase Auth UID if logged in
   guestId?: string | null; // localStorage UID if anonymous
+  userDisplayName?: string; // Denormalized name
   eventType: UserActivityEventType;
   eventData: UserActivityEventData;
   userAgent?: string;
@@ -1331,6 +1346,7 @@ export interface ServiceZone {
     longitude: number;
   };
   radiusKm: number;
+  categoryIds?: string[]; // New: IDs of categories this zone applies to
   isActive: boolean;
   createdAt: Timestamp;
   updatedAt?: Timestamp;

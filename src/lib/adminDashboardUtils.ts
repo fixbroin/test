@@ -53,8 +53,8 @@ export const getDashboardData = unstable_cache(
 
         completedRevenue = 0;
         earnedCommission = 0;
-        const thirtyDaysAgo = new Date();
-        thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+        const now = new Date();
+        const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
 
         bookingsSnap.forEach(doc => {
           const data = doc.data() as FirestoreBooking;
@@ -68,12 +68,17 @@ export const getDashboardData = unstable_cache(
           }
         });
 
-        activeUsers = 0;
+        // Only count users who have an email or mobileNumber (real users)
+        const realUsers = usersSnap.docs.filter(doc => {
+          const data = doc.data();
+          return data.email || data.mobileNumber;
+        });
+
+        activeUsers = realUsers.length;
         newSignups = 0;
-        usersSnap.forEach(doc => {
+        realUsers.forEach(doc => {
           const data = doc.data() as FirestoreUser;
-          if (data.isActive) activeUsers++;
-          if (data.createdAt && data.createdAt.toDate() >= thirtyDaysAgo) newSignups++;
+          if (data.createdAt && data.createdAt.toDate() >= startOfMonth) newSignups++;
         });
         totalBookings = bookingsSnap.size;
 
@@ -83,7 +88,7 @@ export const getDashboardData = unstable_cache(
           completedBookings: bookingsSnap.docs.filter(d => d.data().status === 'Completed').length,
           totalRevenue: completedRevenue,
           earnedCommission,
-          totalUsers: usersSnap.size,
+          totalUsers: activeUsers,
           newSignups30d: newSignups,
           updatedAt: Timestamp.now()
         }).catch(e => console.error("Error initializing stats:", e));

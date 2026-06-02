@@ -54,6 +54,7 @@ interface CategoryFormProps {
   initialData?: FirestoreCategory | null;
   onCancel: () => void;
   isSubmitting?: boolean;
+  nextOrder?: number;
 }
 
 const isFirebaseStorageUrl = (url: string): boolean => {
@@ -76,7 +77,7 @@ const isValidImageSrc = (url: string | null | undefined): url is string => {
   return false;
 };
 
-export default function CategoryForm({ onSubmit: onSubmitProp, initialData, onCancel, isSubmitting: isParentSubmitting = false }: CategoryFormProps) {
+export default function CategoryForm({ onSubmit: onSubmitProp, initialData, onCancel, isSubmitting: isParentSubmitting = false, nextOrder = 0 }: CategoryFormProps) {
   const [currentImagePreview, setCurrentImagePreview] = useState<string | null>(null);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -91,8 +92,8 @@ export default function CategoryForm({ onSubmit: onSubmitProp, initialData, onCa
   const form = useForm<CategoryFormData>({
     resolver: zodResolver(categoryFormSchema),
     defaultValues: {
-      name: "", slug: "", order: 0, isActive: true, imageUrl: "", imageHint: "",
-      h1_title: "", seo_title: "", seo_description: "", seo_keywords: "",
+      name: "", slug: "", order: nextOrder, isActive: true, imageUrl: "", imageHint: "",
+      h1_title: "", seo_title: "", seo_description: "", seo_keywords: "", seo_content: "", faqs: [],
     },
   });
 
@@ -148,8 +149,8 @@ export default function CategoryForm({ onSubmit: onSubmitProp, initialData, onCa
       setOriginalImageUrlFromInitialData(initialData.imageUrl || null);
     } else {
       form.reset({
-        name: "", slug: "", order: 0, isActive: true, imageUrl: "", imageHint: "",
-        h1_title: "", seo_title: "", seo_description: "", seo_keywords: "",
+        name: "", slug: "", order: nextOrder, isActive: true, imageUrl: "", imageHint: "",
+        h1_title: "", seo_title: "", seo_description: "", seo_keywords: "", seo_content: "", faqs: [],
       });
       setCurrentImagePreview(null);
       setOriginalImageUrlFromInitialData(null);
@@ -162,7 +163,7 @@ export default function CategoryForm({ onSubmit: onSubmitProp, initialData, onCa
     if (fileInputRef.current) {
       fileInputRef.current.value = "";
     }
-  }, [initialData, form]);
+  }, [initialData, form, nextOrder]);
 
   useEffect(() => {
     if (watchedName && !isSlugEditable) {
@@ -402,6 +403,7 @@ export default function CategoryForm({ onSubmit: onSubmitProp, initialData, onCa
               <FormControl>
                 <Input type="number" placeholder="0" {...field} disabled={effectiveIsSubmitting} />
               </FormControl>
+              <FormDescription className="text-xs">Lower numbers appear first. {!initialData && `(Suggested: ${nextOrder})`}</FormDescription>
               <FormMessage />
             </FormItem>
           )}

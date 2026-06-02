@@ -162,7 +162,12 @@ export default function AssignProviderModal({ isOpen, onClose, booking, onAssign
 
                     <div className="flex-grow min-w-0 space-y-0.5">
                       <div className="flex justify-between items-baseline gap-2">
-                        <p className="font-bold text-sm truncate">{provider.fullName}</p>
+                        <div className="flex flex-col">
+                          <p className="font-bold text-sm truncate">{provider.fullName}</p>
+                          {booking.suggestedProviderIds?.includes(provider.id!) && (
+                            <span className="text-[10px] font-bold text-emerald-600 uppercase tracking-wider">Suggested Match</span>
+                          )}
+                        </div>
                         {provider.distance !== Infinity && (
                           <span className="text-[10px] font-bold text-primary whitespace-nowrap bg-primary/10 px-1.5 py-0.5 rounded flex items-center gap-1">
                             <MapPin className="h-3 w-3" /> {provider.distance.toFixed(1)} km away

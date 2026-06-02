@@ -2,7 +2,7 @@
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useForm, useFieldArray, Controller } from "react-hook-form";
+import { useForm, useFieldArray } from "react-hook-form";
 import * as z from "zod";
 import { Button } from "@/components/ui/button";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDescription } from "@/components/ui/form";
@@ -11,9 +11,9 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { Card } from "@/components/ui/card";
-import type { FirestoreService, FirestoreSubCategory, FirestoreTax, FirestoreCategory, ServiceFaqItem, PriceVariant } from '@/types/firestore';
-import { useEffect, useState, useRef, useCallback } from "react";
-import { Loader2, Image as ImageIcon, Trash2, PlusCircle, Percent, Clock, HelpCircle, Sparkles, Wand2, Users, ShoppingBag, ListOrdered, Edit2, Lock, Star, MessageSquare } from "lucide-react";
+import type { FirestoreService, FirestoreSubCategory, FirestoreTax, FirestoreCategory } from '@/types/firestore';
+import { useEffect, useState, useRef, useCallback, useMemo } from "react";
+import { Loader2, Image as ImageIcon, Trash2, PlusCircle, Percent, Clock, HelpCircle, Wand2, Users, ShoppingBag, ListOrdered, Edit2, Lock } from "lucide-react";
 import NextImage from 'next/image';
 import { useToast } from "@/hooks/use-toast";
 import { storage, db } from '@/lib/firebase';
@@ -98,6 +98,7 @@ interface ServiceFormProps {
   parentCategories: FirestoreCategory[];
   subCategories: FirestoreSubCategory[];
   taxes: FirestoreTax[];
+  allServices: FirestoreService[];
   isSubmitting?: boolean;
 }
 
@@ -118,7 +119,7 @@ const isValidImageSrc = (url: string | null | undefined): url is string => {
                 new URL(url);
             }
             return true;
-        } catch (e) {
+        } catch (_e) {
             return false;
         }
     }
@@ -127,7 +128,7 @@ const isValidImageSrc = (url: string | null | undefined): url is string => {
 
 const NO_TAX_VALUE = "__NO_TAX__";
 
-export default function ServiceForm({ onSubmit: onSubmitProp, initialData, onCancel, parentCategories, subCategories, taxes, isSubmitting: isParentSubmitting = false }: ServiceFormProps) {
+export default function ServiceForm({ onSubmit: onSubmitProp, initialData, onCancel, parentCategories, subCategories, taxes, allServices, isSubmitting: isParentSubmitting = false }: ServiceFormProps) {
   const [currentImagePreview, setCurrentImagePreview] = useState<string | null>(null);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -165,10 +166,24 @@ export default function ServiceForm({ onSubmit: onSubmitProp, initialData, onCan
   const watchedName = form.watch("name");
   const watchedImageHint = form.watch("imageHint");
   const watchedParentCategoryId = form.watch("parentCategoryId");
+  const watchedSubCategoryId = form.watch("subCategoryId");
   const watchedTaxId = form.watch("taxId");
   const watchedHasPriceVariants = form.watch("hasPriceVariants");
   const watchedSlug = form.watch("slug");
   const taxSelected = watchedTaxId !== null && watchedTaxId !== NO_TAX_VALUE;
+
+  const nextOrder = useMemo(() => {
+    if (!watchedSubCategoryId) return 0;
+    const sameSubCatServices = allServices.filter(s => s.subCategoryId === watchedSubCategoryId);
+    if (sameSubCatServices.length === 0) return 0;
+    return Math.max(...sameSubCatServices.map(s => s.order || 0)) + 1;
+  }, [watchedSubCategoryId, allServices]);
+
+  useEffect(() => {
+    if (!initialData && watchedSubCategoryId) {
+      form.setValue('order', nextOrder);
+    }
+  }, [nextOrder, watchedSubCategoryId, initialData, form]);
 
   const checkSlugUniqueness = useCallback(async (baseSlug: string, currentId?: string) => {
     let uniqueSlug = baseSlug;
@@ -251,7 +266,7 @@ export default function ServiceForm({ onSubmit: onSubmitProp, initialData, onCan
         hasPriceVariants: false, priceVariants: [],
         description: "", shortDescription: "", fullDescription: "", serviceHighlights: [],
         imageUrl: "", imageHint: "", rating: 0, reviewCount: 0, 
-        hasMinQuantity: false, minQuantity: 2, maxQuantity: null, isActive: true,
+        hasMinQuantity: false, minQuantity: 2, maxQuantity: null, order: 0, isActive: true,
         taxId: null, isTaxInclusive: "false",
         h1_title: "", seo_title: "", seo_description: "", seo_keywords: "",
         taskTimeValue: null, taskTimeUnit: null, includedItems: [], excludedItems: [], allowPayLater: true, serviceFaqs: [],
@@ -459,7 +474,7 @@ export default function ServiceForm({ onSubmit: onSubmitProp, initialData, onCan
       } else if (!formData.imageUrl && originalImageUrlFromInitialData && isFirebaseStorageUrl(originalImageUrlFromInitialData)) {
         setStatusMessage("Removing image...");
         try { await deleteObject(storageRef(storage, originalImageUrlFromInitialData)); finalImageUrl = ""; setStatusMessage("Image removed. Saving..."); }
-        catch (error: any) { throw new Error(`Failed to delete image: ${error.message}. Not saved.`); }
+        catch (error: unknown) { throw new Error(`Failed to delete image: ${error instanceof Error ? error.message : 'Unknown error'}. Not saved.`); }
       } else { setStatusMessage(initialData ? "Saving changes..." : "Creating service..."); }
       
       const payload: Omit<FirestoreService, 'id' | 'createdAt' | 'updatedAt'> & { id?: string } = {
@@ -644,7 +659,14 @@ export default function ServiceForm({ onSubmit: onSubmitProp, initialData, onCan
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <FormField control={form.control} name="membersRequired" render={({ field }) => (<FormItem><FormLabel className="flex items-center"><Users className="mr-2 h-4 w-4 text-muted-foreground"/>Members Required</FormLabel><FormControl><Input type="number" placeholder="e.g., 2" {...field} value={field.value ?? ""} disabled={effectiveIsSubmitting} /></FormControl><FormDescription className="text-xs">Technicians for this task.</FormDescription><FormMessage /></FormItem>)}/>
             <FormField control={form.control} name="maxQuantity" render={({ field }) => (<FormItem><FormLabel className="flex items-center"><ShoppingBag className="mr-2 h-4 w-4 text-muted-foreground"/>Max Quantity</FormLabel><FormControl><Input type="number" placeholder="e.g., 5" {...field} value={field.value ?? ""} disabled={effectiveIsSubmitting} /></FormControl><FormDescription className="text-xs">Max bookable units per user.</FormDescription><FormMessage /></FormItem>)}/>
-            <FormField control={form.control} name="order" render={({ field }) => (<FormItem><FormLabel className="flex items-center"><ListOrdered className="mr-2 h-4 w-4 text-muted-foreground"/>Display Order</FormLabel><FormControl><Input type="number" placeholder="e.g., 0" {...field} disabled={effectiveIsSubmitting} /></FormControl><FormDescription className="text-xs">Lower numbers appear first.</FormDescription><FormMessage /></FormItem>)}/>
+            <FormField control={form.control} name="order" render={({ field }) => (
+              <FormItem>
+                <FormLabel className="flex items-center"><ListOrdered className="mr-2 h-4 w-4 text-muted-foreground"/>Display Order</FormLabel>
+                <FormControl><Input type="number" placeholder="e.g., 0" {...field} disabled={effectiveIsSubmitting} /></FormControl>
+                <FormDescription className="text-xs">Lower numbers appear first. {!initialData && `(Suggested: ${nextOrder})`}</FormDescription>
+                <FormMessage />
+              </FormItem>
+            )}/>
         </div>
 
        
@@ -665,13 +687,13 @@ export default function ServiceForm({ onSubmit: onSubmitProp, initialData, onCan
         </div>
         <Separator />
         <div>
-            <FormLabel className="text-md font-semibold text-muted-foreground">What's Included (Optional)</FormLabel> <FormDescription className="mb-2 text-xs">List items or tasks included in this service.</FormDescription>
+            <FormLabel className="text-md font-semibold text-muted-foreground">What&apos;s Included (Optional)</FormLabel> <FormDescription className="mb-2 text-xs">List items or tasks included in this service.</FormDescription>
             {includedFields.map((item, index) => (<FormField key={item.id} control={form.control} name={`includedItems.${index}.value`} render={({ field: itemField }) => (<FormItem className="flex items-center gap-2 mb-2"><FormControl><Input placeholder={`Included item ${index + 1}`} {...itemField} disabled={effectiveIsSubmitting} /></FormControl><Button type="button" variant="ghost" size="icon" onClick={() => removeIncluded(index)} disabled={effectiveIsSubmitting}><Trash2 className="h-4 w-4 text-destructive" /></Button><FormMessage /></FormItem>)}/>))}
             <Button type="button" variant="outline" size="sm" onClick={() => appendIncluded({ value: "" })} disabled={effectiveIsSubmitting} className="mt-2"><PlusCircle className="mr-2 h-4 w-4" /> Add Included Item</Button>
         </div>
         <Separator />
         <div>
-            <FormLabel className="text-md font-semibold text-muted-foreground">What's Not Included (Optional)</FormLabel> <FormDescription className="mb-2 text-xs">List items or tasks explicitly excluded from this service.</FormDescription>
+            <FormLabel className="text-md font-semibold text-muted-foreground">What&apos;s Not Included (Optional)</FormLabel> <FormDescription className="mb-2 text-xs">List items or tasks explicitly excluded from this service.</FormDescription>
             {excludedFields.map((item, index) => (<FormField key={item.id} control={form.control} name={`excludedItems.${index}.value`} render={({ field: itemField }) => (<FormItem className="flex items-center gap-2 mb-2"><FormControl><Input placeholder={`Excluded item ${index + 1}`} {...itemField} disabled={effectiveIsSubmitting} /></FormControl><Button type="button" variant="ghost" size="icon" onClick={() => removeExcluded(index)} disabled={effectiveIsSubmitting}><Trash2 className="h-4 w-4 text-destructive" /></Button><FormMessage /></FormItem>)}/>))}
             <Button type="button" variant="outline" size="sm" onClick={() => appendExcluded({ value: "" })} disabled={effectiveIsSubmitting} className="mt-2"><PlusCircle className="mr-2 h-4 w-4" /> Add Excluded Item</Button>
         </div>
@@ -695,7 +717,7 @@ export default function ServiceForm({ onSubmit: onSubmitProp, initialData, onCan
             <FormField control={form.control} name="rating" render={({ field }) => (<FormItem><FormLabel>Default Rating (0-5)</FormLabel><FormControl><Input type="number" step="0.1" placeholder="e.g., 4.5" {...field} disabled={effectiveIsSubmitting} /></FormControl><FormMessage /></FormItem>)}/>
             <FormField control={form.control} name="reviewCount" render={({ field }) => (<FormItem><FormLabel>Default Review Count</FormLabel><FormControl><Input type="number" placeholder="e.g., 50" {...field} disabled={effectiveIsSubmitting} /></FormControl><FormMessage /></FormItem>)}/>
         </div>
-        <FormField control={form.control} name="allowPayLater" render={({ field }) => (<FormItem className="flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm bg-background/50"><div className="space-y-0.5"><FormLabel>Allow "Pay After Service"</FormLabel><FormDescription>If enabled, this service can be booked with this option (if globally enabled).</FormDescription></div><FormControl><Switch checked={field.value} onCheckedChange={field.onChange} disabled={effectiveIsSubmitting} /></FormControl></FormItem>)}/>
+        <FormField control={form.control} name="allowPayLater" render={({ field }) => (<FormItem className="flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm bg-background/50"><div className="space-y-0.5"><FormLabel>Allow &quot;Pay After Service&quot;</FormLabel><FormDescription>If enabled, this service can be booked with this option (if globally enabled).</FormDescription></div><FormControl><Switch checked={field.value} onCheckedChange={field.onChange} disabled={effectiveIsSubmitting} /></FormControl></FormItem>)}/>
         <FormField control={form.control} name="isActive" render={({ field }) => (<FormItem className="flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm bg-background/50"><div className="space-y-0.5"><FormLabel>Service Active</FormLabel><FormDescription>If unchecked, this service will not be shown publicly.</FormDescription></div><FormControl><Switch checked={field.value} onCheckedChange={field.onChange} disabled={effectiveIsSubmitting}/></FormControl></FormItem>)}/>
         <Separator />
         <div className="space-y-4 pt-4 border-t">

@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -61,6 +61,11 @@ export default function AdminCategoriesPage() {
       setIsLoading(false);
     }
   };
+
+  const nextOrder = useMemo(() => {
+    if (categories.length === 0) return 0;
+    return Math.max(...categories.map(c => c.order || 0)) + 1;
+  }, [categories]);
 
   useEffect(() => {
     setIsMounted(true);
@@ -339,6 +344,7 @@ export default function AdminCategoriesPage() {
           <CategoryForm
             onSubmit={handleFormSubmit}
             initialData={editingCategory}
+            nextOrder={nextOrder}
             onCancel={() => {
               setIsFormOpen(false);
               setEditingCategory(null);

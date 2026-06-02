@@ -2,6 +2,7 @@
 'use server';
 
 import { adminDb } from './firebaseAdmin';
+import { Timestamp } from 'firebase-admin/firestore';
 import type { GlobalWebSettings, ThemePalette } from '@/types/firestore';
 import { DEFAULT_LIGHT_THEME_COLORS_HSL, DEFAULT_DARK_THEME_COLORS_HSL, THEME_PALETTE_KEYS } from '@/lib/colorUtils';
 import { defaultGlobalWebSettings } from '@/config/webDefaults';
@@ -159,3 +160,73 @@ export const getGlobalWebSettings = cache(async (): Promise<GlobalWebSettings> =
     }
   )();
 });
+
+/**
+ * Assigns a sequential user number to a new user and increments the counter.
+ * Uses a transaction to ensure atomicity.
+ */
+export async function assignNewUserNumber() {
+  const statsRef = adminDb.collection('appConfiguration').doc('stats');
+  
+  try {
+    const result = await adminDb.runTransaction(async (transaction) => {
+      const statsDoc = await transaction.get(statsRef);
+      let nextNumber = 1;
+      
+      if (statsDoc.exists) {
+        const data = statsDoc.data();
+        if (data && data.lastUserNumber !== undefined) {
+          nextNumber = data.lastUserNumber + 1;
+        }
+      }
+      
+      transaction.set(statsRef, { 
+        lastUserNumber: nextNumber,
+        updatedAt: Timestamp.now() 
+      }, { merge: true });
+      
+      return nextNumber;
+    });
+    
+    return result;
+  } catch (error) {
+    console.error("Error assigning new user number:", error);
+    // Fallback: use timestamp if transaction fails (less ideal but better than crash)
+    return Math.floor(Date.now() / 1000);
+  }
+}
+
+/**
+ * Assigns a sequential booking number to a new booking and increments the counter.
+ * Uses a transaction to ensure atomicity.
+ */
+export async function assignNewBookingNumber() {
+  const statsRef = adminDb.collection('appConfiguration').doc('stats');
+  
+  try {
+    const result = await adminDb.runTransaction(async (transaction) => {
+      const statsDoc = await transaction.get(statsRef);
+      let nextNumber = 1;
+      
+      if (statsDoc.exists) {
+        const data = statsDoc.data();
+        if (data && data.lastBookingNumber !== undefined) {
+          nextNumber = data.lastBookingNumber + 1;
+        }
+      }
+      
+      transaction.set(statsRef, { 
+        lastBookingNumber: nextNumber,
+        updatedAt: Timestamp.now() 
+      }, { merge: true });
+      
+      return nextNumber;
+    });
+    
+    return result;
+  } catch (error) {
+    console.error("Error assigning new booking number:", error);
+    // Fallback: use timestamp if transaction fails (less ideal but better than crash)
+    return Math.floor(Date.now() / 1000);
+  }
+}

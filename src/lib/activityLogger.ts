@@ -97,7 +97,11 @@ export const logUserActivity = async (
 
   try {
     // Denormalize: Include name directly to save reads later
-    const finalDisplayName = userDisplayName || eventData.fullName || (userId ? "Registered User" : "Guest User");
+    let finalDisplayName = userDisplayName || eventData.fullName || eventData.customerName;
+    
+    if (!finalDisplayName) {
+        finalDisplayName = userId ? "Registered User" : "Guest User";
+    }
 
     const activityData: any = {
       userId: userId || null,

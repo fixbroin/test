@@ -168,7 +168,7 @@ const ServiceCard: React.FC<ServiceCardProps> = ({ service, priority = false }) 
         {/* Desktop Layout */}
         <div className="hidden md:flex flex-row items-center w-full gap-4">
             {/* Image for Desktop */}
-            <Link href={`/service/${service.slug}`} onClick={handleNavigation} className="relative w-32 h-40 flex-shrink-0" aria-label={`View details for ${service.name}`}>
+            <Link href={`/service/${service.slug}`} onClick={handleNavigation} className="relative w-40 h-40 flex-shrink-0" aria-label={`View details for ${service.name}`}>
                 <AppImage
                     src={displayImageUrl}
                     alt={service.name}

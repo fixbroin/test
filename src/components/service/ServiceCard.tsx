@@ -283,7 +283,7 @@ const ServiceCard: React.FC<ServiceCardProps> = ({ service, priority = false }) 
 
         {/* Desktop Layout */}
         <div className="hidden md:flex flex-row items-center w-full gap-4">
-            <div className="relative w-32 h-40 flex-shrink-0">
+            <div className="relative w-40 h-40 flex-shrink-0">
                 <AppImage
                     src={displayImageUrl}
                     alt={service.name}

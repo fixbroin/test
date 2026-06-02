@@ -205,7 +205,9 @@ export default function ProviderBookingDetailsPage() {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-1 text-sm">
               <p><strong>Name:</strong> {isJobCompleted ? "[Hidden for Privacy]" : booking.customerName}</p>
               <p className="flex items-center gap-1"><strong>Email:</strong> {isJobCompleted ? "[Hidden for Privacy]" : (booking.customerEmail || 'N/A')}</p>
-              <p className="flex items-center gap-1"><strong>Phone:</strong> {isJobCompleted ? "[Hidden for Privacy]" : booking.customerPhone}</p>
+              <p className="flex items-center gap-1"><strong>Phone:</strong> {isJobCompleted ? "[Hidden for Privacy]" : (
+                <a href={`tel:${booking.customerPhone}`} className="text-primary hover:underline font-medium">{booking.customerPhone}</a>
+              )}</p>
             </div>
           </section>
           <Separator />

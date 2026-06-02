@@ -195,6 +195,11 @@ export default function AdminSubCategoriesPage() {
     }
   };
 
+  const nextOrder = useMemo(() => {
+    if (subCategories.length === 0) return 0;
+    return Math.max(...subCategories.map(s => s.order || 0)) + 1;
+  }, [subCategories]);
+
   const groupedSubCategories = useMemo(() => {
     if (!parentCategories.length) return [];
     return parentCategories
@@ -312,7 +317,7 @@ export default function AdminSubCategoriesPage() {
           {parentCategories.length === 0 && !isLoadingData ? (
              <div className="py-8 text-center"><p className="text-destructive">Cannot add sub-categories: no parent categories exist.</p><p className="text-muted-foreground text-sm mt-2">Add at least one category first.</p></div>
           ) : (
-            <SubCategoryForm onSubmit={handleFormSubmit} initialData={editingSubCategory} parentCategories={parentCategories} onCancel={() => { setIsFormOpen(false); setEditingSubCategory(null); }} isSubmitting={isSubmitting}/>
+            <SubCategoryForm onSubmit={handleFormSubmit} initialData={editingSubCategory} parentCategories={parentCategories} allSubCategories={subCategories} onCancel={() => { setIsFormOpen(false); setEditingSubCategory(null); }} isSubmitting={isSubmitting}/>
           )}
         </DialogContent>
       </Dialog>

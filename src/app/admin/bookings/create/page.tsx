@@ -38,6 +38,9 @@ import {
 import Breadcrumbs from '@/components/shared/Breadcrumbs';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from "@/components/ui/separator";
+import { assignNewBookingNumber } from '@/lib/webServerUtils';
+import { incrementSystemStats } from '@/lib/systemStatsUtils';
+import { triggerRefresh } from '@/lib/revalidateUtils';
 
 export default function AdminCreateBookingPage() {
   const router = useRouter();
@@ -219,6 +222,7 @@ export default function AdminCreateBookingPage() {
     try {
       const newBookingId = generateBookingId();
       const serviceItems: BookingServiceItem[] = [];
+      // ... same logic for serviceItems ...
       if (isCustomService) {
         serviceItems.push({ serviceId: "custom", name: customServiceName, quantity: 1, pricePerUnit: summary.itemTotal, isTaxInclusive: false, taxPercentApplied: 0, taxAmountForItem: 0 });
       } else if (selectedService) {
@@ -239,8 +243,14 @@ export default function AdminCreateBookingPage() {
             imageUrl: selectedService.imageUrl
         });
       }
+
+      // Assign Sequential Booking Number
+      const nextBookingNumber = await assignNewBookingNumber();
+
       const bookingData: any = {
-        bookingId: newBookingId, userId: selectedUser?.uid || null, customerName: customerDetails.name, customerEmail: customerDetails.email, customerPhone: customerDetails.phone, addressLine1: customerDetails.address, city: customerDetails.city, state: "N/A", pincode: customerDetails.pincode, scheduledDate: selectedDate!.toLocaleDateString('en-CA'), scheduledTimeSlot: selectedSlot, services: serviceItems, appliedPlatformFees: summary.appliedPlatformFees, subTotal: summary.itemTotal, taxAmount: summary.taxTotal, visitingCharge: summary.visitingCharge, totalAmount: summary.grandTotal, paymentMethod: paymentMode, status: bookingStatus, createdAt: Timestamp.now(), updatedAt: Timestamp.now(), isReviewedByCustomer: false,
+        bookingId: newBookingId, 
+        bookingNumber: nextBookingNumber,
+        userId: selectedUser?.uid || null, customerName: customerDetails.name, customerEmail: customerDetails.email, customerPhone: customerDetails.phone, addressLine1: customerDetails.address, city: customerDetails.city, state: "N/A", pincode: customerDetails.pincode, scheduledDate: selectedDate!.toLocaleDateString('en-CA'), scheduledTimeSlot: selectedSlot, services: serviceItems, appliedPlatformFees: summary.appliedPlatformFees, subTotal: summary.itemTotal, taxAmount: summary.taxTotal, visitingCharge: summary.visitingCharge, totalAmount: summary.grandTotal, paymentMethod: paymentMode, status: bookingStatus, createdAt: Timestamp.now(), updatedAt: Timestamp.now(), isReviewedByCustomer: false,
         parentCategoryId: selectedCategoryId || null,
         subCategoryId: selectedSubCategoryId || null
       };
@@ -248,6 +258,9 @@ export default function AdminCreateBookingPage() {
       if (customerDetails.longitude) bookingData.longitude = Number(customerDetails.longitude);
 
       const docRef = await addDoc(collection(db, "bookings"), bookingData);
+      // Track stats for new booking
+      incrementSystemStats({ totalBookings: 1 }).catch(e => console.error("Stats increment error:", e));
+      await triggerRefresh('bookings');
       fetch('/api/bookings/post-process', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ bookingDocId: docRef.id }) });
       setCreatedBookingId(newBookingId); setIsSuccessDialogOpen(true);
     } catch (error) { console.error(error); toast({ title: "Error", description: "Failed to create booking.", variant: "destructive" }); } finally { setIsSubmitting(false); }

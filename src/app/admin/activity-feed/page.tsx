@@ -10,7 +10,7 @@ import {
 } from "lucide-react";
 import type { UserActivity, FirestoreUser } from '@/types/firestore';
 import { db } from '@/lib/firebase';
-import { collection, query, orderBy, Timestamp, limit, getDocs, writeBatch, where, documentId, startAfter, type DocumentSnapshot } from "firebase/firestore";
+import { collection, query, orderBy, Timestamp, limit, getDocs, writeBatch, where, documentId, startAfter, getDoc, doc, type DocumentSnapshot } from "firebase/firestore";
 import { useToast } from "@/hooks/use-toast";
 import { formatDistanceToNow } from 'date-fns';
 import Link from 'next/link';
@@ -79,6 +79,7 @@ export default function AdminActivityFeedPage() {
   const [liveActivities, setLiveActivities] = useState<UserActivity[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isClearing, setIsClearing] = useState(false);
+  const [userNames, setUserNames] = useState<Record<string, string>>({});
   const { toast } = useToast();
 
   // 1. Fetch Archived History (Cheap Cache)
@@ -121,35 +122,74 @@ export default function AdminActivityFeedPage() {
     });
   }, [liveActivities, cachedActivities]);
 
+  // Fetch missing user names
+  useEffect(() => {
+    const uidsToFetch = Array.from(new Set(
+      activities
+        .filter(a => a.userId && (!a.userDisplayName || a.userDisplayName === 'Registered User'))
+        .map(a => a.userId)
+    )).filter(uid => uid && !userNames[uid]) as string[];
+
+    if (uidsToFetch.length === 0) return;
+
+    const fetchNames = async () => {
+      const newUserNames = { ...userNames };
+      // Process in small chunks to avoid massive concurrent requests or complex queries
+      for (const uid of uidsToFetch) {
+        try {
+          const userDoc = await getDoc(doc(db, "users", uid));
+          if (userDoc.exists()) {
+            const userData = userDoc.data() as FirestoreUser;
+            newUserNames[uid] = userData.displayName || userData.email || 'Registered User';
+          } else {
+            newUserNames[uid] = 'Registered User';
+          }
+        } catch (err) {
+          console.error(`Error fetching user ${uid}:`, err);
+          newUserNames[uid] = 'Registered User';
+        }
+      }
+      setUserNames(newUserNames);
+    };
+
+    fetchNames();
+  }, [activities, userNames]);
+
 
   const displayActivities = useMemo(() => {
     const result: GroupedUserActivity[] = [];
     activities.forEach((activity) => {
+      // Add the real name if we have it in our map
+      const enhancedActivity = { ...activity } as GroupedUserActivity;
+      if (enhancedActivity.userId && userNames[enhancedActivity.userId]) {
+        enhancedActivity.userDisplayName = userNames[enhancedActivity.userId];
+      }
+
       const prev = result[result.length - 1];
       const isSameUser = prev && (
-        (activity.userId && activity.userId === prev.userId) || 
-        (activity.guestId && activity.guestId === prev.guestId)
+        (enhancedActivity.userId && enhancedActivity.userId === prev.userId) || 
+        (enhancedActivity.guestId && enhancedActivity.guestId === prev.guestId)
       );
       
-      const isGroupableType = activity.eventType === 'addToCart' || activity.eventType === 'removeFromCart';
+      const isGroupableType = enhancedActivity.eventType === 'addToCart' || enhancedActivity.eventType === 'removeFromCart';
       
-      if (isSameUser && prev.eventType === activity.eventType && isGroupableType && prev.eventData.serviceId === activity.eventData.serviceId) {
+      if (isSameUser && prev.eventType === enhancedActivity.eventType && isGroupableType && prev.eventData.serviceId === enhancedActivity.eventData.serviceId) {
         prev._isGrouped = true;
         prev._groupCount = (prev._groupCount || 1) + 1;
-        if (activity.eventData.quantity) {
-          prev._totalQuantity = (prev._totalQuantity || prev.eventData.quantity || 0) + activity.eventData.quantity;
+        if (enhancedActivity.eventData.quantity) {
+          prev._totalQuantity = (prev._totalQuantity || prev.eventData.quantity || 0) + enhancedActivity.eventData.quantity;
         }
       } else {
-        const newActivity = { ...activity } as GroupedUserActivity;
+        const newActivity = { ...enhancedActivity } as GroupedUserActivity;
         if (isGroupableType) {
-          newActivity._totalQuantity = activity.eventData.quantity;
+          newActivity._totalQuantity = enhancedActivity.eventData.quantity;
           newActivity._groupCount = 1;
         }
         result.push(newActivity);
       }
     });
     return result;
-  }, [activities]);
+  }, [activities, userNames]);
 
   const handleClearAllActivities = async () => {
     setIsClearing(true);

@@ -14,13 +14,14 @@ import { Calendar } from '@/components/ui/calendar';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
-import { Loader2, ArrowLeft, Save, User, Mail, Phone, MapPin, Edit, Clock, Globe } from 'lucide-react';
+import { Loader2, ArrowLeft, Save, User, Mail, Phone, MapPin, Edit, Clock, Globe, CalendarDays } from 'lucide-react';
 import type { FirestoreBooking, BookingStatus } from '@/types/firestore';
 import { db } from '@/lib/firebase';
 import { doc, getDoc, updateDoc, Timestamp, addDoc, collection } from "firebase/firestore";
 import { useToast } from "@/hooks/use-toast";
 import { triggerPushNotification } from '@/lib/fcmUtils';
 import type { FirestoreNotification } from '@/types/firestore';
+import RescheduleBookingDialog from '@/components/shared/RescheduleBookingDialog';
 
 const statusOptions: [string, ...string[]] = [
   "Pending Payment",
@@ -55,6 +56,7 @@ const bookingEditSchema = z.object({
   longitude: z.number().optional().nullable(),
   scheduledDate: z.string().refine(val => !isNaN(Date.parse(val)), { message: "Invalid date format." }), // Expecting YYYY-MM-DD
   scheduledTimeSlot: z.string().min(1, "Time slot is required."),
+  estimatedEndTime: z.string().optional(),
   status: z.enum(statusOptions),
   notes: z.string().optional(),
 });
@@ -73,6 +75,7 @@ export default function EditBookingPageClient() {
   const [booking, setBooking] = useState<FirestoreBooking | null>(null);
   const [calendarDate, setCalendarDate] = useState<Date | undefined>(undefined);
 
+  const [isRescheduleDialogOpen, setIsRescheduleDialogOpen] = useState(false);
 
   const form = useForm<BookingEditFormData>({
     resolver: zodResolver(bookingEditSchema),
@@ -166,6 +169,25 @@ export default function EditBookingPageClient() {
     } else {
       form.setValue('scheduledDate', '');
     }
+  };
+
+  const handleRescheduleConfirm = (newDate: string, newSlot: string, newEndTime: string) => {
+    form.setValue('scheduledDate', newDate);
+    form.setValue('scheduledTimeSlot', newSlot);
+    form.setValue('estimatedEndTime', newEndTime);
+    form.setValue('status', 'Rescheduled');
+    
+    // Update local form state for end time (if we want to track it in form, though it's not in the schema yet)
+    // For now, we ensure it will be included in the update if we add it to the schema or handle it manually.
+    
+    // Update calendar view
+    const dateParts = newDate.split('-');
+    if (dateParts.length === 3) {
+      setCalendarDate(new Date(parseInt(dateParts[0]), parseInt(dateParts[1]) - 1, parseInt(dateParts[2])));
+    }
+    
+    setIsRescheduleDialogOpen(false);
+    toast({ title: "Slot Updated", description: `Booking schedule updated to ${newDate} at ${newSlot}.` });
   };
 
   const onSubmit = async (data: BookingEditFormData) => {
@@ -403,7 +425,16 @@ export default function EditBookingPageClient() {
                         render={({ field }) => (
                             <FormItem>
                             <FormLabel>Booking Status</FormLabel>
-                            <Select onValueChange={field.onChange} defaultValue={field.value} value={field.value}>
+                            <Select 
+                              onValueChange={(val) => {
+                                field.onChange(val);
+                                if (val === 'Rescheduled' && booking) {
+                                  setIsRescheduleDialogOpen(true);
+                                }
+                              }} 
+                              defaultValue={field.value} 
+                              value={field.value}
+                            >
                                 <FormControl>
                                 <SelectTrigger><SelectValue placeholder="Select status" /></SelectTrigger>
                                 </FormControl>
@@ -415,6 +446,14 @@ export default function EditBookingPageClient() {
                             </FormItem>
                         )}
                         />
+                        <Button 
+                          type="button" 
+                          variant="outline" 
+                          className="w-full border-dashed"
+                          onClick={() => setIsRescheduleDialogOpen(true)}
+                        >
+                          <CalendarDays className="mr-2 h-4 w-4" /> Check Availability & Reschedule
+                        </Button>
                     </div>
                 </div>
               </section>
@@ -444,6 +483,15 @@ export default function EditBookingPageClient() {
           </form>
         </Form>
       </Card>
+
+      {booking && (
+        <RescheduleBookingDialog 
+          isOpen={isRescheduleDialogOpen} 
+          onClose={() => setIsRescheduleDialogOpen(false)} 
+          booking={booking} 
+          onRescheduleComplete={handleRescheduleConfirm} 
+        />
+      )}
     </div>
   );
 }

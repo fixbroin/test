@@ -30,13 +30,6 @@ const isFirebaseStorageUrl = (url: string): boolean => {
   return typeof url === 'string' && url.includes("firebasestorage.googleapis.com");
 };
 
-interface SubCategoryGroupForServices {
-  id: string;
-  name: string;
-  slug: string; // SubCategory data
-  services: FirestoreService[];
-}
-
 export default function AdminServicesPage() {
   const [services, setServices] = useState<FirestoreService[]>([]);
   const [parentCategories, setParentCategories] = useState<FirestoreCategory[]>([]);
@@ -186,7 +179,7 @@ export default function AdminServicesPage() {
       hasMinQuantity: data.hasMinQuantity,
       minQuantity: data.hasMinQuantity ? Number(data.minQuantity || 0) : null,
       maxQuantity: data.maxQuantity === null ? null : Number(data.maxQuantity),
-      order: data.order,
+      order: Number(data.order || 0),
       isActive: data.isActive === undefined ? true : data.isActive,
       imageUrl: data.imageUrl || "", 
       imageHint: data.imageHint || "", 
@@ -237,6 +230,11 @@ export default function AdminServicesPage() {
     }
   };
   
+  const nextOrder = useMemo(() => {
+    if (services.length === 0) return 0;
+    return Math.max(...services.map(s => s.order || 0)) + 1;
+  }, [services]);
+
   const groupedServices = useMemo(() => {
     if (!parentCategories.length) return [];
     return parentCategories
@@ -398,7 +396,7 @@ export default function AdminServicesPage() {
           {(parentCategories.length === 0 && !editingService && !isLoadingData) || (subCategories.length === 0 && !editingService && !isLoadingData) ? (
              <div className="p-6 py-8 text-center"><p className="text-destructive">{(parentCategories.length === 0 && "No parent categories exist. ")}{(subCategories.length === 0 && "No sub-categories exist. ")}</p><p className="text-muted-foreground text-sm mt-2">Please add categories/sub-categories first.</p></div>
           ) : (
-            <ServiceForm onSubmit={handleFormSubmit} initialData={editingService} parentCategories={parentCategories} subCategories={subCategories} taxes={taxes} onCancel={() => { setIsFormOpen(false); setEditingService(null); }} isSubmitting={isSubmitting}/>
+            <ServiceForm onSubmit={handleFormSubmit} initialData={editingService} parentCategories={parentCategories} subCategories={subCategories} taxes={taxes} allServices={services} onCancel={() => { setIsFormOpen(false); setEditingService(null); }} isSubmitting={isSubmitting}/>
           )}
         </DialogContent>
       </Dialog>

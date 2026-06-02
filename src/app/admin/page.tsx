@@ -220,20 +220,20 @@ const { user, firestoreUser } = useAuth();
         </motion.div>
         <motion.div variants={itemVariants}>
           <StatCard 
-            title="Orders" 
+            title="Bookings" 
             value={realtimeStats?.totalBookings ?? stats.totalBookings} 
             icon={ShoppingBag} 
             colorClass="bg-amber-500/10 text-amber-500" 
-            subtitle="Total System Bookings"
+            subtitle="Total System Orders"
           />
         </motion.div>
         <motion.div variants={itemVariants}>
           <StatCard 
-            title="Active Base" 
+            title="Users" 
             value={realtimeStats?.activeUsers ?? stats.activeUsers} 
             icon={Users} 
             colorClass="bg-emerald-500/10 text-emerald-500" 
-            subtitle="Verified Active Users"
+            subtitle="Total Registered Users"
           />
         </motion.div>
         <motion.div variants={itemVariants}>
@@ -242,7 +242,7 @@ const { user, firestoreUser } = useAuth();
             value={`+${realtimeStats?.newSignups30d ?? stats.newSignups}`} 
             icon={UserPlus} 
             colorClass="bg-indigo-500/10 text-indigo-500" 
-            subtitle="New signups (30d)"
+            subtitle="New signups (This Month)"
           />
         </motion.div>
       </div>

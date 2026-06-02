@@ -133,7 +133,8 @@ const ZoneMapSelector: React.FC<ZoneMapSelectorProps> = ({ apiKey, center, radiu
 
       if (autocompleteInputRef.current) {
         const autocomplete = new window.google.maps.places.Autocomplete(autocompleteInputRef.current, {
-          types: ['(regions)'], componentRestrictions: { country: 'in' },
+          componentRestrictions: { country: 'in' },
+          fields: ["geometry", "name", "formatted_address"]
         });
         autocomplete.addListener('place_changed', () => {
           const place = autocomplete.getPlace();
@@ -174,7 +175,16 @@ const ZoneMapSelector: React.FC<ZoneMapSelectorProps> = ({ apiKey, center, radiu
   return (
     <div className="w-full h-full relative">
       <div className="absolute top-2 left-1/2 -translate-x-1/2 z-10 w-[90%] max-w-sm">
-        <Input ref={autocompleteInputRef} placeholder="Search for a location to center the zone" className="shadow-md h-9"/>
+        <Input 
+          ref={autocompleteInputRef} 
+          placeholder="Search for building, place, or address..." 
+          className="shadow-md h-9"
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') {
+              e.preventDefault();
+            }
+          }}
+        />
       </div>
       {isLoading && <div className="absolute inset-0 flex items-center justify-center bg-muted/50 z-20"><Loader2 className="h-8 w-8 animate-spin" /></div>}
       <div ref={mapRef} className="w-full h-full rounded-md" />

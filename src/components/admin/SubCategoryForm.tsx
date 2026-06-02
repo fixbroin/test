@@ -10,7 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import type { FirestoreSubCategory, FirestoreCategory } from '@/types/firestore';
-import { useEffect, useState, useRef, useCallback } from "react";
+import { useEffect, useState, useRef, useCallback, useMemo } from "react";
 import { Loader2, Image as ImageIcon, Trash2, Edit2, Lock } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import AppImage from '@/components/ui/AppImage';
@@ -42,6 +42,7 @@ interface SubCategoryFormProps {
   initialData?: FirestoreSubCategory | null;
   onCancel: () => void;
   parentCategories: FirestoreCategory[];
+  allSubCategories: FirestoreSubCategory[];
   isSubmitting?: boolean;
 }
 
@@ -69,7 +70,7 @@ const isValidImageSrc = (url: string | null | undefined): url is string => {
     return false;
 };
 
-export default function SubCategoryForm({ onSubmit: onSubmitProp, initialData, onCancel, parentCategories, isSubmitting: isParentSubmitting = false }: SubCategoryFormProps) {
+export default function SubCategoryForm({ onSubmit: onSubmitProp, initialData, onCancel, parentCategories, allSubCategories, isSubmitting: isParentSubmitting = false }: SubCategoryFormProps) {
   const [currentImagePreview, setCurrentImagePreview] = useState<string | null>(null);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -97,6 +98,20 @@ export default function SubCategoryForm({ onSubmit: onSubmitProp, initialData, o
   const watchedName = form.watch("name");
   const watchedImageHint = form.watch("imageHint"); 
   const watchedSlug = form.watch("slug");
+  const watchedParentId = form.watch("parentId");
+
+  const nextOrder = useMemo(() => {
+    if (!watchedParentId) return 0;
+    const sameParentSubCats = allSubCategories.filter(s => s.parentId === watchedParentId);
+    if (sameParentSubCats.length === 0) return 0;
+    return Math.max(...sameParentSubCats.map(s => s.order || 0)) + 1;
+  }, [watchedParentId, allSubCategories]);
+
+  useEffect(() => {
+    if (!initialData && watchedParentId) {
+      form.setValue('order', nextOrder);
+    }
+  }, [nextOrder, watchedParentId, initialData, form]);
 
   const checkSlugUniqueness = useCallback(async (baseSlug: string, currentId?: string) => {
     let uniqueSlug = baseSlug;
@@ -397,6 +412,7 @@ await onSubmitProp({
               <FormControl>
                 <Input type="number" placeholder="0" {...field} disabled={effectiveIsSubmitting} />
               </FormControl>
+              <FormDescription className="text-xs">Lower numbers appear first. {!initialData && `(Suggested: ${nextOrder})`}</FormDescription>
               <FormMessage />
             </FormItem>
           )}

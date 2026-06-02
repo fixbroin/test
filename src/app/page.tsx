@@ -84,7 +84,7 @@ export default async function Page() {
     },
     "geo": {
       "@type": "GeoCoordinates",
-      "latitude": 12.8452, // Can be dynamic if you have coordinates
+      "latitude": 12.8452, 
       "longitude": 77.6633
     },
     "openingHoursSpecification": {
@@ -96,7 +96,67 @@ export default async function Page() {
       "closes": "20:00"
     },
     "sameAs": Object.values(seoSettings.socialProfileUrls || {}).filter(url => !!url),
-    "priceRange": "₹₹"
+    "priceRange": "₹₹",
+    "areaServed": [
+      {
+        "@type": "City",
+        "name": "Bangalore"
+      },
+      {
+        "@type": "AdministrativeArea",
+        "name": "Karnataka"
+      }
+    ],
+    "hasOfferCatalog": {
+      "@type": "OfferCatalog",
+      "name": "Home Services",
+      "itemListElement": [
+        {
+          "@type": "Offer",
+          "itemOffered": {
+            "@type": "Service",
+            "name": "Professional Carpenter Services"
+          }
+        },
+        {
+          "@type": "Offer",
+          "itemOffered": {
+            "@type": "Service",
+            "name": "Plumbing Services"
+          }
+        },
+        {
+          "@type": "Offer",
+          "itemOffered": {
+            "@type": "Service",
+            "name": "Electrician Services"
+          }
+        }
+      ]
+    }
+  };
+
+  const faqSchema = {
+    "@context": "https://schema.org",
+    "@type": "FAQPage",
+    "mainEntity": [
+      {
+        "@type": "Question",
+        "name": "Who is the best carpenter in Bangalore for home repairs?",
+        "acceptedAnswer": {
+          "@type": "Answer",
+          "text": "FixBro provides top-rated, verified professional carpenters in Bangalore for all home furniture repairs, assembly, and custom woodwork with transparent pricing."
+        }
+      },
+      {
+        "@type": "Question",
+        "name": "How to book home services in Bangalore?",
+        "acceptedAnswer": {
+          "@type": "Answer",
+          "text": "You can easily book professional home services in Bangalore through FixBro. Choose your service, select your locality, and book an expert in under 60 seconds."
+        }
+      }
+    ]
   };
 
   if (aggregateRating) {
@@ -108,7 +168,6 @@ export default async function Page() {
       "worstRating": "1"
     };
   } else {
-    // High-quality fallback so stars always show
     (localBusinessSchema as any).aggregateRating = {
       "@type": "AggregateRating",
       "ratingValue": "4.8",
@@ -121,8 +180,8 @@ export default async function Page() {
   return (
     <>
       <JsonLdScript data={localBusinessSchema} idSuffix="homepage-local-biz" />
+      <JsonLdScript data={faqSchema} idSuffix="homepage-faqs" />
       <HomePageClient initialData={homepageData} initialH1Title={seoSettings.homepageH1} />
     </>
   );
 }
-

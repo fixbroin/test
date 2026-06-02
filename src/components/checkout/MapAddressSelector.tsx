@@ -457,8 +457,13 @@ const MapAddressSelector: React.FC<MapAddressSelectorProps> = ({ apiKey, onAddre
                 id="address-search-input"
                 ref={autocompleteInputRef}
                 type="text"
-                placeholder="Enter Location, Area or City Name etc..."
+                placeholder="Search for building, area, street, or address..."
                 className="shadow-md h-9 pr-10"
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault();
+                  }
+                }}
               />
               <Search className="absolute right-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground pointer-events-none" />
            </div>

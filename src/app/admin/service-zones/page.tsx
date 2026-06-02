@@ -5,24 +5,39 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
-import { PlusCircle, Edit, Trash2, Loader2, Globe2, PackageSearch, CheckCircle, XCircle } from "lucide-react";
-import type { ServiceZone } from '@/types/firestore';
+import { PlusCircle, Edit, Trash2, Loader2, Globe2, PackageSearch, CheckCircle, XCircle, List } from "lucide-react";
+import type { ServiceZone, FirestoreCategory } from '@/types/firestore';
 import ServiceZoneForm, { type ServiceZoneFormData } from '@/components/admin/ServiceZoneForm';
 import { db } from '@/lib/firebase';
-import { collection, onSnapshot, addDoc, updateDoc, deleteDoc, doc, orderBy, query, Timestamp } from "firebase/firestore";
+import { collection, onSnapshot, addDoc, updateDoc, deleteDoc, doc, orderBy, query, Timestamp, getDocs } from "firebase/firestore";
 import { useToast } from "@/hooks/use-toast";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
-import { nanoid } from 'nanoid';
+import { Badge } from "@/components/ui/badge";
 
 const COLLECTION_NAME = "serviceZones";
 
 export default function AdminServiceZonesPage() {
   const [zones, setZones] = useState<ServiceZone[]>([]);
+  const [categories, setCategories] = useState<Record<string, string>>({});
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingZone, setEditingZone] = useState<ServiceZone | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { toast } = useToast();
+
+  const fetchCategories = useCallback(async () => {
+    try {
+      const q = query(collection(db, "adminCategories"), orderBy("name", "asc"));
+      const snapshot = await getDocs(q);
+      const catMap: Record<string, string> = {};
+      snapshot.forEach(doc => {
+        catMap[doc.id] = doc.data().name;
+      });
+      setCategories(catMap);
+    } catch (error) {
+      console.error("Error fetching categories:", error);
+    }
+  }, []);
 
   const fetchZones = useCallback(() => {
     setIsLoading(true);
@@ -43,9 +58,10 @@ export default function AdminServiceZonesPage() {
   }, [toast]);
 
   useEffect(() => {
+    fetchCategories();
     const unsubscribe = fetchZones();
     return () => unsubscribe();
-  }, [fetchZones]);
+  }, [fetchZones, fetchCategories]);
 
   const handleAddZone = () => {
     setEditingZone(null);
@@ -78,6 +94,7 @@ export default function AdminServiceZonesPage() {
         longitude: data.center.lng,
       },
       radiusKm: data.radiusKm,
+      categoryIds: data.categoryIds,
       isActive: data.isActive,
     };
 
@@ -105,7 +122,7 @@ export default function AdminServiceZonesPage() {
         <CardHeader className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
           <div>
             <CardTitle className="text-2xl flex items-center"><Globe2 className="mr-2 h-6 w-6 text-primary" />Manage Service Zones</CardTitle>
-            <CardDescription>Define geographic areas where your services are available.</CardDescription>
+            <CardDescription>Define geographic areas where your services are available, now with category-wise filtering.</CardDescription>
           </div>
           <Button onClick={handleAddZone} disabled={isSubmitting || isLoading} className="w-full sm:w-auto">
             <PlusCircle className="mr-2 h-4 w-4" /> Add New Zone
@@ -127,6 +144,7 @@ export default function AdminServiceZonesPage() {
               <TableHeader>
                 <TableRow>
                   <TableHead>Zone Name</TableHead>
+                  <TableHead>Categories</TableHead>
                   <TableHead>Center (Lat, Lng)</TableHead>
                   <TableHead className="text-center">Radius (km)</TableHead>
                   <TableHead className="text-center">Active</TableHead>
@@ -137,6 +155,19 @@ export default function AdminServiceZonesPage() {
                 {zones.map((zone) => (
                   <TableRow key={zone.id}>
                     <TableCell className="font-medium">{zone.name}</TableCell>
+                    <TableCell>
+                      <div className="flex flex-wrap gap-1 max-w-[300px]">
+                        {!zone.categoryIds || zone.categoryIds.length === 0 ? (
+                          <Badge variant="outline" className="text-xs bg-muted/50">All Categories</Badge>
+                        ) : (
+                          zone.categoryIds.map(catId => (
+                            <Badge key={catId} variant="secondary" className="text-[10px] px-1.5 py-0">
+                              {categories[catId] || 'Loading...'}
+                            </Badge>
+                          ))
+                        )}
+                      </div>
+                    </TableCell>
                     <TableCell className="text-xs text-muted-foreground">{zone.center.latitude.toFixed(4)}, {zone.center.longitude.toFixed(4)}</TableCell>
                     <TableCell className="text-center">{zone.radiusKm}</TableCell>
                     <TableCell className="text-center">
@@ -165,7 +196,15 @@ export default function AdminServiceZonesPage() {
       </Card>
 
       <Dialog open={isFormOpen} onOpenChange={(open) => { if (!isSubmitting) { setIsFormOpen(open); if (!open) setEditingZone(null); } }}>
-        <DialogContent className="w-full max-w-lg md:max-w-2xl lg:max-w-4xl max-h-[90vh] p-0 flex flex-col">
+        <DialogContent 
+          className="w-full max-w-lg md:max-w-2xl lg:max-w-4xl max-h-[90vh] p-0 flex flex-col"
+          onPointerDownOutside={(e) => {
+            const target = e.target as HTMLElement;
+            if (target?.closest('.pac-container')) {
+              e.preventDefault();
+            }
+          }}
+        >
           <DialogHeader className="p-6 pb-4 border-b">
             <DialogTitle>{editingZone ? 'Edit Service Zone' : 'Add New Service Zone'}</DialogTitle>
             <DialogDescription>Use the map to select the center and define the radius of the service area.</DialogDescription>

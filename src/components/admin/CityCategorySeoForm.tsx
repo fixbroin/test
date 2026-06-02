@@ -58,7 +58,7 @@ export default function CityCategorySeoForm({ onSubmit: onSubmitProp, initialDat
   const form = useForm<CityCategorySeoFormData>({
     resolver: zodResolver(cityCategorySeoFormSchema),
     defaultValues: {
-      cityId: undefined, categoryId: undefined, slug: "", h1_title: "", meta_title: "", meta_description: "", meta_keywords: "", imageHint: "", isActive: true,
+      cityId: undefined, categoryId: undefined, slug: "", h1_title: "", meta_title: "", meta_description: "", meta_keywords: "", seo_content: "", faqs: [], imageHint: "", isActive: true,
     },
   });
 
@@ -110,7 +110,7 @@ export default function CityCategorySeoForm({ onSubmit: onSubmitProp, initialDat
         isActive: initialData.isActive === undefined ? true : initialData.isActive,
       });
     } else {
-      form.reset({ cityId: undefined, categoryId: undefined, slug: "", h1_title: "", meta_title: "", meta_description: "", meta_keywords: "", imageHint: "", isActive: true });
+      form.reset({ cityId: undefined, categoryId: undefined, slug: "", h1_title: "", meta_title: "", meta_description: "", meta_keywords: "", seo_content: "", faqs: [], imageHint: "", isActive: true });
     }
     setIsSlugEditable(false);
   }, [initialData, form]);
@@ -174,6 +174,7 @@ export default function CityCategorySeoForm({ onSubmit: onSubmitProp, initialDat
       form.setValue("meta_keywords", result.meta_keywords, { shouldValidate: true });
       form.setValue("seo_content", result.seo_content, { shouldValidate: true });
       form.setValue("faqs", result.faqs, { shouldValidate: true });
+      form.setValue("imageHint", result.imageHint, { shouldValidate: true });
       toast({ title: "Content Generated!", description: "SEO fields and FAQs have been populated.", className: "bg-green-100 border-green-300 text-green-700" });
     } catch (error) {
       console.error("Error generating city-category SEO:", error);

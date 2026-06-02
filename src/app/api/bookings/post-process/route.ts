@@ -4,8 +4,10 @@ import { adminDb } from '@/lib/firebaseAdmin';
 import { Timestamp } from 'firebase-admin/firestore';
 import { incrementSystemStats } from '@/lib/systemStatsUtils';
 import { sendBookingConfirmationEmail } from '@/ai/flows/sendBookingEmailFlow';
+import { sendProviderBookingAssignmentEmail } from '@/ai/flows/sendProviderBookingAssignmentFlow';
 import { getBaseUrl } from '@/lib/config';
 import { generateInvoicePdf } from '@/lib/invoiceGenerator';
+import { triggerRefresh } from '@/lib/revalidateUtils';
 
 // Define ADMIN_EMAIL - should match your AuthContext
 const ADMIN_EMAIL = "fixbro.in@gmail.com"; 
@@ -26,8 +28,10 @@ export async function POST(request: Request) {
 
     const booking = bookingDoc.data() as any;
     const userId = booking.userId;
-    const isCompleted = booking.status === 'Completed';
-    const isCancelled = booking.status === 'Cancelled';
+    const currentStatus = booking.status;
+    const isCompleted = currentStatus === 'Completed';
+    const isCancelled = currentStatus === 'Cancelled';
+    const isRescheduled = currentStatus === 'Rescheduled';
 
     // 2. Fetch App Settings for Email/WhatsApp
     const [appConfigDoc, marketingConfigDoc, seoSettingsDoc] = await Promise.all([
@@ -43,10 +47,102 @@ export async function POST(request: Request) {
     // --- EXECUTE ALL TASKS IN PARALLEL ON SERVER ---
     const tasks: Promise<any>[] = [];
 
-    // --- NEW: Track Total Bookings (First time only) ---
+    // --- Determine Email Type ---
+    let emailType: 'booking_confirmation' | 'booking_completion' | 'booking_rescheduled' | 'booking_cancelled_by_admin' | 'booking_status_update' = 'booking_status_update';
+
+    if (isCompleted) {
+        emailType = 'booking_completion';
+    } else if (isCancelled) {
+        emailType = 'booking_cancelled_by_admin';
+    } else if (isRescheduled) {
+        emailType = 'booking_rescheduled';
+    } else if (!booking.isConfirmationEmailSent) {
+        // First time booking is processed, send confirmation
+        emailType = 'booking_confirmation';
+        tasks.push(adminDb.collection('bookings').doc(bookingDocId).update({ isConfirmationEmailSent: true }));
+    } else {
+        // Subsequent status updates
+        emailType = 'booking_status_update';
+    }
+
+    // --- Track Total Bookings (First time only) ---
     if (!booking.isStatsTracked) {
         tasks.push(incrementSystemStats({ totalBookings: 1 }));
         tasks.push(adminDb.collection('bookings').doc(bookingDocId).update({ isStatsTracked: true }));
+    }
+
+    // --- NEW: Notify Assigned Provider ---
+    if (booking.providerId && (currentStatus === 'AssignedToProvider' || currentStatus === 'Confirmed') && !booking.isProviderNotified) {
+        const notifyProviderTask = (async () => {
+            try {
+                // 1. Fetch Provider Details
+                const pAppDoc = await adminDb.collection('providerApplications').doc(booking.providerId).get();
+                if (!pAppDoc.exists) {
+                    console.warn(`Provider application not found for ID: ${booking.providerId}`);
+                    return;
+                }
+                const pData = pAppDoc.data() as any;
+
+                // 2. Add Dashboard Notification
+                await adminDb.collection('userNotifications').add({
+                    userId: booking.providerId,
+                    title: "New Job Assigned!",
+                    message: `You have been assigned to booking ${booking.bookingId} for ${booking.customerName}.`,
+                    type: 'info',
+                    href: `/provider/booking/${bookingDocId}`,
+                    read: false,
+                    createdAt: Timestamp.now()
+                });
+
+                // 3. Trigger Push
+                try {
+                    await fetch(`${getBaseUrl()}/api/send-push`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ 
+                            userId: booking.providerId, 
+                            title: "New Job Assigned!", 
+                            body: `Booking ${booking.bookingId} is assigned to you. Check details now.`, 
+                            href: `/provider/booking/${bookingDocId}` 
+                        }),
+                    });
+                } catch (pushErr) {
+                    console.error("Error triggering provider push notification:", pushErr);
+                }
+
+                // 4. Send Email
+                try {
+                    const servicesSummary = booking.services.map((s: any) => `${s.name} (x${s.quantity})`).join(', ');
+                    await sendProviderBookingAssignmentEmail({
+                        providerName: pData.fullName || "Service Provider",
+                        providerEmail: pData.email,
+                        bookingId: booking.bookingId,
+                        bookingDocId: bookingDocId,
+                        serviceName: servicesSummary,
+                        scheduledDate: booking.scheduledDate,
+                        scheduledTimeSlot: booking.scheduledTimeSlot,
+                        customerName: booking.customerName,
+                        customerAddress: `${booking.addressLine1}, ${booking.addressLine2 ? booking.addressLine2 + ', ' : ''}${booking.city}`,
+                        smtpHost: appConfig.smtpHost,
+                        smtpPort: appConfig.smtpPort,
+                        smtpUser: appConfig.smtpUser,
+                        smtpPass: appConfig.smtpPass,
+                        senderEmail: appConfig.senderEmail,
+                        siteName: seoSettings?.websiteName || "FixBro",
+                        logoUrl: seoSettings?.logoUrl,
+                    });
+                } catch (emailErr) {
+                    console.error("Error sending provider assignment email:", emailErr);
+                }
+
+                // 5. Mark as notified in Firestore
+                await adminDb.collection('bookings').doc(bookingDocId).update({ isProviderNotified: true });
+
+            } catch (err) {
+                console.error("Critical error in notifyProviderTask:", err);
+            }
+        })();
+        tasks.push(notifyProviderTask);
     }
 
     // A. Update User "hasBooking" status
@@ -115,12 +211,20 @@ export async function POST(request: Request) {
 
     // B. User Dashboard Notification
     if (userId) {
+        let notificationTitle = isCompleted ? "Service Completed!" : "Booking Update";
+        let notificationMessage = isCompleted 
+            ? `Your booking ${booking.bookingId} has been successfully completed. Thank you!`
+            : `Your booking ${booking.bookingId} is ${booking.status}.`;
+        
+        if (isRescheduled) {
+            notificationTitle = "Booking Rescheduled!";
+            notificationMessage = `Your booking ${booking.bookingId} has been rescheduled to ${booking.scheduledDate} at ${booking.scheduledTimeSlot}.`;
+        }
+
         tasks.push(adminDb.collection('userNotifications').add({
             userId,
-            title: isCompleted ? "Service Completed!" : "Booking Confirmed!",
-            message: isCompleted 
-                ? `Your booking ${booking.bookingId} has been successfully completed. Thank you!`
-                : `Your booking ${booking.bookingId} is ${booking.status}.`,
+            title: notificationTitle,
+            message: notificationMessage,
             type: isCompleted ? 'success' : 'info',
             href: `/my-bookings`,
             read: false,
@@ -132,13 +236,21 @@ export async function POST(request: Request) {
     const adminQuery = await adminDb.collection('users').where('email', '==', ADMIN_EMAIL).limit(1).get();
     if (!adminQuery.empty) {
         const adminUid = adminQuery.docs[0].id;
+        let adminTitle = isCompleted ? "Job Completed!" : "Booking Update";
+        let adminMessage = isCompleted 
+            ? `Booking ${booking.bookingId} for ${booking.customerName} is now complete. Total: ₹${booking.totalAmount.toFixed(2)}.`
+            : `ID: ${booking.bookingId} by ${booking.customerName} is ${booking.status}.`;
+
+        if (isRescheduled) {
+            adminTitle = "Booking Rescheduled";
+            adminMessage = `Booking ${booking.bookingId} has been rescheduled to ${booking.scheduledDate} at ${booking.scheduledTimeSlot}.`;
+        }
+
         tasks.push(adminDb.collection('userNotifications').add({
             userId: adminUid,
-            title: isCompleted ? "Job Completed!" : "New Booking Received!",
-            message: isCompleted 
-                ? `Booking ${booking.bookingId} for ${booking.customerName} is now complete. Total: ₹${booking.totalAmount.toFixed(2)}.`
-                : `ID: ${booking.bookingId} by ${booking.customerName}. Total: ₹${booking.totalAmount.toFixed(2)}.`,
-            type: isCompleted ? 'info' : 'admin_alert',
+            title: adminTitle,
+            message: adminMessage,
+            type: isCompleted ? 'info' : (isRescheduled ? 'info' : 'admin_alert'),
             href: `/admin/bookings`,
             read: false,
             createdAt: Timestamp.now()
@@ -212,7 +324,7 @@ export async function POST(request: Request) {
     }
 
     const emailFlowInput = {
-        emailType: isCompleted ? ('booking_completion' as const) : ('booking_confirmation' as const),
+        emailType: emailType,
         bookingId: booking.bookingId,
         customerName: booking.customerName,
         customerEmail: booking.customerEmail,
@@ -226,6 +338,8 @@ export async function POST(request: Request) {
         longitude: booking.longitude,
         scheduledDate: booking.scheduledDate,
         scheduledTimeSlot: booking.scheduledTimeSlot,
+        previousScheduledDate: booking.previousScheduledDate,
+        previousScheduledTimeSlot: booking.previousScheduledTimeSlot,
         services: booking.services,
         subTotal: booking.subTotal,
         visitingCharge: booking.visitingCharge || 0,
@@ -249,7 +363,13 @@ export async function POST(request: Request) {
             amount: fee.calculatedFeeAmount + fee.taxAmountOnFee 
         })),
     };
-    tasks.push(sendBookingConfirmationEmail(emailFlowInput));
+
+    // Only send if it's NOT a generic status update, OR if the toggle is enabled
+    const shouldSendEmail = emailType !== 'booking_status_update' || appConfig.enableStatusUpdateEmails !== false;
+    
+    if (shouldSendEmail) {
+        tasks.push(sendBookingConfirmationEmail(emailFlowInput));
+    }
 
     // G. Send WhatsApp
     if (marketingConfig?.isWhatsAppEnabled) {
@@ -362,6 +482,10 @@ export async function POST(request: Request) {
         });
         tasks.push(referralTask);
     }
+    tasks.push(triggerRefresh('bookings'));
+
+    // --- CRITICAL: Wait for all parallel tasks to finish ---
+    await Promise.allSettled(tasks);
 
     return NextResponse.json({ success: true });
 

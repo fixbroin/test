@@ -1,15 +1,19 @@
 
 "use client";
 
-import type { FirestoreBooking, BookingServiceItem, AppliedPlatformFeeItem } from '@/types/firestore';
+import { useState, useEffect } from 'react';
+import type { FirestoreBooking, BookingServiceItem, AppliedPlatformFeeItem, ProviderApplication } from '@/types/firestore';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { MapPin, ExternalLink, Tag, HandCoins, Plus } from 'lucide-react'; 
-import AppImage from '@/components/ui/AppImage'; // Import the Next.js Image component
+import { MapPin, ExternalLink, Tag, HandCoins, Plus, UserCheck, Loader2, Phone, UserCircle } from 'lucide-react'; 
+import AppImage from '@/components/ui/AppImage'; 
 import { getTimestampMillis } from '@/lib/utils';
+import { db } from '@/lib/firebase';
+import { doc, getDoc } from 'firebase/firestore';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 
 interface BookingDetailsModalContentProps {
   booking: FirestoreBooking;
@@ -30,6 +34,30 @@ const getBasePriceForInvoice = (displayedPrice: number, isTaxInclusive?: boolean
 
 
 export default function BookingDetailsModalContent({ booking }: BookingDetailsModalContentProps) {
+  const [provider, setProvider] = useState<ProviderApplication | null>(null);
+  const [isLoadingProvider, setIsLoadingProvider] = useState(false);
+
+  useEffect(() => {
+    async function fetchProvider() {
+      if (!booking.providerId) {
+        setProvider(null);
+        return;
+      }
+      setIsLoadingProvider(true);
+      try {
+        const providerDoc = await getDoc(doc(db, "providerApplications", booking.providerId));
+        if (providerDoc.exists()) {
+          setProvider({ id: providerDoc.id, ...providerDoc.data() } as ProviderApplication);
+        }
+      } catch (error) {
+        console.error("Error fetching provider details:", error);
+      } finally {
+        setIsLoadingProvider(false);
+      }
+    }
+    fetchProvider();
+  }, [booking.providerId]);
+
   const handleViewOnMap = () => {
     if (typeof booking.latitude === 'number' && typeof booking.longitude === 'number') {
       const url = `https://www.google.com/maps?q=${booking.latitude},${booking.longitude}`;
@@ -62,7 +90,7 @@ export default function BookingDetailsModalContent({ booking }: BookingDetailsMo
             <p><strong>Name:</strong> {booking.customerName}</p>
             <p><strong>Email:</strong> {booking.customerEmail}</p>
             <div className="flex items-center gap-2">
-              <p><strong>Phone:</strong> {booking.customerPhone}</p>
+              <p><strong>Phone:</strong> <a href={`tel:${booking.customerPhone}`} className="text-primary hover:underline">{booking.customerPhone}</a></p>
               {booking.customerPhone && (
                 <Button variant="ghost" size="icon" className="h-8 w-8" onClick={handleWhatsAppClick} title="Chat on WhatsApp">
                   <AppImage src="/whatsapp.png" alt="WhatsApp Icon" width={24} height={24} />
@@ -111,13 +139,57 @@ export default function BookingDetailsModalContent({ booking }: BookingDetailsMo
         </Card>
       </div>
 
+      {/* --- Assigned Provider Section --- */}
+      <Card className="shadow-sm border-primary/20 bg-primary/5">
+        <CardHeader className="pb-3">
+          <CardTitle className="text-lg flex items-center gap-2">
+            <UserCheck className="h-5 w-5 text-primary" />
+            Assigned Service Provider
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          {isLoadingProvider ? (
+            <div className="flex items-center gap-2 text-sm text-muted-foreground py-2">
+              <Loader2 className="h-4 w-4 animate-spin" /> Loading provider details...
+            </div>
+          ) : provider ? (
+            <div className="flex items-center gap-4">
+              <Avatar className="h-12 w-12 border-2 border-white shadow-sm">
+                <AvatarImage src={provider.profilePhotoUrl || undefined} />
+                <AvatarFallback className="bg-primary/10 text-primary font-bold">
+                  {provider.fullName?.[0].toUpperCase() || <UserCircle />}
+                </AvatarFallback>
+              </Avatar>
+              <div className="space-y-1 flex-grow min-w-0">
+                <div className="flex items-center justify-between">
+                  <p className="font-bold text-sm">{provider.fullName}</p>
+                  {booking.autoAssigned && (
+                    <Badge variant="outline" className="text-[10px] bg-emerald-50 text-emerald-700 border-emerald-200 font-bold uppercase tracking-tighter">Auto-Assigned</Badge>
+                  )}
+                </div>
+                <div className="flex items-center gap-3 text-xs text-muted-foreground">
+                  <span className="flex items-center gap-1"><Phone className="h-3 w-3" /> {provider.mobileNumber}</span>
+                  <span className="px-2 py-0.5 bg-muted rounded-full text-[10px] font-medium">{provider.workCategoryName}</span>
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div className="text-sm text-muted-foreground italic py-2">
+              No provider has been assigned to this booking yet.
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+
       <Card className="shadow-sm">
         <CardHeader>
           <CardTitle className="text-lg">Booking & Schedule</CardTitle>
         </CardHeader>
         <CardContent className="space-y-2 text-sm">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-2">
-            <div><strong>Booking ID:</strong> <Badge variant="secondary" className="text-xs">{booking.bookingId}</Badge></div>
+            <div><strong>Booking No:</strong> <Badge className="text-xs bg-primary text-white font-black px-2 shadow-sm">#{booking.bookingNumber || "N/A"}</Badge></div>
+            <div><strong>Booking ID:</strong> <Badge variant="secondary" className="text-xs font-mono">{booking.bookingId}</Badge></div>
             <div><strong>Status:</strong> <Badge variant={booking.status === "Completed" ? "default" : booking.status === "Confirmed" ? "default" : "outline"} className={ booking.status === "Confirmed" ? "bg-green-500 text-white hover:bg-green-600" : booking.status === "Completed" ? "bg-blue-500 text-white hover:bg-blue-600" : booking.status === "Cancelled" ? "bg-red-500 text-white hover:bg-red-600" : ""}>{booking.status}</Badge></div>
             <p><strong>Scheduled Date:</strong> {booking.scheduledDate}</p>
             <p><strong>Scheduled Time:</strong> {booking.scheduledTimeSlot}</p>

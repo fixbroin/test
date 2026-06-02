@@ -258,14 +258,19 @@ export default function AdminVisitorInfoPage() {
              </div>
          </div>
          
-         <div className="grid grid-cols-2 gap-2 mt-2">
+         <div className="space-y-2">
              <div className="flex items-center gap-1.5 text-xs">
-                 <MapPin className="h-3 w-3 text-muted-foreground" />
+                 <MapPin className="h-3 w-3 text-muted-foreground shrink-0" />
                  <span className="truncate">{log.city || 'N/A'}, {log.countryName || 'N/A'}</span>
              </div>
-             <div className="flex items-center gap-1.5 text-xs justify-end">
-                 <Layout className="h-3 w-3 text-muted-foreground" />
-                 <span className="truncate font-medium">{log.pathname}</span>
+             <div className="bg-secondary/20 p-2 rounded-md border border-secondary/30">
+                <div className="flex items-center gap-1.5 text-[10px] uppercase font-bold text-muted-foreground mb-1">
+                    <Layout className="h-3 w-3" />
+                    <span>Visited Path</span>
+                </div>
+                <div className="font-mono text-xs break-all text-primary font-medium leading-relaxed">
+                    {log.pathname}
+                </div>
              </div>
          </div>
 

@@ -148,7 +148,15 @@ export default function ExploreByLocation({ initialData, categories = [] }: Expl
                                     </AccordionTrigger>
                                     <AccordionContent className="pt-2 pb-4">
                                         <div className="flex flex-wrap gap-2">
-                                            {allCategories.slice(0, 8).map(cat => (
+                                            {allCategories
+                                                .filter(cat => {
+                                                    // Always include Carpentry or high-priority categories
+                                                    const isPriority = ['carpentry', 'carpenter'].includes(cat.slug?.toLowerCase() || '') || 
+                                                                     ['carpentry', 'carpenter'].includes(cat.name?.toLowerCase() || '');
+                                                    return isPriority || allCategories.indexOf(cat) < 8;
+                                                })
+                                                .slice(0, 12) // Slightly increased limit but prioritized
+                                                .map(cat => (
                                                 <Link 
                                                     key={`${area.id}-${cat.id}`} 
                                                     href={`/${city.slug}/${area.slug}/${cat.slug}`}

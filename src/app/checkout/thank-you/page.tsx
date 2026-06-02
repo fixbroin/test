@@ -8,7 +8,7 @@ import { CheckCircle2, Home, ListOrdered, Mail, Download, Loader2, MapPin, Tag, 
 import CheckoutStepper from '@/components/checkout/CheckoutStepper';
 import { db, auth } from '@/lib/firebase';
 import { collection, addDoc, Timestamp, doc, getDoc, runTransaction, query, where, getDocs, limit, updateDoc, deleteDoc, setDoc } from "firebase/firestore";
-import type { FirestoreBooking, BookingServiceItem, FirestoreService, FirestorePromoCode, AppSettings, AppliedPlatformFeeItem, FirestoreNotification, BookingStatus, MarketingAutomationSettings, MarketingSettings } from '@/types/firestore';
+import type { FirestoreBooking, BookingServiceItem, FirestoreService, FirestorePromoCode, AppSettings, AppliedPlatformFeeItem, FirestoreNotification, BookingStatus, MarketingAutomationSettings, MarketingSettings, ProviderApplication } from '@/types/firestore';
 import { getActiveCheckoutEntries, removeCheckedOutItemsFromCart } from '@/lib/cartManager';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
@@ -22,6 +22,9 @@ import { getGuestId } from '@/lib/guestIdManager';
 import { sendWhatsAppFlow } from '@/ai/flows/sendWhatsAppFlow';
 import { triggerPushNotification } from '@/lib/fcmUtils';
 import { getTimestampMillis } from '@/lib/utils';
+import { assignNewBookingNumber } from '@/lib/webServerUtils';
+import { incrementSystemStats } from '@/lib/systemStatsUtils';
+import { getHaversineDistance } from '@/lib/locationUtils';
 
 // Add type declarations for GTM dataLayer and gtag
 declare global {
@@ -243,9 +246,11 @@ export default function ThankYouPage() {
         let bookingDiscountCode: string | undefined, bookingDiscountAmount: number | undefined, appliedPromoCodeId: string | undefined;
         let storedAppliedPlatformFees: AppliedPlatformFeeItem[] = [];
         let estimatedEndTime: string | undefined;
+        let currentCategoryId: string | null = null;
 
         if (typeof window !== 'undefined') {
           customerEmail = localStorage.getItem('fixbroCustomerEmail') || customerEmail;
+          currentCategoryId = localStorage.getItem('fixbroActiveCheckoutCategory');
           scheduledDateStored = localStorage.getItem('fixbroScheduledDate') || scheduledDateStored; 
           scheduledTimeSlot = localStorage.getItem('fixbroScheduledTimeSlot') || scheduledTimeSlot;
           estimatedEndTime = localStorage.getItem('fixbroEstimatedEndTime') || undefined;
@@ -299,15 +304,90 @@ export default function ThankYouPage() {
         const totalTaxForBooking = totalItemTax + visitingChargeTax + totalTaxOnPlatformFees;
         const totalAmountForBooking = baseSubTotalForBooking + baseVisitingChargeForBooking + totalBasePlatformFees + totalTaxForBooking - (bookingDiscountAmount || 0);
 
-        const bookingStatus: FirestoreBooking['status'] = (paymentMethod === 'later' || paymentMethod === 'Pay After Service') ? "Pending Payment" : "Confirmed";
+        // --- SMART TAGGING & AUTO-DISPATCH LOGIC ---
+        let coverageType: 'provider_match' | 'admin_only' = 'admin_only';
+        let suggestedProviderIds: string[] = [];
+        let autoAssignedProviderId: string | undefined = undefined;
+        let bookingStatus: FirestoreBooking['status'] = (paymentMethod === 'later' || paymentMethod === 'Pay After Service') ? "Pending Payment" : "Confirmed";
+
+        // Assign Sequential Booking Number
+        const nextBookingNumber = await assignNewBookingNumber();
+
+        if (latitude && longitude && currentCategoryId) {
+          try {
+            const providersQuery = query(
+              collection(db, 'providerApplications'), 
+              where('status', '==', 'approved'),
+              where('workCategoryId', '==', currentCategoryId)
+            );
+            const providersSnapshot = await getDocs(providersQuery);
+            
+            const providersWithDistance = providersSnapshot.docs.map(doc => {
+              const pData = doc.data() as ProviderApplication;
+              let distance = Infinity;
+              if (pData.workAreaCenter && pData.workAreaRadiusKm) {
+                distance = getHaversineDistance(
+                  latitude!,
+                  longitude!,
+                  pData.workAreaCenter.latitude,
+                  pData.workAreaCenter.longitude
+                );
+              }
+              return { id: doc.id, ...pData, distance };
+            }).filter(p => p.distance <= (p.workAreaRadiusKm || 0));
+
+            if (providersWithDistance.length > 0) {
+              coverageType = 'provider_match';
+              suggestedProviderIds = providersWithDistance.map(p => p.id);
+
+              // Sort by distance to find the closest
+              providersWithDistance.sort((a, b) => a.distance - b.distance);
+
+              const dispatchRadius = appConfig.autoDispatchRadiusKm || 5;
+
+              // AUTO-DISPATCH LOGIC: Try to find the closest AVAILABLE provider within configured radius
+              for (const closestProvider of providersWithDistance) {
+                if (closestProvider.distance <= dispatchRadius) {
+                   // Check if this specific provider has any overlapping bookings
+                   const overlapQuery = query(
+                     collection(db, 'bookings'),
+                     where('providerId', '==', closestProvider.id),
+                     where('scheduledDate', '==', scheduledDateStored),
+                     where('status', 'in', ['Confirmed', 'AssignedToProvider', 'ProviderAccepted', 'InProgressByProvider'])
+                   );
+                   const overlapSnapshot = await getDocs(overlapQuery);
+                   
+                   // Basic overlap check
+                   const hasOverlap = overlapSnapshot.docs.some(doc => {
+                      const bData = doc.data() as FirestoreBooking;
+                      return bData.scheduledTimeSlot === scheduledTimeSlot;
+                   });
+
+                   if (!hasOverlap) {
+                     autoAssignedProviderId = closestProvider.id;
+                     bookingStatus = "AssignedToProvider";
+                     break; 
+                   }
+                } else {
+                  break; 
+                }
+              }
+            }
+          } catch (e) {
+            console.error("Error calculating smart tagging & auto-dispatch:", e);
+          }
+        }
+        // --- END SMART TAGGING & AUTO-DISPATCH ---
 
         const newBookingData: Omit<FirestoreBooking, 'id'> = {
-          bookingId: newBookingId, ...(currentUser?.uid && { userId: currentUser.uid }),
+          bookingId: newBookingId, 
+          bookingNumber: nextBookingNumber,
+          ...(currentUser?.uid && { userId: currentUser.uid }),
           customerName, customerEmail, customerPhone, addressLine1, ...(addressLine2 && { addressLine2 }), city, state, pincode,
           ...(latitude !== undefined && { latitude }), ...(longitude !== undefined && { longitude }),
           scheduledDate: scheduledDateStored,
           scheduledTimeSlot, 
-          estimatedEndTime,
+          ...(estimatedEndTime && { estimatedEndTime }),
           services: resolvedServiceItems.map(({ _basePriceForBooking, ...rest }) => rest),
           subTotal: baseSubTotalForBooking,
           ...(baseVisitingChargeForBooking > 0 && { visitingCharge: baseVisitingChargeForBooking }),
@@ -321,9 +401,16 @@ export default function ThankYouPage() {
           ...(razorpayOrderId && { razorpayOrderId }),
           ...(razorpaySignature && { razorpaySignature }),
           createdAt: Timestamp.now(), isReviewedByCustomer: false,
+          
+          // Add Smart Tagging & Auto-Dispatch Fields
+          coverageType,
+          suggestedProviderIds,
+          ...(autoAssignedProviderId && { providerId: autoAssignedProviderId, autoAssigned: true }),
         };
 
         const docRef = await addDoc(collection(db, "bookings"), newBookingData);
+        // Track stats for new booking
+        incrementSystemStats({ totalBookings: 1 }).catch(e => console.error("Stats increment error:", e));
         
         // --- SEND BOOKING NOTIFICATIONS (Push + In-App) ---
         try {

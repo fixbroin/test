@@ -12,8 +12,7 @@ import type {
     FirestoreSEOSettings,
     FirestoreSubCategory,
     CityCategorySeoSetting,
-    AreaCategorySeoSetting,
-    FirestoreReview
+    AreaCategorySeoSetting
 } from '@/types/firestore';
 import { serializeFirestoreData } from './serializeUtils';
 import { unstable_cache } from 'next/cache';

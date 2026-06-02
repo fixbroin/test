@@ -11,8 +11,48 @@ import JsonLdScript from '@/components/shared/JsonLdScript';
 import { getCategoryFullData, getAggregateRating } from '@/lib/homepageUtils';
 import { cache } from 'react';
 import { unstable_cache } from 'next/cache';
+import { getCategorySearchTerm } from '@/lib/seoAdvancedUtils';
 
 export const revalidate = false;
+
+export async function generateStaticParams() {
+  try {
+    const citiesSnapshot = await adminDb.collection('cities').where('isActive', '==', true).get();
+    const categoriesSnapshot = await adminDb.collection('adminCategories').where('isActive', '==', true).get();
+    
+    const params: Array<{ city: string; area: string; categorySlug: string }> = [];
+
+    for (const cityDoc of citiesSnapshot.docs) {
+      const cityData = cityDoc.data() as FirestoreCity;
+      if (!cityData.slug) continue;
+
+      const areasSnapshot = await adminDb.collection('areas')
+        .where('cityId', '==', cityDoc.id)
+        .where('isActive', '==', true)
+        .get();
+
+      for (const areaDoc of areasSnapshot.docs) {
+        const areaData = areaDoc.data() as FirestoreArea;
+        if (!areaData.slug) continue;
+
+        for (const catDoc of categoriesSnapshot.docs) {
+          const catData = catDoc.data() as FirestoreCategory;
+          if (!catData.slug) continue;
+
+          params.push({
+            city: cityData.slug,
+            area: areaData.slug,
+            categorySlug: catData.slug
+          });
+        }
+      }
+    }
+    return params;
+  } catch (error) {
+    console.error("Error generating static params for area-category pages:", error);
+    return [];
+  }
+}
 
 interface AreaCategoryPageProps {
   params: Promise<{ city: string; area: string; categorySlug: string }>;
@@ -72,22 +112,23 @@ export async function generateMetadata(
 
   const seoSettings = await getGlobalSEOSettings();
   const appBaseUrl = getBaseUrl();
-  const placeholderData = { cityName: cityData.name, areaName: areaData.name, categoryName: categoryData.name };
+  const searchTerm = getCategorySearchTerm(categoryData.name);
+  const placeholderData = { cityName: cityData.name, areaName: areaData.name, categoryName: categoryData.name, categorySearchTerm: searchTerm };
 
   const title = replacePlaceholders(
     seoOverride?.meta_title || categoryData.metaTitle || categoryData.seo_title || seoSettings.areaCategoryPageTitlePattern, 
     placeholderData
-  ) || `Best ${categoryData.name} in ${areaData.name}, ${cityData.name} | Expert ${categoryData.name} Near Me`;
+  ) || `Best ${searchTerm} in ${areaData.name}, ${cityData.name} | Expert ${searchTerm} Near Me`;
 
   const description = replacePlaceholders(
     seoOverride?.meta_description || categoryData.metaDescription || categoryData.seo_description || seoSettings.areaCategoryPageDescriptionPattern, 
     placeholderData
-  ) || `Hire top-rated ${categoryData.name} experts in ${areaData.name}, ${cityData.name}. Trusted professionals, transparent pricing, and quality home services near you.`;
+  ) || `Hire top-rated ${searchTerm} experts in ${areaData.name}, ${cityData.name}. Trusted professionals, transparent pricing, and quality home services near you.`;
 
   const keywords = (replacePlaceholders(
     seoOverride?.meta_keywords || categoryData.metaKeywords || categoryData.seo_keywords || seoSettings.areaCategoryPageKeywordsPattern, 
     placeholderData
-  ) || `${categoryData.name} in ${areaData.name}, best ${categoryData.name} near me`).split(',').map(k => k.trim()).filter(k => k);
+  ) || `${searchTerm} in ${areaData.name}, best ${searchTerm} near me`).split(',').map(k => k.trim()).filter(k => k);
 
   const rawOgImage = categoryData.imageUrl || seoSettings.structuredDataImage || `/default-image.png`;
   const ogImage = rawOgImage.startsWith('http') ? rawOgImage : `${appBaseUrl}${rawOgImage.startsWith('/') ? '' : '/'}${rawOgImage}`;
@@ -132,11 +173,13 @@ export default async function AreaCategoryPage({ params }: AreaCategoryPageProps
   const { cityData, areaData, categoryData, seoOverride } = pageData;
 
   const seoSettings = await getGlobalSEOSettings();
-  const placeholderData = { cityName: cityData.name, areaName: areaData.name, categoryName: categoryData.name };
+  const searchTerm = getCategorySearchTerm(categoryData.name);
+  const placeholderData = { cityName: cityData.name, areaName: areaData.name, categoryName: categoryData.name, categorySearchTerm: searchTerm };
+  
   const h1Title = replacePlaceholders(
     seoOverride?.h1_title || categoryData.h1_title || seoSettings.areaCategoryPageH1Pattern, 
     placeholderData
-  ) || `Best Professional ${categoryData.name} in ${areaData.name}, ${cityData.name}`;
+  ) || `Best Professional ${searchTerm} in ${areaData.name}, ${cityData.name}`;
 
   const breadcrumbItems: BreadcrumbItem[] = [{ label: "Home", href: "/" }];
   breadcrumbItems.push({ label: cityData.name, href: `/${citySlug}` });
@@ -150,8 +193,8 @@ export default async function AreaCategoryPage({ params }: AreaCategoryPageProps
   const areaCategorySchema = {
     "@context": "https://schema.org",
     "@type": "Service",
-    "name": `${categoryData.name} in ${areaData.name}, ${cityData.name}`,
-    "description": seoOverride?.meta_description || categoryData.metaDescription || `Professional ${categoryData.name} services in ${areaData.name}, ${cityData.name}. Trusted experts by FixBro.`,
+    "name": `${searchTerm} in ${areaData.name}, ${cityData.name}`,
+    "description": seoOverride?.meta_description || categoryData.metaDescription || `Professional ${searchTerm} services in ${areaData.name}, ${cityData.name}. Trusted experts by FixBro.`,
     "image": schemaImage,
     "provider": {
       "@type": "LocalBusiness",

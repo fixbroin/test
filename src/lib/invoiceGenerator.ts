@@ -70,9 +70,10 @@ export const generateInvoicePdf = async (booking: FirestoreBooking, companyDetai
   doc.setFont("helvetica", "normal");
 
   doc.setFontSize(10);
-  doc.text(`Invoice #: ${booking.bookingId}`, 196, 30, { align: "right" });
-  doc.text(`Date: ${new Date().toLocaleDateString('en-IN', { day: '2-digit', month: '2-digit', year: 'numeric' })}`, 196, 36, { align: "right" });
-  doc.text(`Service Date: ${formatDateForIndiaDisplay(booking.scheduledDate)}`, 196, 42, { align: "right" });
+  doc.text(`Booking No: #${booking.bookingNumber || 'N/A'}`, 196, 28, { align: "right" });
+  doc.text(`Invoice ID: ${booking.bookingId}`, 196, 34, { align: "right" });
+  doc.text(`Date: ${new Date().toLocaleDateString('en-IN', { day: '2-digit', month: '2-digit', year: 'numeric' })}`, 196, 40, { align: "right" });
+  doc.text(`Service Date: ${formatDateForIndiaDisplay(booking.scheduledDate)}`, 196, 46, { align: "right" });
 
   let startYCustomer = 55;
   doc.setFontSize(12);

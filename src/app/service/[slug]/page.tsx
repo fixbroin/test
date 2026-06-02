@@ -15,6 +15,22 @@ import { generateBreadcrumbSchema } from '@/lib/seoAdvancedUtils';
 
 export const revalidate = false; // Persistent Cache (Smart Revalidation Only)
 
+export async function generateStaticParams() {
+  try {
+    const servicesSnapshot = await adminDb
+      .collection('adminServices')
+      .where('isActive', '==', true)
+      .get();
+    
+    return servicesSnapshot.docs.map(doc => ({
+      slug: (doc.data() as FirestoreService).slug,
+    })).filter(p => p.slug);
+  } catch (error) {
+    console.error("Error generating static params for service detail pages:", error);
+    return [];
+  }
+}
+
 /**
  * Server-side helper to safely get milliseconds from various timestamp formats.
  * Important for Server Components handling both Admin SDK and serialized data.

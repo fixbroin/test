@@ -25,6 +25,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { useToast } from '@/hooks/use-toast';
 import type { FirestoreUser, MarketingAutomationSettings, ReferralSettings, Referral, FirestoreNotification } from '@/types/firestore';
 import { logUserActivity } from '@/lib/activityLogger';
+import { assignNewUserNumber } from '@/lib/webServerUtils';
 import { getGuestId, clearGuestId } from '@/lib/guestIdManager';
 import { sendWelcomeEmail, type WelcomeEmailInput } from '@/ai/flows/sendWelcomeEmailFlow';
 import { useApplicationConfig } from '@/hooks/useApplicationConfig';
@@ -178,7 +179,7 @@ if (
         mobileNumber: userData?.mobileNumber || user.phoneNumber || undefined,
         loginMethod: user.providerData[0]?.providerId || 'password',
         sourceGuestId: guestIdBeforeAuth
-      }, user.uid, null);
+      }, user.uid, null, userData?.displayName);
       
       clearGuestId();
       await syncCartOnLogin(user.uid);
@@ -279,6 +280,9 @@ if (
         const newUserDocRef = doc(db, "users", user.uid);
         const authProvider = user.providerData[0]?.providerId; // e.g. 'google.com', 'phone', 'password'
   
+        // Get next sequential user number
+        const nextUserNumber = await assignNewUserNumber();
+
         if (referralCodeParam && referralSettings?.isReferralSystemEnabled && (authProvider === 'google.com' || authProvider === 'phone')) {
           const orConditions = [];
           if (newUsersEmail) orConditions.push(where("referredUserEmail", "==", newUsersEmail));
@@ -344,6 +348,7 @@ if (
         const newUserFirestoreData: FirestoreUser = {
           id: user.uid,
           uid: user.uid,
+          userNumber: nextUserNumber,
           email: details.email || user.email || null,
           displayName: details.fullName,
           mobileNumber: user.phoneNumber || details.mobileNumber || null,

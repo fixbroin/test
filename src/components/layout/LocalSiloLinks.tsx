@@ -36,26 +36,33 @@ const LocalSiloLinks = () => {
         if (citySnap.empty) return;
         const city = { id: citySnap.docs[0].id, ...citySnap.docs[0].data() } as FirestoreCity;
 
-        // 2. Fetch top 8 active areas in that city
+        // 2. Fetch top 24 active areas in that city to increase link density
         const areasQuery = query(
           collection(db, "areas"), 
           where("cityId", "==", city.id), 
           where("isActive", "==", true), 
           orderBy("name"), 
-          limit(8)
+          limit(24)
         );
         const areasSnap = await getDocs(areasQuery);
         const areas = areasSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as FirestoreArea));
 
-        // 3. Fetch top 8 active categories
+        // 3. Fetch categories, ensuring Carpentry is prioritized
         const catsQuery = query(
           collection(db, "adminCategories"), 
           where("isActive", "==", true), 
-          orderBy("order", "asc"), 
-          limit(8)
+          orderBy("order", "asc")
         );
         const catsSnap = await getDocs(catsQuery);
-        const categories = catsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as FirestoreCategory));
+        let allCategories = catsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as FirestoreCategory));
+        
+        // Move Carpentry/Carpenter to the front for maximum link juice
+        const priorityCats = allCategories.filter(cat => 
+          ['carpentry', 'carpenter'].includes(cat.slug?.toLowerCase() || '') || 
+          ['carpentry', 'carpenter'].includes(cat.name?.toLowerCase() || '')
+        );
+        const otherCats = allCategories.filter(cat => !priorityCats.includes(cat));
+        const categories = [...priorityCats, ...otherCats].slice(0, 12);
 
         setData({ city, areas, categories });
       } catch (error) {

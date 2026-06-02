@@ -1,84 +1,287 @@
-
 'use server';
 /**
- * @fileOverview An AI flow to generate SEO content for a specific service category within a city.
+ * @fileOverview AI flow to generate highly optimized
+ * SEO content for service category city pages.
  */
 
 import { ai } from '@/ai/genkit';
 import { z } from 'genkit';
-import { cleanSeoString, truncateSeoString } from '@/lib/seoAdvancedUtils';
 
-const GenerateCityCategorySeoInputSchema = z.object({
-  cityName: z.string().describe("The name of the city, e.g., 'Bangalore'."),
-  categoryName: z.string().describe("The name of the service category, e.g., 'Carpentry'."),
-});
-export type GenerateCityCategorySeoInput = z.infer<typeof GenerateCityCategorySeoInputSchema>;
+import {
+  cleanSeoString,
+  truncateSeoString,
+} from '@/lib/seoAdvancedUtils';
 
-const GenerateCityCategorySeoOutputSchema = z.object({
-  h1_title: z.string().describe("An H1 title optimized for the city-category page."),
-  meta_title: z.string().describe("An SEO-optimized meta title, under 60 characters."),
-  meta_description: z.string().describe("An SEO-optimized meta description, under 160 characters."),
-  meta_keywords: z.string().describe("A comma-separated string of 10 highly relevant local SEO keywords."),
-  seo_content: z.string().describe("A 200-300 word long-form SEO bio for the city-category, including benefits and Bangalore relevance."),
-  faqs: z.array(z.object({
-    question: z.string(),
-    answer: z.string()
-  })).describe("3-5 local FAQs about the service in this city."),
-});
-export type GenerateCityCategorySeoOutput = z.infer<typeof GenerateCityCategorySeoOutputSchema>;
+const GenerateCityCategorySeoInputSchema =
+  z.object({
+    cityName: z.string().describe(
+      'City name. Example: Bangalore'
+    ),
 
-export async function generateCityCategorySeo(input: GenerateCityCategorySeoInput): Promise<GenerateCityCategorySeoOutput> {
+    categoryName: z.string().describe(
+      'Service category name. Example: Carpentry'
+    ),
+  });
+
+export type GenerateCityCategorySeoInput =
+  z.infer<
+    typeof GenerateCityCategorySeoInputSchema
+  >;
+
+const GenerateCityCategorySeoOutputSchema =
+  z.object({
+    h1_title: z.string().describe(
+      'SEO optimized H1 title'
+    ),
+
+    meta_title: z.string().describe(
+      'SEO optimized meta title'
+    ),
+
+    meta_description: z.string().describe(
+      'SEO optimized meta description'
+    ),
+
+    meta_keywords: z.string().describe(
+      'Comma separated SEO keywords'
+    ),
+
+    seo_content: z.string().describe(
+      'Long form SEO HTML content'
+    ),
+
+    faqs: z
+      .array(
+        z.object({
+          question: z.string(),
+
+          answer: z.string(),
+        })
+      )
+      .describe(
+        'Local SEO FAQs'
+      ),
+    imageHint: z.string().describe(
+      'One or two keywords for an AI image search'
+    ),
+  });
+
+export type GenerateCityCategorySeoOutput =
+  z.infer<
+    typeof GenerateCityCategorySeoOutputSchema
+  >;
+
+export async function generateCityCategorySeo(
+  input: GenerateCityCategorySeoInput
+): Promise<GenerateCityCategorySeoOutput> {
   return generateCityCategorySeoFlow(input);
 }
 
 const prompt = ai.definePrompt({
   name: 'generateCityCategorySeoPrompt',
-  input: { schema: GenerateCityCategorySeoInputSchema },
-  output: { schema: GenerateCityCategorySeoOutputSchema },
-  prompt: `You are an expert Local SEO copywriter for "FixBro", Bangalore's leading home services platform.
-Your task is to generate advanced, high-intent SEO content for a specific service category within Bangalore.
 
-City Name: {{cityName}}
-Category Name: {{categoryName}}
+  input: {
+    schema:
+      GenerateCityCategorySeoInputSchema,
+  },
 
-**CRITICAL SEO RULES:**
-1. **Exact Match Priority**: Do NOT start with "Best", "Top-Rated", or "Professional". Your primary keyword MUST be "{{categoryName}} in {{cityName}}". If {{categoryName}} is a "service" noun (like Carpentry), transform it into the "person" noun (like Carpenter) for the primary keyword.
-2. **Keyword First**: The H1 and Meta Title MUST start with "{{categoryName}} in {{cityName}}".
-3. **Intent Keywords**: Include "near me" later in the title, like "{{categoryName}} in {{cityName}} | {{categoryName}} Near Me".
-4. **Local Authority**: Put the primary keyword (e.g., "Carpenter in Bangalore") at the very beginning.
+  output: {
+    schema:
+      GenerateCityCategorySeoOutputSchema,
+  },
 
-**OUTPUT FIELDS:**
-1.  **h1_title**: MUST be exactly "{{categoryName}} in {{cityName}}".
-2.  **meta_title**: Exactly "{{categoryName}} in {{cityName}} | {{categoryName}} Near Me | FixBro".
-3.  **meta_description**: A compelling summary under 160 chars including the primary keyword.
-4.  **meta_keywords**: 10 high-intent, city-specific keywords like "{{categoryName}} near me", "{{categoryName}} {{cityName}}", etc.
-5.  **seo_content**: A 200-300 word professional bio for this service category in Bangalore. Mention how FixBro serves all major areas (Koramangala, Indiranagar, Whitefield, etc.), emphasize quality, safety, and why FixBro is the preferred choice for {{cityName}} residents. Use HTML tags like <p>, <strong>, and <br> for formatting.
-6.  **faqs**: Generate 3-5 Frequently Asked Questions that residents of {{cityName}} would ask about {{categoryName}} services. Include mentions of Bangalore neighborhoods.
+  prompt: `
+You are an advanced Local SEO expert for FixBro.
 
-Return the entire response as a single, valid JSON object.
+FixBro provides:
+- Carpenter services
+- Plumbing services
+- Electrician services
+- TV installation services
+- Painting services
+- Furniture assembly services
+- Interior services
+- Home repair services
+
+TARGET:
+City: {{cityName}}
+Category: {{categoryName}}
+
+IMPORTANT SEO RULES:
+
+1. Strongly optimize for:
+- carpenter near me
+- plumber near me
+- electrician near me
+- tv installation near me
+- painting services near me
+- furniture assembly near me
+
+2. Avoid overusing:
+- handyman
+- best
+- top-rated
+- professional
+
+3. Use natural human-friendly SEO.
+
+4. Category + city should appear naturally.
+
+5. Improve Google CTR.
+
+6. Avoid keyword stuffing.
+
+7. Generate ONLY valid JSON.
+
+8. No markdown.
+
+9. Use India local SEO intent.
+
+10. SEO content should rank for local searches.
+
+11. imageHint: One or two keywords for an AI image search.
+
+OUTPUT RULES:
+
+1. h1_title
+Format:
+"{{categoryName}} Services in {{cityName}}"
+
+Examples:
+"Carpenter Services in Bangalore"
+"Electrician Services in Bangalore"
+
+2. meta_title
+Rules:
+- Under 60 characters
+- Natural
+- Search optimized
+
+Examples:
+"Carpenter Near Me in Bangalore"
+"Electrician Services in Bangalore"
+
+3. meta_description
+Rules:
+- Under 160 characters
+- Mention:
+  - city name
+  - trusted experts
+  - category service
+  - near you intent
+
+Example:
+"Book trusted carpenter services in Bangalore with FixBro experts near you for repair, installation, and furniture work."
+
+4. meta_keywords
+Rules:
+- Exactly 10 keywords
+- Comma separated
+- High search intent only
+
+Example:
+carpenter bangalore,
+carpenter near me bangalore,
+furniture repair bangalore,
+wood work bangalore,
+bed assembly bangalore,
+wardrobe installation bangalore,
+carpenter services bangalore,
+door repair bangalore,
+furniture assembly bangalore,
+wooden work bangalore
+
+5. seo_content
+Rules:
+- 200 to 300 words
+- HTML format only
+- Use:
+  - <p>
+  - <strong>
+  - <br>
+
+- Mention:
+  - major Bangalore areas
+  - service quality
+  - verified experts
+  - same day service
+  - affordable pricing
+  - customer trust
+
+- Content must feel human written.
+
+- Avoid robotic repetition.
+
+6. faqs
+Rules:
+- Generate 5 FAQs
+- Highly local SEO focused
+- Mention Bangalore areas naturally
+- Questions should match real Google searches
+
+Examples:
+"Do you provide carpenter services in Whitefield?"
+"Can I book electrician services near me in HSR Layout?"
+
+7. imageHint: Keywords for finding a relevant high-quality image.
+
+Generate highly optimized city category SEO now.
 `,
 });
 
-const generateCityCategorySeoFlow = ai.defineFlow(
-  {
-    name: 'generateCityCategorySeoFlow',
-    inputSchema: GenerateCityCategorySeoInputSchema,
-    outputSchema: GenerateCityCategorySeoOutputSchema,
-  },
-  async (input) => {
-    const { output } = await prompt(input);
-    if (!output) {
-      throw new Error("AI failed to generate a valid SEO response for the city-category.");
-    }
+const generateCityCategorySeoFlow =
+  ai.defineFlow(
+    {
+      name:
+        'generateCityCategorySeoFlow',
 
-    // Clean and strictly truncate
-    return {
-      h1_title: cleanSeoString(output.h1_title),
-      meta_title: truncateSeoString(cleanSeoString(output.meta_title), 60),
-      meta_description: truncateSeoString(cleanSeoString(output.meta_description), 160),
-      meta_keywords: output.meta_keywords,
-      seo_content: output.seo_content,
-      faqs: output.faqs,
-    };
-  }
-);
+      inputSchema:
+        GenerateCityCategorySeoInputSchema,
+
+      outputSchema:
+        GenerateCityCategorySeoOutputSchema,
+    },
+
+    async (input) => {
+      const { output } =
+        await prompt(input);
+
+      if (!output) {
+        throw new Error(
+          'AI failed to generate valid city category SEO.'
+        );
+      }
+
+      return {
+        h1_title: cleanSeoString(
+          output.h1_title
+        ),
+
+        meta_title: truncateSeoString(
+          cleanSeoString(
+            output.meta_title
+          ),
+          60
+        ),
+
+        meta_description:
+          truncateSeoString(
+            cleanSeoString(
+              output.meta_description
+            ),
+            160
+          ),
+
+        meta_keywords:
+          cleanSeoString(
+            output.meta_keywords
+          ),
+
+        seo_content:
+          output.seo_content,
+
+        faqs: output.faqs,
+        imageHint: output.imageHint,
+      };
+    }
+  );

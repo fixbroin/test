@@ -57,7 +57,7 @@ const BookingConfirmationEmailInputSchema = z.object({
   smtpUser: z.string().optional(),
   smtpPass: z.string().optional(),
   senderEmail: z.string().email().optional(),
-  emailType: z.enum(['booking_confirmation', 'booking_completion', 'booking_rescheduled', 'booking_cancelled_by_admin', 'booking_cancelled_by_user']).optional().default('booking_confirmation'),
+  emailType: z.enum(['booking_confirmation', 'booking_completion', 'booking_rescheduled', 'booking_cancelled_by_admin', 'booking_cancelled_by_user', 'booking_status_update']).optional().default('booking_confirmation'),
   invoicePdfBase64: z.string().optional(),
   previousScheduledDate: z.string().optional(),
   previousScheduledTimeSlot: z.string().optional(),
@@ -260,17 +260,36 @@ const bookingEmailFlow = ai.defineFlow(
             <p>If you have any questions, please contact us.</p>
         `, siteName, logoUrl);
         adminEmailSubject = `Booking Rescheduled (ID: ${bookingDetails.bookingId})`;
-        adminEmailBody = createHtmlTemplate('Admin Alert: Booking Rescheduled', `<p>Booking ID <strong>${bookingDetails.bookingId}</strong> for <strong>${bookingDetails.customerName}</strong> has been RESCHEDULED.</p>`, siteName, logoUrl);
+        adminEmailBody = createHtmlTemplate('Admin Alert: Booking Rescheduled', `
+            <p>Booking ID <strong>${bookingDetails.bookingId}</strong> for <strong>${bookingDetails.customerName}</strong> has been RESCHEDULED.</p>
+            <p><strong>Previous Schedule:</strong> ${previousScheduledDate || 'N/A'} at ${previousScheduledTimeSlot || 'N/A'}</p>
+            <p><strong>New Schedule:</strong> ${bookingDetails.scheduledDate} at ${bookingDetails.scheduledTimeSlot}</p>
+            <p style="margin-top: 20px;">
+              <a href="${getBaseUrl()}/admin/bookings" class="button">View in Admin Panel</a>
+            </p>
+        `, siteName, logoUrl);
       } else if (emailType === 'booking_cancelled_by_admin') {
         customerEmailSubject = `Your Booking Has Been Cancelled`;
         customerEmailBody = createHtmlTemplate('Booking Cancelled', `
             <p>Dear ${bookingDetails.customerName},</p>
             <p>We regret to inform you that your booking #${bookingDetails.bookingId} has been cancelled.</p>
             ${cancellationReason ? `<p><strong>Reason:</strong> ${cancellationReason}</p>` : ''}
+            <p>If you did not request this cancellation, please note that it may have been cancelled by our system or service provider due to technician unavailability or service coverage limitations in your area. We sincerely apologize for the inconvenience and will try our best to serve you again soon.</p>
             <p>If you have paid online, your refund will be processed within 7 working days.</p>
         `, siteName, logoUrl);
         adminEmailSubject = `Booking Cancelled by Admin (ID: ${bookingDetails.bookingId})`;
         adminEmailBody = createHtmlTemplate('Admin Alert: Booking Cancelled', `<p>Booking ID <strong>${bookingDetails.bookingId}</strong> for <strong>${bookingDetails.customerName}</strong> was cancelled by an admin.</p>`, siteName, logoUrl);
+      } else if (emailType === 'booking_status_update') {
+        customerEmailSubject = `Update on your ${siteName} booking (ID: ${bookingDetails.bookingId})`;
+        customerEmailBody = createHtmlTemplate('Booking Status Updated', `
+            <p>Hi ${bookingDetails.customerName},</p>
+            <p>The status of your service booking (ID: <strong>${bookingDetails.bookingId}</strong>) has been updated to: <strong>${bookingDetails.status}</strong>.</p>
+            <p style="text-align: center; margin-top: 30px;">
+              <a href="${getBaseUrl()}/my-bookings" class="button">View Booking Status</a>
+            </p>
+        `, siteName, logoUrl);
+        adminEmailSubject = `Booking Status Updated (ID: ${bookingDetails.bookingId})`;
+        adminEmailBody = createHtmlTemplate('Admin Alert: Status Updated', `<p>Booking ID <strong>${bookingDetails.bookingId}</strong> status changed to <strong>${bookingDetails.status}</strong>.</p>`, siteName, logoUrl);
       } else { // booking_confirmation (default)
         customerEmailSubject = `Your ${siteName} Booking Confirmed! (ID: ${bookingDetails.bookingId})`;
         customerEmailBody = createHtmlTemplate('Booking Confirmed!', `

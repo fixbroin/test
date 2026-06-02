@@ -311,7 +311,8 @@ function CartPageContent() {
         'removeFromCart',
         { serviceId: itemBeingChanged.id, serviceName: itemBeingChanged.name, quantity: quantityChange },
         user?.uid,
-        !user ? getGuestId() : null
+        !user ? getGuestId() : null,
+        user?.displayName
       );
     } else if (newQuantity > oldQuantity) {
       toast({ title: "Cart Updated", description: `${itemBeingChanged.name} quantity updated to ${newQuantity}.` });
@@ -319,14 +320,16 @@ function CartPageContent() {
         'addToCart',
         { serviceId: itemBeingChanged.id, serviceName: itemBeingChanged.name, quantity: quantityChange, price: itemBeingChanged.price },
         user?.uid,
-        !user ? getGuestId() : null
+        !user ? getGuestId() : null,
+        user?.displayName
       );
     } else {
        logUserActivity(
         'removeFromCart',
         { serviceId: itemBeingChanged.id, serviceName: itemBeingChanged.name, quantity: quantityChange },
         user?.uid,
-        !user ? getGuestId() : null
+        !user ? getGuestId() : null,
+        user?.displayName
       );
     }
   };
@@ -343,7 +346,8 @@ function CartPageContent() {
         'removeFromCart',
         { serviceId: itemToRemove.id, serviceName: itemToRemove.name, quantity: itemToRemove.quantity },
         user?.uid,
-        !user ? getGuestId() : null
+        !user ? getGuestId() : null,
+        user?.displayName
       );
   };
 

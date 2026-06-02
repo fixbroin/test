@@ -118,7 +118,7 @@ const ProviderJobCard: React.FC<ProviderJobCardProps> = ({
               <span>[Hidden for Privacy]</span>
             ) : (
               <>
-                <span>{job.customerPhone}</span>
+                <a href={`tel:${job.customerPhone}`} className="text-primary hover:underline font-medium">{job.customerPhone}</a>
                 {job.customerPhone && (
                   <Button
                     variant="ghost"

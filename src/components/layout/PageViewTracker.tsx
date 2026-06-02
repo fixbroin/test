@@ -51,7 +51,8 @@ const PageViewTracker = () => {
       'pageView',
       { pageUrl: fullUrl, pageTitle: typeof document !== 'undefined' ? document.title : '' },
       user?.uid,
-      guestId
+      guestId,
+      user?.displayName
     );
 
     // Log visitor info

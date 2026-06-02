@@ -8,7 +8,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose } from "@/components/ui/dialog";
-import { Tag, Eye, Loader2, PackageSearch, XCircle, Edit, Trash2, CalendarDays, Clock, UserCheck2, MoreHorizontal, Users, ListOrdered, ChevronDown, Search, MapPin, Phone, Mail, IndianRupee, History, PlusCircle } from "lucide-react"; 
+import { Tag, Eye, Loader2, PackageSearch, XCircle, Edit, Trash2, CalendarDays, Clock, UserCheck2, MoreHorizontal, Users, ListOrdered, ChevronDown, Search, MapPin, Phone, Mail, IndianRupee, History, PlusCircle, ShieldCheck, AlertTriangle } from "lucide-react"; 
 import type { FirestoreBooking, BookingStatus, BookingServiceItem, AppSettings, ProviderApplication, FirestoreNotification, MarketingAutomationSettings, ReferralSettings, FirestoreUser, Referral, DayAvailability } from '@/types/firestore';
 import { db } from '@/lib/firebase';
 import { triggerPushNotification } from '@/lib/fcmUtils';
@@ -33,7 +33,9 @@ import AppImage from '@/components/ui/AppImage';
 import { getDashboardData, getArchivedBookings, type DashboardData } from '@/lib/adminDashboardUtils';
 import { triggerRefresh } from '@/lib/revalidateUtils';
 import CompleteBookingDialog from '@/components/shared/CompleteBookingDialog';
+import RescheduleBookingDialog from '@/components/shared/RescheduleBookingDialog';
 import { useAdminStats } from '@/hooks/useAdminStats';
+import { initializeBookingNumbers, resequenceBookingNumbers } from '@/lib/systemStatsUtils';
 
 const statusOptions: BookingStatus[] = [
   "Pending Payment", "Confirmed", "AssignedToProvider", "ProviderAccepted", 
@@ -69,6 +71,16 @@ const getStatusBadgeClass = (status: BookingStatus) => {
     }
 };
 
+const getCoverageBadge = (booking: FirestoreBooking) => {
+    if (booking.coverageType === 'provider_match') {
+        return <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-200 text-[10px] font-bold">Provider Match</Badge>;
+    }
+    if (booking.coverageType === 'admin_only') {
+        return <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-200 text-[10px] font-bold flex items-center gap-1"><AlertTriangle className="h-3 w-3" /> Manual Dispatch</Badge>;
+    }
+    return null;
+};
+
 const getPaymentBadgeClass = (method: string | undefined, status: string) => {
     if (status === 'Completed') return 'bg-green-50 text-green-700 border-green-200 hover:bg-green-50';
     const m = (method || 'Cash').toLowerCase();
@@ -95,7 +107,26 @@ export default function AdminBookingsPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [isUpdatingStatus, setIsUpdatingStatus] = useState<string | null>(null);
   const [isDeleting, setIsDeleting] = useState<string | null>(null);
+  const [isInitializing, setIsInitializing] = useState(false);
+  const [isSyncing, setIsSyncing] = useState(false);
   const [filterStatus, setFilterStatus] = useState<BookingStatus | "All">("All");
+
+  const handleSyncIDs = async () => {
+    setIsSyncing(true);
+    try {
+      const result = await resequenceBookingNumbers();
+      if (result.success) {
+        toast({ title: "Sync Complete", description: `Successfully re-sequenced ${result.count} bookings.` });
+        window.location.reload(); 
+      } else {
+        toast({ title: "Sync Failed", description: result.error, variant: "destructive" });
+      }
+    } catch (err) {
+      toast({ title: "Error", description: "An unexpected error occurred.", variant: "destructive" });
+    } finally {
+      setIsSyncing(false);
+    }
+  };
   const [searchTerm, setSearchTerm] = useState("");
   const { toast } = useToast();
   const router = useRouter();
@@ -108,6 +139,26 @@ export default function AdminBookingsPage() {
 
   const [isCompleteDialogOpen, setIsCompleteDialogOpen] = useState(false);
   const [bookingToComplete, setBookingToComplete] = useState<FirestoreBooking | null>(null);
+
+  const [isRescheduleDialogOpen, setIsRescheduleDialogOpen] = useState(false);
+  const [bookingToReschedule, setBookingToReschedule] = useState<FirestoreBooking | null>(null);
+
+  const handleInitialize = async () => {
+    setIsInitializing(true);
+    try {
+      const result = await initializeBookingNumbers();
+      if (result.success) {
+        toast({ title: "Initialization Complete", description: `Successfully assigned Booking IDs to ${result.count} bookings.` });
+        window.location.reload(); 
+      } else {
+        toast({ title: "Initialization Failed", description: result.error, variant: "destructive" });
+      }
+    } catch (err) {
+      toast({ title: "Error", description: "An unexpected error occurred.", variant: "destructive" });
+    } finally {
+      setIsInitializing(false);
+    }
+  };
 
   const handleWhatsAppClick = (booking: FirestoreBooking) => {
     if (booking.customerPhone) {
@@ -147,8 +198,10 @@ export default function AdminBookingsPage() {
             query(bookingsRef, where("customerPhone", ">=", term), where("customerPhone", "<=", term + '\uf8ff')),
           ];
 
-          // Phone variations with 91 prefix matching
+          // Phone variations and bookingNumber matching
           if (/^\d+$/.test(term)) {
+            const numTerm = parseInt(term, 10);
+            queries.push(query(bookingsRef, where("bookingNumber", "==", numTerm)));
             queries.push(query(bookingsRef, where("customerPhone", ">=", `91${term}`), where("customerPhone", "<=", `91${term}` + '\uf8ff')));
             queries.push(query(bookingsRef, where("customerPhone", ">=", `+91${term}`), where("customerPhone", "<=", `+91${term}` + '\uf8ff')));
             
@@ -194,7 +247,36 @@ export default function AdminBookingsPage() {
   }, [searchTerm, toast]);
 
   const loadMoreBookings = async () => {
-// ... unchanged
+    if (isLoadingMore || !hasMore || searchTerm.trim().length > 0 || !lastDoc) return;
+    setIsLoadingMore(true);
+    try {
+      const bookingsCollectionRef = collection(db, "bookings");
+      const q = query(
+        bookingsCollectionRef, 
+        orderBy("createdAt", "desc"), 
+        startAfter(lastDoc), 
+        limit(PAGE_SIZE)
+      );
+      
+      const querySnapshot = await getDocs(q);
+      const newBookings = querySnapshot.docs.map(doc => ({
+        ...doc.data(),
+        id: doc.id, 
+      } as FirestoreBooking));
+      
+      if (newBookings.length > 0) {
+        setBookings(prev => [...prev, ...newBookings]);
+        setLastDoc(querySnapshot.docs[querySnapshot.docs.length - 1]);
+        setHasMore(querySnapshot.docs.length === PAGE_SIZE);
+      } else {
+        setHasMore(false);
+      }
+    } catch (error) {
+      console.error("Error loading more bookings:", error);
+      toast({ title: "Error", description: "Failed to load more bookings.", variant: "destructive" });
+    } finally {
+      setIsLoadingMore(false);
+    }
   };
 
   const filteredBookings = useMemo(() => {
@@ -216,8 +298,10 @@ export default function AdminBookingsPage() {
         
         const userPhone = (b.customerPhone || '').replace(/\D/g, '').replace(/^91/, '');
         const phoneMatch = normalizedSearchPhone ? userPhone.includes(normalizedSearchPhone) : false;
+
+        const numberMatch = b.bookingNumber?.toString() === lowerSearch;
         
-        return idMatch || nameMatch || phoneMatch;
+        return idMatch || nameMatch || phoneMatch || numberMatch;
       });
     }
     
@@ -233,9 +317,18 @@ export default function AdminBookingsPage() {
         return;
     }
 
+    if (newStatus === 'Rescheduled') {
+        setBookingToReschedule(booking);
+        setIsRescheduleDialogOpen(true);
+        return;
+    }
+
     setIsUpdatingStatus(booking.id);
     try {
       const updateData: any = { status: newStatus, updatedAt: Timestamp.now() };
+      if (newStatus === "AssignedToProvider") {
+        updateData.isProviderNotified = false; // Force re-notification
+      }
       if (newStatus === "Completed") {
         if (additionalCharges && additionalCharges.length > 0) {
             updateData.additionalCharges = additionalCharges;
@@ -246,6 +339,13 @@ export default function AdminBookingsPage() {
       }
 
       await updateDoc(doc(db, "bookings", booking.id), updateData);
+
+      // Manually update local state to reflect changes immediately
+      setBookings(prev => prev.map(b => b.id === booking.id ? { ...b, ...updateData } : b));
+      if (selectedBooking?.id === booking.id) {
+        setSelectedBooking(prev => prev ? { ...prev, ...updateData } : null);
+      }
+
       await triggerRefresh('bookings');
       fetch('/api/bookings/post-process', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ bookingDocId: booking.id }), }).catch(err => console.error(err));
       toast({ title: "Success", description: `Booking is now ${newStatus}.` });
@@ -260,6 +360,13 @@ export default function AdminBookingsPage() {
     try {
       await deleteDoc(doc(db, "bookings", booking.id));
       
+      // Manually update local state to remove the deleted booking immediately
+      setBookings(prev => prev.filter(b => b.id !== booking.id));
+      if (selectedBooking?.id === booking.id) {
+        setIsDetailsModalOpen(false);
+        setSelectedBooking(null);
+      }
+
       // DECREMENT STATS
       const statsUpdates: any = {};
       if (booking.isStatsTracked) {
@@ -286,7 +393,20 @@ export default function AdminBookingsPage() {
   const handleConfirmAssignment = async (bookingId: string, providerId: string, providerName: string) => {
     setIsUpdatingStatus(bookingId);
     try {
-      await updateDoc(doc(db, "bookings", bookingId), { providerId, status: "AssignedToProvider", updatedAt: Timestamp.now() });
+      const updateData = { 
+        providerId, 
+        status: "AssignedToProvider" as BookingStatus, 
+        isProviderNotified: false, // RESET so post-process notifies the new provider
+        updatedAt: Timestamp.now() 
+      };
+      await updateDoc(doc(db, "bookings", bookingId), updateData);
+      
+      // Manually update local state to reflect changes immediately
+      setBookings(prev => prev.map(b => b.id === bookingId ? { ...b, ...updateData } : b));
+      if (selectedBooking?.id === bookingId) {
+        setSelectedBooking(prev => prev ? { ...prev, ...updateData } : null);
+      }
+
       await triggerRefresh('bookings');
       fetch('/api/bookings/post-process', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ bookingDocId: bookingId }) });
       toast({ title: "Assigned", description: `Assigned to ${providerName}.` });
@@ -294,14 +414,53 @@ export default function AdminBookingsPage() {
     } catch (err) { toast({ title: "Failed", variant: "destructive" }); } finally { setIsUpdatingStatus(null); }
   };
 
-  const renderBookingCard = (booking: FirestoreBooking, rowNumber: number) => (
+  const handleRescheduleConfirm = async (newDate: string, newSlot: string, newEndTime: string) => {
+    if (!bookingToReschedule?.id) return;
+    
+    setIsUpdatingStatus(bookingToReschedule.id);
+    try {
+        const updateData = {
+            status: "Rescheduled" as BookingStatus,
+            scheduledDate: newDate,
+            scheduledTimeSlot: newSlot,
+            estimatedEndTime: newEndTime,
+            previousScheduledDate: bookingToReschedule.scheduledDate,
+            previousScheduledTimeSlot: bookingToReschedule.scheduledTimeSlot,
+            updatedAt: Timestamp.now()
+        };
+
+        await updateDoc(doc(db, "bookings", bookingToReschedule.id), updateData);
+
+        // Update local state
+        setBookings(prev => prev.map(b => b.id === bookingToReschedule.id ? { ...b, ...updateData } : b));
+        
+        await triggerRefresh('bookings');
+        fetch('/api/bookings/post-process', { 
+            method: 'POST', 
+            headers: { 'Content-Type': 'application/json' }, 
+            body: JSON.stringify({ bookingDocId: bookingToReschedule.id }) 
+        });
+
+        toast({ title: "Success", description: "Booking rescheduled successfully." });
+        setIsRescheduleDialogOpen(false);
+        setBookingToReschedule(null);
+    } catch (error) {
+        console.error("Reschedule failed:", error);
+        toast({ title: "Error", description: "Failed to reschedule booking.", variant: "destructive" });
+    } finally {
+        setIsUpdatingStatus(null);
+    }
+  };
+
+  const renderBookingCard = (booking: FirestoreBooking) => (
     <Card key={booking.id} className="mb-4 border-l-4 shadow-md overflow-hidden" style={{ borderLeftColor: getStatusBadgeClass(booking.status).split(' ')[0].replace('bg-', 'var(--') }}>
       <CardHeader className="p-4 bg-muted/20 pb-3">
         <div className="flex justify-between items-start">
             <div className="space-y-1">
                 <div className="flex items-center gap-2">
-                  <span className="text-[10px] font-black bg-muted px-1.5 py-0.5 rounded text-muted-foreground">{rowNumber}</span>
+                  <span className="text-[10px] font-black bg-primary text-white px-2 py-0.5 rounded-lg shadow-sm">#{booking.bookingNumber || '...'}</span>
                   <CardTitle className="text-sm font-mono text-primary font-bold">{booking.bookingId}</CardTitle>
+                  <div className="ml-auto">{getCoverageBadge(booking)}</div>
                 </div>
                 <div className="text-sm font-bold">{booking.customerName}</div>
             </div>
@@ -312,14 +471,18 @@ export default function AdminBookingsPage() {
         <div className="space-y-2 bg-muted/10 p-2 rounded-lg border border-muted/50">
             <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2 font-medium">
-                    <Phone className="h-4 w-4 text-primary" /> {booking.customerPhone}
+                    <Phone className="h-4 w-4 text-primary" /> 
+                    <a href={`tel:${booking.customerPhone}`} className="text-primary hover:underline">{booking.customerPhone}</a>
                     {booking.customerPhone && (
                         <Button variant="ghost" size="icon" className="h-7 w-7 hover:bg-primary/10" onClick={() => handleWhatsAppClick(booking)} title="Chat on WhatsApp">
                             <AppImage src="/whatsapp.png" alt="WhatsApp" width={18} height={18} />
                         </Button>
                     )}
                 </div>
-                <div className="font-black text-base text-primary"><IndianRupee className="h-3.5 w-3.5" />{booking.totalAmount.toLocaleString()}</div>
+                <div className="font-black text-base text-foreground flex items-center gap-1">
+                    <IndianRupee className="h-3.5 w-3.5" />
+                    {booking.totalAmount.toLocaleString()}
+                </div>
             </div>
             <div className="flex justify-between items-center text-xs py-1 border-t border-muted/30 mt-1 pt-1">
                 <span className="text-muted-foreground">Payment:</span>
@@ -352,13 +515,22 @@ export default function AdminBookingsPage() {
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div><h1 className="text-3xl font-bold flex items-center"><ListOrdered className="mr-2 h-8 w-8 text-primary" /> Manage Bookings</h1><p className="text-muted-foreground">Real-time service management dashboard.</p></div>
         <div className="flex flex-col sm:flex-row gap-2">
+          <Button 
+            variant="outline" 
+            className="h-10 border-2 border-primary/20 text-primary font-bold hover:bg-primary hover:text-white transition-all duration-300"
+            onClick={handleSyncIDs}
+            disabled={isSyncing}
+          >
+            {isSyncing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <ShieldCheck className="mr-2 h-4 w-4" />}
+            Sync Booking IDs
+          </Button>
           <Button onClick={() => router.push('/admin/bookings/create')} className="bg-primary h-10 font-bold">
             <PlusCircle className="mr-2 h-4 w-4" /> Create Booking
           </Button>
           <div className="relative w-full sm:w-64 group">
             <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground group-focus-within:text-primary transition-colors" />
             <Input 
-              placeholder="ID, Name, Phone..." 
+              placeholder="ID, Name, Phone, # Number..." 
               className="pl-9 pr-9 h-10 w-full bg-background border-muted/50 focus-visible:ring-primary/20 shadow-sm" 
               value={searchTerm} 
               onChange={(e) => setSearchTerm(e.target.value)}
@@ -385,16 +557,20 @@ export default function AdminBookingsPage() {
                 <Table><TableHeader><TableRow><TableHead className="w-[50px]">No.</TableHead><TableHead className="w-[120px]">ID</TableHead><TableHead>Customer</TableHead><TableHead>Date & Time</TableHead><TableHead>Payment</TableHead><TableHead>Services</TableHead><TableHead className="text-right">Amount (₹)</TableHead></TableRow></TableHeader>
                 <TableBody>
                   {filteredBookings.map((b, index) => {
-                    const rowNumber = (stats?.totalBookings || 0) - index;
                     return (
                       <React.Fragment key={b.id}>
                         <TableRow className="hover:bg-transparent border-b-0">
-                          <TableCell className="text-xs font-bold text-muted-foreground">{rowNumber}</TableCell>
-                          <TableCell className="font-mono text-xs font-bold text-primary">{b.bookingId}</TableCell>
+                          <TableCell className="text-xs font-black text-primary bg-primary/5 rounded-lg text-center h-8 w-8 flex items-center justify-center mt-3 ml-2">{b.bookingNumber || '...'}</TableCell>
+                          <TableCell>
+                            <div className="font-mono text-xs font-bold text-primary">{b.bookingId}</div>
+                            <div className="mt-1">{getCoverageBadge(b)}</div>
+                          </TableCell>
                           <TableCell>
                             <div className="font-bold">{b.customerName}</div>
                             <div className="flex items-center gap-1.5 mt-0.5">
-                              <span className="text-xs text-muted-foreground">{b.customerPhone}</span>
+                              <span className="text-xs text-muted-foreground">
+                                <a href={`tel:${b.customerPhone}`} className="hover:underline">{b.customerPhone}</a>
+                              </span>
                               {b.customerPhone && (
                                 <Button variant="ghost" size="icon" className="h-6 w-6 hover:bg-primary/10" onClick={() => handleWhatsAppClick(b)} title="WhatsApp">
                                   <AppImage src="/whatsapp.png" alt="WA" width={14} height={14} />
@@ -417,7 +593,12 @@ export default function AdminBookingsPage() {
                             </Badge>
                           </TableCell>
                           <TableCell className="max-w-[200px] truncate text-xs font-medium">{b.services.map(s => s.name).join(', ')}</TableCell>
-                          <TableCell className="text-right pr-6 font-black text-lg">{b.totalAmount.toLocaleString()}</TableCell>
+                          <TableCell className="text-right pr-6">
+                            <div className="flex items-center justify-end gap-1 font-black text-lg">
+                                <IndianRupee className="h-4 w-4 text-foreground" />
+                                {b.totalAmount.toLocaleString()}
+                            </div>
+                          </TableCell>
                         </TableRow>
                         <TableRow className="bg-muted/5 border-b-2">
                           <TableCell colSpan={7} className="py-3 px-4">
@@ -456,12 +637,19 @@ export default function AdminBookingsPage() {
                 </TableBody></Table>
                 </div>
                 <div className="md:hidden p-4 space-y-4">
-                {filteredBookings.map((b, index) => renderBookingCard(b, (stats?.totalBookings || 0) - index))}
+                {filteredBookings.map((b) => renderBookingCard(b))}
               </div>
               {hasMore && !searchTerm && (
-                <div className="p-6 text-center border-t">
-                  <Button variant="outline" onClick={loadMoreBookings} disabled={isLoadingMore}>
-                    Load More
+                <div className="p-8 text-center border-t border-muted/40">
+                  <Button
+                    variant="outline"
+                    size="lg"
+                    onClick={loadMoreBookings}
+                    disabled={isLoadingMore}
+                    className="min-w-[200px] rounded-2xl border-2 border-primary/20 hover:bg-primary hover:text-primary-foreground transition-all duration-300 shadow-sm font-black uppercase text-xs tracking-widest h-12"
+                  >
+                    {isLoadingMore ? <Loader2 className="h-5 w-5 animate-spin mr-2" /> : <ChevronDown className="h-5 w-5 mr-2" />}
+                    Load More Bookings
                   </Button>
                 </div>
               )}
@@ -473,6 +661,7 @@ export default function AdminBookingsPage() {
       {selectedBooking && (<Dialog open={isDetailsModalOpen} onOpenChange={setIsDetailsModalOpen}><DialogContent className="max-w-3xl w-[90vw] max-h-[90vh] flex flex-col p-0"><DialogHeader className="p-6 pb-4 border-b"><DialogTitle>Details: {selectedBooking.bookingId}</DialogTitle></DialogHeader><div className="overflow-y-auto flex-grow p-6"><BookingDetailsModalContent booking={selectedBooking} /></div><div className="p-6 border-t flex justify-end"><DialogClose asChild><Button variant="outline">Close</Button></DialogClose></div></DialogContent></Dialog>)}
       {bookingToAssign && (<AssignProviderModal isOpen={isAssignModalOpen} onClose={() => { setIsAssignModalOpen(false); setBookingToAssign(null); }} booking={bookingToAssign} onAssignConfirm={handleConfirmAssignment} />)}
       {bookingToComplete && (<CompleteBookingDialog isOpen={isCompleteDialogOpen} onClose={() => { setIsCompleteDialogOpen(false); setBookingToComplete(null); }} onConfirm={(charges, pMethod) => handleStatusChange(bookingToComplete, 'Completed', charges, pMethod)} originalAmount={bookingToComplete.totalAmount} currentPaymentMethod={bookingToComplete.paymentMethod || "Cash"} isProcessing={isUpdatingStatus === bookingToComplete.id} />)}
+      {bookingToReschedule && (<RescheduleBookingDialog isOpen={isRescheduleDialogOpen} onClose={() => { setIsRescheduleDialogOpen(false); setBookingToReschedule(null); }} booking={bookingToReschedule} onRescheduleComplete={(newDate, newSlot, newEndTime) => handleRescheduleConfirm(newDate, newSlot, newEndTime)} />)}
     </div>
   );
 }

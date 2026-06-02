@@ -27,6 +27,12 @@ import { getArchivedUsers } from '@/lib/adminDashboardUtils';
 import { triggerRefresh } from '@/lib/revalidateUtils';
 import { getTimestampMillis } from '@/lib/utils';
 
+import { initializeUserNumbers } from '@/lib/systemStatsUtils';
+
+import { resequenceUserNumbers } from '@/lib/systemStatsUtils';
+
+import { useAdminStats } from '@/hooks/useAdminStats';
+
 const formatUserTimestamp = (timestamp?: any): string => {
   const millis = getTimestampMillis(timestamp);
   if (!millis) return 'N/A';
@@ -45,9 +51,10 @@ const StatusBadge = ({ isActive, isLoading }: { isActive: boolean, isLoading: bo
   </div>
 );
 
-type SelectableUserField = keyof Omit<FirestoreUser, 'addresses' | 'fcmTokens' | 'marketingStatus' | 'roles' | 'photoURL'> | 'fullAddress';
+type SelectableUserField = Extract<keyof Omit<FirestoreUser, 'addresses' | 'fcmTokens' | 'marketingStatus' | 'roles' | 'photoURL'>, string> | 'fullAddress';
 
 const availableFields: { key: SelectableUserField; label: string }[] = [
+  { key: 'userNumber', label: 'Member #' },
   { key: 'displayName', label: 'Name' },
   { key: 'email', label: 'Email' },
   { key: 'mobileNumber', label: 'Mobile Number' },
@@ -61,6 +68,7 @@ const availableFields: { key: SelectableUserField; label: string }[] = [
 const PAGE_SIZE = 20;
 
 export default function AdminUsersPage() {
+  const { stats } = useAdminStats();
   const [users, setUsers] = useState<FirestoreUser[]>([]);
   const [lastDoc, setLastDoc] = useState<QueryDocumentSnapshot | null>(null);
   const [hasMore, setHasMore] = useState(true);
@@ -75,12 +83,31 @@ export default function AdminUsersPage() {
   const [isUserDetailsModalOpen, setIsUserDetailsModalOpen] = useState(false);
   const [isExportDialogOpen, setIsExportDialogOpen] = useState(false);
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
+  const [isSyncing, setIsSyncing] = useState(false);
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
 
   const [selectedFields, setSelectedFields] = useState<Partial<Record<SelectableUserField, boolean>>>({
     displayName: true, email: true, mobileNumber: true, fullAddress: false, 
     walletBalance: false, isActive: true, createdAt: false, lastLoginAt: false,
     id: false, uid: false,
   });
+
+  const handleSyncIDs = async () => {
+    setIsSyncing(true);
+    try {
+      const result = await resequenceUserNumbers();
+      if (result.success) {
+        toast({ title: "Sync Complete", description: `Successfully re-sequenced ${result.count} users.` });
+        window.location.reload(); // Refresh to show new numbers
+      } else {
+        toast({ title: "Sync Failed", description: result.error, variant: "destructive" });
+      }
+    } catch (err) {
+      toast({ title: "Error", description: "An unexpected error occurred.", variant: "destructive" });
+    } finally {
+      setIsSyncing(false);
+    }
+  };
 
   useEffect(() => {
     if (searchTerm.trim().length > 0) {
@@ -100,8 +127,10 @@ export default function AdminUsersPage() {
             query(usersRef, where("displayName", ">=", capitalizedTerm), where("displayName", "<=", capitalizedTerm + '\uf8ff')),
           ];
 
-          // Add phone variations with 91 prefix matching
+          // Add phone variations and userNumber matching
           if (/^\d+$/.test(term)) {
+            const numTerm = parseInt(term, 10);
+            queries.push(query(usersRef, where("userNumber", "==", numTerm)));
             queries.push(query(usersRef, where("mobileNumber", ">=", `91${term}`), where("mobileNumber", "<=", `91${term}` + '\uf8ff')));
             queries.push(query(usersRef, where("mobileNumber", ">=", `+91${term}`), where("mobileNumber", "<=", `+91${term}` + '\uf8ff')));
             
@@ -131,40 +160,58 @@ export default function AdminUsersPage() {
       return () => clearTimeout(delayDebounceFn);
     } else {
       setIsLoading(true);
-      const usersCollectionRef = collection(db, "users");
-      const q = query(usersCollectionRef, orderBy("createdAt", "desc"), limit(PAGE_SIZE));
+      const fetchInitialUsers = async () => {
+        try {
+          const usersCollectionRef = collection(db, "users");
+          const q = query(usersCollectionRef, orderBy("createdAt", sortOrder), limit(PAGE_SIZE));
+          const querySnapshot = await getDocs(q);
+          const fetchedUsers = querySnapshot.docs.map(doc => ({
+            ...doc.data(),
+            id: doc.id, 
+          } as FirestoreUser));
+          setUsers(fetchedUsers);
+          setLastDoc(querySnapshot.docs[querySnapshot.docs.length - 1] || null);
+          setHasMore(querySnapshot.docs.length === PAGE_SIZE);
+        } catch (error) {
+          console.error("Error fetching users: ", error);
+          toast({ title: "Fetch Error", description: "Could not load users.", variant: "destructive" });
+        } finally {
+          setIsLoading(false);
+        }
+      };
 
-      const unsubscribe = onSnapshot(q, (querySnapshot) => {
-        const fetchedUsers = querySnapshot.docs.map(doc => ({
-          ...doc.data(),
-          id: doc.id, 
-        } as FirestoreUser));
-        setUsers(fetchedUsers);
-        setLastDoc(querySnapshot.docs[querySnapshot.docs.length - 1] || null);
-        setHasMore(querySnapshot.docs.length === PAGE_SIZE);
-        setIsLoading(false);
-      }, (error) => {
-        console.error("Error fetching users: ", error);
-        setIsLoading(false);
-      });
-
-      return () => unsubscribe();
+      fetchInitialUsers();
     }
-  }, [searchTerm]);
+  }, [searchTerm, sortOrder]);
 
   const loadMoreUsers = async () => {
-    if (isLoadingMore || !hasMore || searchTerm.trim().length > 0) return;
+    if (isLoadingMore || !hasMore || searchTerm.trim().length > 0 || !lastDoc) return;
     setIsLoadingMore(true);
     try {
-      const moreUsers = await getArchivedUsers();
+      const usersCollectionRef = collection(db, "users");
+      const q = query(
+        usersCollectionRef, 
+        orderBy("createdAt", sortOrder), 
+        startAfter(lastDoc), 
+        limit(PAGE_SIZE)
+      );
       
-      const existingIds = new Set(users.map(u => u.id));
-      const newItems = moreUsers.filter(u => !existingIds.has(u.id));
+      const querySnapshot = await getDocs(q);
+      const newUsers = querySnapshot.docs.map(doc => ({
+        ...doc.data(),
+        id: doc.id, 
+      } as FirestoreUser));
       
-      setUsers(prev => [...prev, ...newItems]);
-      setHasMore(false);
+      if (newUsers.length > 0) {
+        setUsers(prev => [...prev, ...newUsers]);
+        setLastDoc(querySnapshot.docs[querySnapshot.docs.length - 1]);
+        setHasMore(querySnapshot.docs.length === PAGE_SIZE);
+      } else {
+        setHasMore(false);
+      }
     } catch (error) {
       console.error("Error loading more users:", error);
+      toast({ title: "Error", description: "Failed to load more users.", variant: "destructive" });
     } finally {
       setIsLoadingMore(false);
     }
@@ -184,8 +231,11 @@ export default function AdminUsersPage() {
       // Normalize user phone for comparison
       const userPhone = (user.mobileNumber || '').replace(/\D/g, '').replace(/^91/, '');
       const phoneMatch = normalizedSearchPhone ? userPhone.includes(normalizedSearchPhone) : false;
+
+      // Member ID match
+      const numberMatch = user.userNumber?.toString() === lowerSearch;
       
-      return nameMatch || emailMatch || phoneMatch;
+      return nameMatch || emailMatch || phoneMatch || numberMatch;
     });
   }, [users, searchTerm]);
 
@@ -326,13 +376,17 @@ export default function AdminUsersPage() {
 
       <div className="grid grid-cols-1 gap-2 mb-5">
         <div className="flex items-center gap-2 text-xs font-medium text-muted-foreground">
+          <CheckCircle2 className="h-3.5 w-3.5 text-primary/60" />
+          <span className="font-bold text-primary">Member #{user.userNumber || '...'}</span>
+        </div>
+        <div className="flex items-center gap-2 text-xs font-medium text-muted-foreground">
           <Mail className="h-3.5 w-3.5 text-primary/60" />
           <span className="truncate">{user.email || 'N/A'}</span>
         </div>
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2 text-xs font-medium text-muted-foreground">
             <Phone className="h-3.5 w-3.5 text-primary/60" />
-            <span>{user.mobileNumber || 'No Phone'}</span>
+            <a href={`tel:${user.mobileNumber}`} className="text-primary hover:underline font-medium">{user.mobileNumber || 'No Phone'}</a>
           </div>
           {user.mobileNumber && (
             <Button variant="ghost" size="sm" className="h-7 px-2 text-emerald-600 bg-emerald-500/5 hover:bg-emerald-500/10 rounded-lg" onClick={(e) => handleWhatsAppClick(e, user.mobileNumber!)}>
@@ -398,8 +452,27 @@ export default function AdminUsersPage() {
             <Users className="h-4 w-4" />
             <span className="text-[10px] font-black uppercase tracking-[0.2em]">Community Database</span>
           </div>
-          <h1 className="text-4xl font-black tracking-tight">User Directory</h1>
+          <h1 className="text-4xl font-black tracking-tight">User Directory <span className="text-primary/40 ml-2">({stats.activeUsers})</span></h1>
           <p className="text-muted-foreground text-sm font-medium">Manage and audit your registered user ecosystem.</p>
+        </div>
+        <div className="flex items-center gap-3">
+            <Button 
+                variant="outline" 
+                className="h-10 rounded-xl border-2 border-primary/20 text-primary font-black uppercase text-[10px] tracking-widest hover:bg-primary hover:text-white transition-all duration-300"
+                onClick={() => setSortOrder(prev => prev === 'desc' ? 'asc' : 'desc')}
+            >
+                {sortOrder === 'desc' ? <ChevronDown className="mr-2 h-3 w-3" /> : <UserPlus className="mr-2 h-3 w-3 rotate-180" />}
+                {sortOrder === 'desc' ? 'Newest First' : 'Oldest First'}
+            </Button>
+            <Button 
+                variant="outline" 
+                className="h-10 rounded-xl border-2 border-primary/20 text-primary font-black uppercase text-[10px] tracking-widest hover:bg-primary hover:text-white transition-all duration-300"
+                onClick={handleSyncIDs}
+                disabled={isSyncing}
+            >
+                {isSyncing ? <Loader2 className="mr-2 h-3 w-3 animate-spin" /> : <ShieldCheck className="mr-2 h-3 w-3" />}
+                Sync Member IDs
+            </Button>
         </div>
       </header>
 
@@ -442,7 +515,8 @@ export default function AdminUsersPage() {
                 <Table>
                   <TableHeader className="bg-muted/30">
                     <TableRow className="hover:bg-transparent border-none">
-                      <TableHead className="w-[80px] pl-8 py-5 text-[10px] font-black uppercase tracking-widest">Profile</TableHead>
+                      <TableHead className="w-[80px] pl-8 py-5 text-[10px] font-black uppercase tracking-widest text-foreground"># ID</TableHead>
+                      <TableHead className="w-[80px] text-[10px] font-black uppercase tracking-widest text-foreground text-center">Profile</TableHead>
                       <TableHead className="text-[10px] font-black uppercase tracking-widest text-foreground">Legal Name & UID</TableHead>
                       <TableHead className="text-[10px] font-black uppercase tracking-widest text-foreground">Communications</TableHead>
                       <TableHead className="text-[10px] font-black uppercase tracking-widest text-foreground">Registered</TableHead>
@@ -455,8 +529,13 @@ export default function AdminUsersPage() {
                       {filteredUsers.map((user, idx) => (
                         <motion.tr key={user.id} initial={{ opacity: 0, y: -5 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2, delay: idx < 15 ? idx * 0.03 : 0 }} className="group border-b border-muted/40 transition-all hover:bg-primary/[0.02]">
                           <TableCell className="pl-8">
+                            <div className="bg-primary/5 text-primary font-black text-xs h-9 w-9 rounded-xl flex items-center justify-center border border-primary/10 shadow-sm">
+                                {user.userNumber || '...'}
+                            </div>
+                          </TableCell>
+                          <TableCell className="text-center">
                             <Avatar 
-                              className="h-10 w-10 border shadow-sm group-hover:scale-110 transition-transform cursor-zoom-in"
+                              className="h-10 w-10 border shadow-sm group-hover:scale-110 transition-transform cursor-zoom-in mx-auto"
                               onClick={() => user.photoURL && setSelectedImage(user.photoURL)}
                             >
                               <AvatarImage src={user.photoURL || undefined} alt={user.displayName || user.email || undefined} />
@@ -473,7 +552,8 @@ export default function AdminUsersPage() {
                             <div className="flex flex-col gap-1">
                               <div className="flex items-center gap-2 text-xs font-medium text-muted-foreground truncate max-w-[200px]"><Mail className="h-3 w-3 text-primary/60 shrink-0" /> {user.email}</div>
                               <div className="flex items-center gap-2 text-xs font-medium text-muted-foreground">
-                                <Phone className="h-3 w-3 text-primary/60 shrink-0" /> <span>{user.mobileNumber || "No Contact"}</span>
+                                <Phone className="h-3 w-3 text-primary/60 shrink-0" /> 
+                                <a href={`tel:${user.mobileNumber}`} className="hover:underline">{user.mobileNumber || "No Contact"}</a>
                                 {user.mobileNumber && <button onClick={(e) => handleWhatsAppClick(e, user.mobileNumber!)} className="p-1 hover:bg-emerald-100 dark:hover:bg-emerald-900 rounded-md transition-colors"><AppImage src="/whatsapp.png" alt="WA" width={14} height={14} /></button>}
                               </div>
                             </div>

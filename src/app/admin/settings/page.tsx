@@ -4,7 +4,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Settings, Save, Loader2, AlertCircle, MapPin as MapIcon, MailIcon, PlaySquare, Percent, Ban, Users, Clock, DollarSign, CreditCard } from "lucide-react";
+import { Settings, Save, Loader2, AlertCircle, MapPin as MapIcon, MailIcon, PlaySquare, Percent, Ban, Users, Clock, DollarSign, CreditCard, Bell } from "lucide-react";
 import { useToast } from '@/hooks/use-toast';
 import { db } from '@/lib/firebase';
 import { doc, getDoc, setDoc, Timestamp } from "firebase/firestore";
@@ -57,6 +57,7 @@ export default function AdminSettingsPage() {
           cancellationFeeType: firestoreData.cancellationFeeType ?? defaultAppSettings.cancellationFeeType,
           cancellationFeeValue: firestoreData.cancellationFeeValue ?? defaultAppSettings.cancellationFeeValue,
           maxProviderRadiusKm: firestoreData.maxProviderRadiusKm ?? defaultAppSettings.maxProviderRadiusKm, // Merge new field
+          autoDispatchRadiusKm: firestoreData.autoDispatchRadiusKm ?? defaultAppSettings.autoDispatchRadiusKm, // Merge auto dispatch field
         };
         setSettings(mergedSettings);
       } else {
@@ -93,7 +94,7 @@ export default function AdminSettingsPage() {
     setSettings(prev => {
       const newSettings = JSON.parse(JSON.stringify(prev)); 
 
-      if (['carouselAutoplayDelay', 'visitingChargeTaxPercent', 'minimumBookingAmount', 'visitingChargeAmount', 'limitLateBookingHours', 'freeCancellationDays', 'freeCancellationHours', 'freeCancellationMinutes', 'cancellationFeeValue', 'maxProviderRadiusKm', 'timeSlotSettings.slotIntervalMinutes', 'timeSlotSettings.breakTimeMinutes'].includes(name)) {
+      if (['carouselAutoplayDelay', 'visitingChargeTaxPercent', 'minimumBookingAmount', 'visitingChargeAmount', 'limitLateBookingHours', 'freeCancellationDays', 'freeCancellationHours', 'freeCancellationMinutes', 'cancellationFeeValue', 'maxProviderRadiusKm', 'autoDispatchRadiusKm', 'timeSlotSettings.slotIntervalMinutes', 'timeSlotSettings.breakTimeMinutes'].includes(name)) {
         const keys = name.split('.');
         if (keys.length > 1) {
           (newSettings as any)[keys[0]][keys[1]] = parseFloat(value) || 0;
@@ -303,6 +304,12 @@ export default function AdminSettingsPage() {
               className="relative h-12 rounded-none border-b-2 border-transparent bg-transparent px-4 pb-3 pt-2 font-semibold text-muted-foreground shadow-none transition-none data-[state=active]:border-primary data-[state=active]:text-primary data-[state=active]:shadow-none whitespace-nowrap"
             >
               <Ban className="mr-2 h-4 w-4" /> Cancellation
+            </TabsTrigger>
+            <TabsTrigger 
+              value="notifications"
+              className="relative h-12 rounded-none border-b-2 border-transparent bg-transparent px-4 pb-3 pt-2 font-semibold text-muted-foreground shadow-none transition-none data-[state=active]:border-primary data-[state=active]:text-primary data-[state=active]:shadow-none whitespace-nowrap"
+            >
+              <Bell className="mr-2 h-4 w-4" /> Notifications
             </TabsTrigger>
           </TabsList>
         </div>
@@ -646,6 +653,22 @@ export default function AdminSettingsPage() {
                       />
                       <p className="text-xs text-muted-foreground">Sets the maximum service radius a provider can select during registration.</p>
                     </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="autoDispatchRadiusKm">Auto-Dispatch Radius (km)</Label>
+                      <Input
+                        id="autoDispatchRadiusKm"
+                        name="autoDispatchRadiusKm"
+                        type="number"
+                        value={settings.autoDispatchRadiusKm ?? 5}
+                        onChange={handleInputChange}
+                        placeholder="e.g., 5"
+                        disabled={isSaving}
+                        min="1"
+                        max="50"
+                      />
+                      <p className="text-xs text-muted-foreground">Nearby providers within this radius will be automatically assigned to new bookings.</p>
+                    </div>
                 </CardContent>
                 <CardFooter className="border-t px-6 py-4">
                     <Button onClick={() => handleSaveSettings("Provider")} disabled={isSaving}>
@@ -812,6 +835,40 @@ export default function AdminSettingsPage() {
               <Button onClick={() => handleSaveSettings("Cancellation Policy")} disabled={isSaving}>
                 {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
                 Save Cancellation Settings
+              </Button>
+            </CardFooter>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="notifications">
+          <Card>
+            <CardHeader>
+              <CardTitle>Notification Settings</CardTitle>
+              <CardDescription>Manage how system notifications and emails are sent.</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              <div className="flex items-center justify-between rounded-lg border p-4">
+                <div className="space-y-0.5">
+                  <Label htmlFor="enableStatusUpdateEmails" className="text-base">Status Update Emails</Label>
+                  <p className="text-sm text-muted-foreground">
+                    Send emails to customers when their booking status changes (e.g., Assigned, In Progress). 
+                    <br/>
+                    <span className="text-xs text-primary font-medium">Note: Confirmation, Completion, and Cancellation emails are always sent.</span>
+                  </p>
+                </div>
+                <Switch
+                  id="enableStatusUpdateEmails"
+                  name="enableStatusUpdateEmails" 
+                  checked={settings.enableStatusUpdateEmails}
+                  onCheckedChange={(checked) => handleSwitchChange('enableStatusUpdateEmails', checked)}
+                  disabled={isSaving}
+                />
+              </div>
+            </CardContent>
+            <CardFooter className="border-t px-6 py-4">
+              <Button onClick={() => handleSaveSettings("Notification")} disabled={isSaving}>
+                {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
+                Save Notification Settings
               </Button>
             </CardFooter>
           </Card>

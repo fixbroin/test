@@ -557,7 +557,7 @@ export default function CategoryPageClient({
               </div>
               {/* DESKTOP VIEW */}
               <div className="hidden md:flex flex-row items-center w-full gap-4">
-                <div className="relative w-32 h-40 flex-shrink-0 bg-muted/30 rounded-lg flex items-center justify-center overflow-hidden">
+                <div className="relative w-40 h-40 flex-shrink-0 bg-muted/30 rounded-lg flex items-center justify-center overflow-hidden">
                   <AppImage src="/custom.png" alt="Custom Service" fill className="object-contain p-3 transition-transform duration-300 group-hover:scale-105" />
                 </div>
                 <div className="flex-1 flex flex-col justify-center pt-4">
@@ -695,7 +695,6 @@ export default function CategoryPageClient({
       )}
 
       {initialData?.availableAreas && initialData.availableAreas.length > 0 && (
-        <LazySection>
           <LocalitiesInterlinking 
             categoryName={category?.name || "Services"}
             categorySlug={categorySlug}
@@ -704,17 +703,14 @@ export default function CategoryPageClient({
             areas={initialData.availableAreas}
             currentAreaSlug={areaSlug}
           />
-        </LazySection>
       )}
 
       {initialData?.availableCities && initialData.availableCities.length > 0 && (
-        <LazySection>
           <CitiesInterlinking 
             categoryName={category?.name || "Services"}
             categorySlug={categorySlug}
             cities={initialData.availableCities}
           />
-        </LazySection>
       )}
       
     </div>
