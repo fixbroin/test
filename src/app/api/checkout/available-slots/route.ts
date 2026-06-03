@@ -122,9 +122,7 @@ function calculateEndDateTime(
     
     const finalDate = new Date(currentDate);
     finalDate.setHours(Math.floor(currentMinutes / 60), currentMinutes % 60, 0, 0);
-    return finalDate.toLocaleString('en-IN', {
-  timeZone: 'Asia/Kolkata',
-});
+    return finalDate.toISOString();
 }
 
 /**

@@ -107,8 +107,12 @@ export default function SchedulePage() {
       setDataFetchError(null);
       try {
         const savedDateStr = localStorage.getItem('fixbroScheduledDate');
-        const now = new Date();
-        let initialDateToDisplay = new Date(now); 
+        const indiaDate = new Date(
+  new Date().toLocaleString("en-US", {
+    timeZone: "Asia/Kolkata",
+  })
+);
+        let initialDateToDisplay = new Date(indiaDate); 
         initialDateToDisplay.setHours(0,0,0,0);
         if (savedDateStr) {
             const parsedSavedDate = new Date(savedDateStr);
