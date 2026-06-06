@@ -27,11 +27,49 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 const APP_CONFIG_COLLECTION = "webSettings";
 const APP_CONFIG_DOC_ID = "applicationConfig";
 
-// Generate a comprehensive list of world timezones
-const ALL_TIMEZONES = Intl.supportedValuesOf('timeZone').map(tz => ({
-  label: tz.replace(/_/g, ' '),
-  value: tz
-})).sort((a, b) => a.label.localeCompare(b.label));
+// Generate a comprehensive list of world timezones with offsets
+const generateTimezones = () => {
+  try {
+    const tzList = (Intl as any).supportedValuesOf ? (Intl as any).supportedValuesOf('timeZone') : [
+      'Asia/Kolkata', 'Asia/Dubai', 'UTC', 'America/New_York', 'Europe/London', 'Asia/Singapore', 'Australia/Sydney'
+    ];
+    
+    return tzList.map((tz: string) => {
+      try {
+        const now = new Date();
+        const formatter = new Intl.DateTimeFormat('en-US', {
+          timeZone: tz,
+          timeZoneName: 'shortOffset',
+        });
+        const parts = formatter.formatToParts(now);
+        const offset = parts.find(p => p.type === 'timeZoneName')?.value || "";
+        
+        let label = tz.replace(/_/g, ' ');
+        let extraSearch = "";
+        
+        // India specific aliases
+        if (tz === 'Asia/Kolkata' || tz === 'Asia/Calcutta') {
+          label = "India (IST)";
+          extraSearch = "kolkata calcutta india ist";
+        }
+        
+        return {
+          label: `${label} (${offset})`,
+          subLabel: tz,
+          value: tz,
+          searchLabel: `${label} ${tz} ${offset} ${extraSearch}`.toLowerCase().replace(/\//g, ' ')
+        };
+      } catch (e) {
+        return { label: tz, subLabel: tz, value: tz, searchLabel: tz.toLowerCase() };
+      }
+    }).sort((a: any, b: any) => a.label.localeCompare(b.label));
+  } catch (e) {
+    console.error("Timezone generation failed", e);
+    return [{ label: "UTC (Offset +0)", value: "UTC", searchLabel: "utc" }];
+  }
+};
+
+const ALL_TIMEZONES = generateTimezones();
 
 export default function AdminSettingsPage() {
   const { toast } = useToast();
@@ -43,11 +81,8 @@ export default function AdminSettingsPage() {
 
   const filteredTimezones = useMemo(() => {
     if (!timezoneSearch) return ALL_TIMEZONES;
-    const search = timezoneSearch.toLowerCase();
-    return ALL_TIMEZONES.filter(tz => 
-      tz.label.toLowerCase().includes(search) || 
-      tz.value.toLowerCase().includes(search)
-    );
+    const search = timezoneSearch.toLowerCase().replace(/\//g, ' ').trim();
+    return ALL_TIMEZONES.filter(tz => tz.searchLabel.includes(search));
   }, [timezoneSearch]);
 
   const loadSettingsFromFirestore = useCallback(async () => {
