@@ -53,7 +53,7 @@ export function getTimestampMillis(ts: any): number {
  */
 export function getZonedDate(date?: Date | string | number, timeZone: string = 'Asia/Kolkata'): Date {
   const d = date ? new Date(date) : new Date();
-  const zonedString = d.toLocaleString('en-US', { timeZone });
+  const zonedString = d.toLocaleString('en-US', { timeZone }); //
   return new Date(zonedString);
 }
 
