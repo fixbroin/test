@@ -107,19 +107,20 @@ export async function generateMetadata(
   const appBaseUrl = getBaseUrl();
   const placeholderData = { cityName: cityData.name, categoryName: categoryData.name };
 
-  // Use override if available, then category specific SEO, then pattern
+  // PRIORITY: 1. Manual Override | 2. Global Pattern (Dynamic) | 3. Generic Category SEO
   const title = replacePlaceholders(
-    seoOverride?.meta_title || categoryData.metaTitle || categoryData.seo_title || seoSettings.cityCategoryPageTitlePattern, 
-    placeholderData
+    seoOverride?.meta_title || seoSettings.cityCategoryPageTitlePattern || categoryData.metaTitle || categoryData.seo_title, 
+    placeholderData,
+    true
   ) || `Best ${categoryData.name} Services in ${cityData.name} | Professional ${categoryData.name} Near Me`;
 
   const description = replacePlaceholders(
-    seoOverride?.meta_description || categoryData.metaDescription || categoryData.seo_description || seoSettings.cityCategoryPageDescriptionPattern, 
+    seoOverride?.meta_description || seoSettings.cityCategoryPageDescriptionPattern || categoryData.metaDescription || categoryData.seo_description, 
     placeholderData
   ) || `Hire the best professional ${categoryData.name} services in ${cityData.name}. Trusted experts, transparent pricing, and high-quality home solutions near you.`;
 
   const keywords = (replacePlaceholders(
-    seoOverride?.meta_keywords || categoryData.metaKeywords || categoryData.seo_keywords || seoSettings.cityCategoryPageKeywordsPattern, 
+    seoOverride?.meta_keywords || seoSettings.cityCategoryPageKeywordsPattern || categoryData.metaKeywords || categoryData.seo_keywords, 
     placeholderData
   ) || `${categoryData.name} in ${cityData.name}, best ${categoryData.name} near me`).split(',').map(k => k.trim()).filter(k => k);
 
@@ -169,9 +170,9 @@ export default async function CityCategoryPage({ params }: PageProps) {
   const seoSettings = await getGlobalSEOSettings();
   const placeholderData = { cityName: cityData.name, categoryName: categoryData.name };
   
-  // Use override H1 if available
+  // PRIORITY: 1. Manual Override | 2. Global Pattern (Dynamic) | 3. Generic Category SEO
   const h1Title = replacePlaceholders(
-    seoOverride?.h1_title || categoryData.h1_title || seoSettings.cityCategoryPageH1Pattern, 
+    seoOverride?.h1_title || seoSettings.cityCategoryPageH1Pattern || categoryData.h1_title, 
     placeholderData
   ) || `Best Professional ${categoryData.name} Services in ${cityData.name}`;
 
@@ -215,12 +216,13 @@ export default async function CityCategoryPage({ params }: PageProps) {
   return (
     <>
       <JsonLdScript data={categoryCitySchema} idSuffix={`city-cat-${cityData.id}-${categoryData.id}`} />
-      <CategoryPageClient
-        categorySlug={categorySlugParam}
-        citySlug={citySlugParam}
-        breadcrumbItems={breadcrumbItems}
-        initialData={fullCategoryData || undefined}
-        initialH1Title={h1Title}
+      <CategoryPageClient 
+      categorySlug={categorySlugParam} 
+      citySlug={citySlugParam} 
+      cityName={cityData.name}
+      breadcrumbItems={breadcrumbItems} 
+      initialData={fullCategoryData || undefined}
+      initialH1Title={h1Title}
       />
     </>
   );

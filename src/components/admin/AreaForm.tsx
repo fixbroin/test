@@ -1,4 +1,3 @@
-
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -8,15 +7,17 @@ import { Button } from "@/components/ui/button";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDescription } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import type { FirestoreArea, FirestoreCity } from '@/types/firestore';
-import { useEffect, useState, useCallback } from "react";
-import { Loader2, Wand2, Edit2, Lock } from "lucide-react";
+import { useEffect, useState, useCallback, useMemo } from "react";
+import { Loader2, Wand2, Edit2, Lock, Search, Building } from "lucide-react";
 import { generateAreaSeo } from '@/ai/flows/generateAreaSeoFlow';
 import { useToast } from "@/hooks/use-toast";
 import { db } from '@/lib/firebase';
 import { collection, query, where, getDocs, limit } from "firebase/firestore";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from "@/components/ui/dialog";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { cn } from "@/lib/utils";
 
 const generateSlug = (name: string) => {
   if (!name) return "";
@@ -48,6 +49,10 @@ interface AreaFormProps {
 export default function AreaForm({ onSubmit: onSubmitProp, initialData, onCancel, cities, isSubmitting = false }: AreaFormProps) {
   const [isGeneratingSeo, setIsGeneratingSeo] = useState(false);
   const [isSlugEditable, setIsSlugEditable] = useState(false);
+  
+  const [isCityPickerOpen, setIsCityPickerOpen] = useState(false);
+  const [citySearch, setCitySearch] = useState("");
+  
   const { toast } = useToast();
   
   const form = useForm<AreaFormData>({
@@ -67,6 +72,12 @@ export default function AreaForm({ onSubmit: onSubmitProp, initialData, onCancel
   const watchedName = form.watch("name");
   const watchedCityId = form.watch("cityId");
   const watchedSlug = form.watch("slug");
+
+  const selectedCity = useMemo(() => cities.find(c => c.id === watchedCityId), [cities, watchedCityId]);
+  
+  const searchableCities = useMemo(() => {
+    return cities.filter(c => c.name.toLowerCase().includes(citySearch.toLowerCase()));
+  }, [cities, citySearch]);
 
   const checkSlugUniqueness = useCallback(async (baseSlug: string, currentId?: string) => {
     let uniqueSlug = baseSlug;
@@ -167,7 +178,7 @@ export default function AreaForm({ onSubmit: onSubmitProp, initialData, onCancel
       form.setValue("seo_title", result.seo_title, { shouldValidate: true });
       form.setValue("seo_description", result.seo_description, { shouldValidate: true });
       form.setValue("seo_keywords", result.seo_keywords, { shouldValidate: true });
-      toast({ title: "Content Generated!", description: "SEO fields have been populated.", className: "bg-green-100 border-green-300 text-green-700" });
+      toast({ title: "Content Generated!", description: "SEO fields and FAQs have been populated.", className: "bg-green-100 border-green-300 text-green-700" });
     } catch (error) {
       console.error("Error generating area SEO:", error);
       toast({ title: "AI Error", description: (error as Error).message || "Failed to generate SEO content.", variant: "destructive" });
@@ -185,6 +196,8 @@ export default function AreaForm({ onSubmit: onSubmitProp, initialData, onCancel
     });
   };
   
+  const effectiveIsSubmitting = isSubmitting || isGeneratingSeo;
+
   return (
     <Form {...form}>
       <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-6">
@@ -195,7 +208,7 @@ export default function AreaForm({ onSubmit: onSubmitProp, initialData, onCancel
             <FormItem>
               <FormLabel>Area Name</FormLabel>
               <FormControl>
-                <Input placeholder="e.g., Whitefield" {...field} disabled={isSubmitting || isGeneratingSeo} />
+                <Input placeholder="e.g., Whitefield" {...field} disabled={effectiveIsSubmitting} />
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -214,7 +227,7 @@ export default function AreaForm({ onSubmit: onSubmitProp, initialData, onCancel
                   size="sm"
                   onClick={() => setIsSlugEditable(!isSlugEditable)}
                   className="h-8 px-2 text-xs"
-                  disabled={isSubmitting || isGeneratingSeo}
+                  disabled={effectiveIsSubmitting}
                 >
                   {isSlugEditable ? (
                     <><Lock className="mr-1 h-3 w-3" /> Lock</>
@@ -228,7 +241,7 @@ export default function AreaForm({ onSubmit: onSubmitProp, initialData, onCancel
                   placeholder="e.g., whitefield"
                   {...field}
                   onChange={(e) => field.onChange(generateSlug(e.target.value))}
-                  disabled={isSubmitting || isGeneratingSeo || !isSlugEditable}
+                  disabled={effectiveIsSubmitting || !isSlugEditable}
                   className={!isSlugEditable ? "bg-muted/50 font-mono text-xs" : "font-mono text-xs"}
                 />
               </FormControl>
@@ -245,27 +258,72 @@ export default function AreaForm({ onSubmit: onSubmitProp, initialData, onCancel
           control={form.control}
           name="cityId"
           render={({ field }) => (
-            <FormItem>
+            <FormItem className="flex flex-col">
               <FormLabel>Parent City</FormLabel>
-              <Select
-                key={`city-select-${initialData?.id || 'new-area'}-${cities.length}-${field.value}`}
-                onValueChange={field.onChange}
-                value={field.value}
-                disabled={isSubmitting || isGeneratingSeo || cities.length === 0}
-              >
-                <FormControl>
-                  <SelectTrigger>
-                    <SelectValue placeholder={cities.length > 0 ? "Select parent city" : "No cities available"} />
-                  </SelectTrigger>
-                </FormControl>
-                <SelectContent>
-                  {cities.map(city => (
-                    <SelectItem key={city.id} value={city.id}>
-                      {city.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <Dialog open={isCityPickerOpen} onOpenChange={setIsCityPickerOpen}>
+                <DialogTrigger asChild>
+                  <Button
+                    variant="outline"
+                    role="combobox"
+                    className={cn(
+                      "w-full justify-between text-left font-normal",
+                      !field.value && "text-muted-foreground"
+                    )}
+                    disabled={effectiveIsSubmitting || cities.length === 0}
+                  >
+                    {selectedCity ? (
+                      <div className="flex items-center gap-2">
+                        <Building className="h-4 w-4 text-primary" />
+                        <span>{selectedCity.name}</span>
+                      </div>
+                    ) : (
+                      "Search and select city..."
+                    )}
+                    <Search className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                  </Button>
+                </DialogTrigger>
+                <DialogContent className="sm:max-w-[425px]">
+                  <DialogHeader>
+                    <DialogTitle>Select City</DialogTitle>
+                    <DialogDescription>
+                      Search and select a parent city for this area.
+                    </DialogDescription>
+                  </DialogHeader>
+                  <div className="space-y-4 py-4">
+                    <div className="relative">
+                      <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+                      <Input
+                        placeholder="Type city name..."
+                        className="pl-8"
+                        value={citySearch}
+                        onChange={(e) => setCitySearch(e.target.value)}
+                      />
+                    </div>
+                    <ScrollArea className="h-[300px] rounded-md border p-2">
+                      <div className="space-y-1">
+                        {searchableCities.length === 0 ? (
+                          <p className="text-center py-4 text-sm text-muted-foreground">No cities found.</p>
+                        ) : (
+                          searchableCities.map((city) => (
+                            <Button
+                              key={city.id}
+                              variant={field.value === city.id ? "secondary" : "ghost"}
+                              className="w-full justify-start text-left h-auto py-3 px-3 relative group"
+                              onClick={() => {
+                                field.onChange(city.id);
+                                setIsCityPickerOpen(false);
+                                setCitySearch("");
+                              }}
+                            >
+                              <span className="font-semibold text-sm">{city.name}</span>
+                            </Button>
+                          ))
+                        )}
+                      </div>
+                    </ScrollArea>
+                  </div>
+                </DialogContent>
+              </Dialog>
               <FormMessage />
             </FormItem>
           )}
@@ -281,7 +339,7 @@ export default function AreaForm({ onSubmit: onSubmitProp, initialData, onCancel
                 <FormDescription>If unchecked, this area will not be shown publicly.</FormDescription>
               </div>
               <FormControl>
-                <Switch checked={field.value} onCheckedChange={field.onChange} disabled={isSubmitting || isGeneratingSeo} />
+                <Switch checked={field.value} onCheckedChange={field.onChange} disabled={effectiveIsSubmitting} />
               </FormControl>
             </FormItem>
           )}
@@ -303,25 +361,25 @@ export default function AreaForm({ onSubmit: onSubmitProp, initialData, onCancel
             </div>
             <p className="text-xs text-muted-foreground">Leave blank to use global SEO patterns defined in SEO Settings.</p>
             <FormField control={form.control} name="h1_title" render={({ field }) => (
-                <FormItem><FormLabel>H1 Title</FormLabel><FormControl><Input placeholder="e.g., Best Services in Whitefield, Bangalore" {...field} disabled={isSubmitting || isGeneratingSeo} /></FormControl><FormMessage /></FormItem>
+                <FormItem><FormLabel>H1 Title</FormLabel><FormControl><Input placeholder="e.g., Best Services in Whitefield, Bangalore" {...field} disabled={effectiveIsSubmitting} /></FormControl><FormMessage /></FormItem>
             )}/>
             <FormField control={form.control} name="seo_title" render={({ field }) => (
-                <FormItem><FormLabel>Meta Title</FormLabel><FormControl><Input placeholder="e.g., Whitefield Services | FixBro" {...field} disabled={isSubmitting || isGeneratingSeo} /></FormControl><FormMessage /></FormItem>
+                <FormItem><FormLabel>Meta Title</FormLabel><FormControl><Input placeholder="e.g., Whitefield Services | FixBro" {...field} disabled={effectiveIsSubmitting} /></FormControl><FormMessage /></FormItem>
             )}/>
             <FormField control={form.control} name="seo_description" render={({ field }) => (
-                <FormItem><FormLabel>Meta Description</FormLabel><FormControl><Textarea placeholder="e.g., Find all home services in Whitefield, Bangalore." {...field} rows={3} disabled={isSubmitting || isGeneratingSeo} /></FormControl><FormMessage /></FormItem>
+                <FormItem><FormLabel>Meta Description</FormLabel><FormControl><Textarea placeholder="e.g., Find all home services in Whitefield, Bangalore." {...field} rows={3} disabled={effectiveIsSubmitting} /></FormControl><FormMessage /></FormItem>
             )}/>
             <FormField control={form.control} name="seo_keywords" render={({ field }) => (
-                <FormItem><FormLabel>Meta Keywords (comma-separated)</FormLabel><FormControl><Input placeholder="e.g., whitefield services, bangalore repair" {...field} disabled={isSubmitting || isGeneratingSeo} /></FormControl><FormMessage /></FormItem>
+                <FormItem><FormLabel>Meta Keywords (comma-separated)</FormLabel><FormControl><Input placeholder="e.g., whitefield services, bangalore repair" {...field} disabled={effectiveIsSubmitting} /></FormControl><FormMessage /></FormItem>
             )}/>
         </div>
         
         <div className="flex justify-end space-x-3 pt-4">
-            <Button type="button" variant="outline" onClick={onCancel} disabled={isSubmitting || isGeneratingSeo}>
+            <Button type="button" variant="outline" onClick={onCancel} disabled={effectiveIsSubmitting}>
                 Cancel
             </Button>
-            <Button type="submit" disabled={isSubmitting || isGeneratingSeo || (cities.length === 0 && !initialData) }>
-                {(isSubmitting || isGeneratingSeo) && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+            <Button type="submit" disabled={effectiveIsSubmitting || (cities.length === 0 && !initialData) }>
+                {effectiveIsSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                 {initialData ? 'Save Changes' : 'Create Area'}
             </Button>
         </div>

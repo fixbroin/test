@@ -28,7 +28,7 @@ import StickyCartContinueButton from '@/components/category/StickyCartContinueBu
 import { useAuth } from '@/hooks/useAuth';
 import Breadcrumbs from '@/components/shared/Breadcrumbs';
 import type { BreadcrumbItem } from '@/types/ui';
-import { replacePlaceholders } from '@/lib/seoUtils';
+import { replacePlaceholders, defaultSeoValues } from '@/lib/seoUtils';
 import { useLoading } from '@/contexts/LoadingContext';
 import { Carousel, CarouselContent, CarouselItem, type CarouselApi, CarouselPrevious, CarouselNext } from "@/components/ui/carousel";
 import { getCache, setCache } from '@/lib/client-cache';
@@ -64,6 +64,8 @@ interface CategoryPageClientProps {
   categorySlug: string;
   citySlug?: string;
   areaSlug?: string;
+  cityName?: string;
+  areaName?: string;
   breadcrumbItems?: BreadcrumbItem[];
   initialData?: FullCategoryData;
   initialH1Title?: string;
@@ -73,6 +75,8 @@ export default function CategoryPageClient({
   categorySlug, 
   citySlug, 
   areaSlug, 
+  cityName: propCityName,
+  areaName: propAreaName,
   breadcrumbItems: initialBreadcrumbItems, 
   initialData,
   initialH1Title
@@ -104,21 +108,78 @@ export default function CategoryPageClient({
 
   const [seoPageH1, setSeoPageH1] = useState<string | null>(() => initialH1Title || initialData?.category.h1_title || getCache<CategoryPageCache>(cacheKey, true)?.h1 || null);
   const [displayPageH1, setDisplayPageH1] = useState<string | null>(() => initialH1Title || initialData?.category.h1_title || getCache<CategoryPageCache>(cacheKey, true)?.displayH1 || null);
+  
   const [seoContent, setSeoContent] = useState<string | null>(() => {
-    if (initialData) {
-        return initialData.areaCategorySeo?.seo_content || 
-               initialData.cityCategorySeo?.seo_content || 
-               initialData.category.seo_content || null;
+    // Merge DB settings with system defaults, but ensure empty strings in DB don't wipe out defaults
+    const sSettings = { ...defaultSeoValues, ...initialData?.seoSettings };
+    const areaTemplate = initialData?.seoSettings?.areaCategorySeoContentTemplate || defaultSeoValues.areaCategorySeoContentTemplate;
+    const cityTemplate = initialData?.seoSettings?.cityCategorySeoContentTemplate || defaultSeoValues.cityCategorySeoContentTemplate;
+
+    // PRIORITY FOR AREA PAGES:
+    // 1. Manual Area Override (The most specific)
+    // 2. Dynamic Area Template (localized to the specific area)
+    // 3. Manual City Override (Backup)
+    // 4. Dynamic City Template (Backup)
+    // 5. Generic Category Content (Last resort)
+    
+    let raw: string | null = null;
+    
+    if (areaSlug) {
+        raw = initialData?.areaCategorySeo?.seo_content || 
+              areaTemplate || 
+              initialData?.cityCategorySeo?.seo_content || 
+              cityTemplate || 
+              initialData?.category.seo_content || null;
+    } else if (citySlug) {
+        raw = initialData?.cityCategorySeo?.seo_content || 
+              cityTemplate || 
+              initialData?.category.seo_content || null;
+    } else {
+        raw = initialData?.category.seo_content || null;
     }
-    return null;
+    
+    if (raw && initialData) {
+        return replacePlaceholders(raw, {
+            cityName: propCityName || initialData.availableCities?.find(c => c.slug === citySlug)?.name || citySlug?.replace(/-/g, ' ') || "Bangalore",
+            areaName: propAreaName || initialData.availableAreas?.find(a => a.slug === areaSlug)?.name || areaSlug?.replace(/-/g, ' ') || "",
+            categoryName: initialData.category.name
+        });
+    }
+    return raw;
   });
+
   const [faqs, setFaqs] = useState<FaqItem[]>(() => {
-    if (initialData) {
-        return initialData.areaCategorySeo?.faqs || 
-               initialData.cityCategorySeo?.faqs || 
-               initialData.category.faqs || [];
+    const areaFaqsTemplate = initialData?.seoSettings?.areaCategoryFaqsTemplate || defaultSeoValues.areaCategoryFaqsTemplate;
+    const cityFaqsTemplate = initialData?.seoSettings?.cityCategoryFaqsTemplate || defaultSeoValues.cityCategoryFaqsTemplate;
+    
+    let rawFaqs: FaqItem[] = [];
+    
+    if (areaSlug) {
+        rawFaqs = initialData?.areaCategorySeo?.faqs || 
+                  (areaFaqsTemplate && areaFaqsTemplate.length > 0 ? areaFaqsTemplate : []) ||
+                  initialData?.cityCategorySeo?.faqs || 
+                  (cityFaqsTemplate && cityFaqsTemplate.length > 0 ? cityFaqsTemplate : []) ||
+                  initialData?.category.faqs || [];
+    } else if (citySlug) {
+        rawFaqs = initialData?.cityCategorySeo?.faqs || 
+                  (cityFaqsTemplate && cityFaqsTemplate.length > 0 ? cityFaqsTemplate : []) ||
+                  initialData?.category.faqs || [];
+    } else {
+        rawFaqs = initialData?.category.faqs || [];
     }
-    return [];
+    
+    if (rawFaqs.length > 0 && initialData) {
+        const pData = {
+            cityName: propCityName || initialData.availableCities?.find(c => c.slug === citySlug)?.name || citySlug?.replace(/-/g, ' ') || "Bangalore",
+            areaName: propAreaName || initialData.availableAreas?.find(a => a.slug === areaSlug)?.name || areaSlug?.replace(/-/g, ' ') || "",
+            categoryName: initialData.category.name
+        };
+        return rawFaqs.map(f => ({
+            question: replacePlaceholders(f.question, pData),
+            answer: replacePlaceholders(f.answer, pData)
+        }));
+    }
+    return rawFaqs;
   });
 
   const subCategoryRefs = useRef<Record<string, HTMLElement | null>>({});

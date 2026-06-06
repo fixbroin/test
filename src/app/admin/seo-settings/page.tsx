@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
-import { Target, Globe, FileText, Type, Pilcrow, BarChart, Save, Loader2, Settings2, Map, Layers, RefreshCw } from "lucide-react";
+import { Target, Globe, FileText, Type, Pilcrow, BarChart, Save, Loader2, Settings2, Map, Layers, RefreshCw, Sparkles, MessageSquareQuote, Building, MapPin } from "lucide-react";
 import { useToast } from '@/hooks/use-toast';
 import { db } from '@/lib/firebase';
 import { doc, getDoc, setDoc, Timestamp } from "firebase/firestore";
@@ -69,6 +69,17 @@ const seoSettingsSchema = z.object({
     linkedin: z.string().url("Invalid URL").optional().or(z.literal('')),
     youtube: z.string().url("Invalid URL").optional().or(z.literal('')),
   }).optional(),
+  // New Fields
+  cityCategorySeoContentTemplate: z.string().optional(),
+  cityCategoryFaqsTemplate: z.array(z.object({
+    question: z.string(),
+    answer: z.string()
+  })).optional(),
+  areaCategorySeoContentTemplate: z.string().optional(),
+  areaCategoryFaqsTemplate: z.array(z.object({
+    question: z.string(),
+    answer: z.string()
+  })).optional(),
 });
 
 type SEOSettingsFormData = z.infer<typeof seoSettingsSchema>;
@@ -166,10 +177,44 @@ export default function SEOSettingsPage() {
             </FormLabel>
             <FormControl>
               {isTextarea ? (
-                <Textarea placeholder={placeholder} {...field} value={field.value as string || ""} disabled={isSaving} rows={name.toLowerCase().includes('description') ? 3 : 2} />
+                <Textarea placeholder={placeholder} {...field} value={field.value as string || ""} disabled={isSaving} rows={name.toLowerCase().includes('description') || name.toLowerCase().includes('template') ? 5 : 2} />
               ) : (
                 <Input placeholder={placeholder} {...field} value={field.value as string || ""} disabled={isSaving} />
               )}
+            </FormControl>
+            {description && <FormDescription>{description}</FormDescription>}
+            <FormMessage />
+          </FormItem>
+        )}
+      />
+    );
+  };
+
+  const renderFaqTemplateField = (name: any, label: string, description?: string) => {
+    return (
+      <FormField
+        control={form.control}
+        name={name}
+        render={({ field }) => (
+          <FormItem>
+            <FormLabel className="flex items-center">
+              <MessageSquareQuote className="mr-2 h-4 w-4 text-muted-foreground" />
+              {label}
+            </FormLabel>
+            <FormControl>
+              <Textarea 
+                placeholder='[{"question": "How to book in {{areaName}}?", "answer": "Simple..."}]' 
+                value={field.value ? JSON.stringify(field.value, null, 2) : "[]"} 
+                onChange={(e) => {
+                  try {
+                    const parsed = JSON.parse(e.target.value);
+                    field.onChange(parsed);
+                  } catch (err) {}
+                }}
+                rows={10} 
+                className="font-mono text-xs"
+                disabled={isSaving} 
+              />
             </FormControl>
             {description && <FormDescription>{description}</FormDescription>}
             <FormMessage />
@@ -210,7 +255,7 @@ export default function SEOSettingsPage() {
             <Target className="mr-2 h-6 w-6 text-primary" /> SEO Settings
           </CardTitle>
           <CardDescription>
-            Manage Search Engine Optimization settings for your website. Use placeholders like <code>{"{{categorySearchTerm}}"}</code> (e.g., Carpenter), <code>{"{{categoryName}}"}</code> (e.g., Carpentry), <code>{"{{serviceName}}"}</code>, <code>{"{{cityName}}"}</code>, <code>{"{{areaName}}"}</code> in patterns.
+            Manage Search Engine Optimization settings for your website. Use placeholders like <code>{"{{categoryName}}"}</code>, <code>{"{{cityName}}"}</code>, <code>{"{{areaName}}"}</code> in patterns and templates.
           </CardDescription>
         </CardHeader>
       </Card>
@@ -230,7 +275,13 @@ export default function SEOSettingsPage() {
                   value="patterns"
                   className="relative h-12 rounded-none border-b-2 border-transparent bg-transparent px-4 pb-3 pt-2 font-semibold text-muted-foreground shadow-none transition-none data-[state=active]:border-primary data-[state=active]:text-primary data-[state=active]:shadow-none whitespace-nowrap"
                 >
-                  <FileText className="mr-2 h-4 w-4"/>Page Content Patterns
+                  <FileText className="mr-2 h-4 w-4"/>Meta Patterns
+                </TabsTrigger>
+                <TabsTrigger 
+                  value="dynamic_templates"
+                  className="relative h-12 rounded-none border-b-2 border-transparent bg-transparent px-4 pb-3 pt-2 font-semibold text-muted-foreground shadow-none transition-none data-[state=active]:border-primary data-[state=active]:text-primary data-[state=active]:shadow-none whitespace-nowrap"
+                >
+                  <Sparkles className="mr-2 h-4 w-4"/>Dynamic Templates
                 </TabsTrigger>
                 <TabsTrigger 
                   value="structured_data"
@@ -261,7 +312,7 @@ export default function SEOSettingsPage() {
 
             <TabsContent value="patterns">
               <Card>
-                <CardHeader><CardTitle>Dynamic Page SEO Patterns</CardTitle><CardDescription>Use placeholders like <code>{"{{categoryName}}"}</code>, <code>{"{{serviceName}}"}</code>, <code>{"{{cityName}}"}</code>, <code>{"{{areaName}}"}</code>, <code>{"{{serviceDescription}}"}</code>.</CardDescription></CardHeader>
+                <CardHeader><CardTitle>Meta Tag Patterns</CardTitle><CardDescription>Dynamic patterns for Titles, Descriptions, and Keywords.</CardDescription></CardHeader>
                 <CardContent className="space-y-8">
                   <div>
                     <h4 className="text-md font-semibold mb-3">Default Category Pages (e.g., /category/slug):</h4>
@@ -275,7 +326,6 @@ export default function SEOSettingsPage() {
                   <hr/>
                    <div>
                     <h4 className="text-md font-semibold mb-3 flex items-center"><Map className="mr-2 h-5 w-5 text-muted-foreground"/>City-Specific Category Pages (e.g., /city/category):</h4>
-                    <CardDescription>Placeholders: <code>{"{{cityName}}"}</code>, <code>{"{{categoryName}}"}</code></CardDescription>
                     <div className="space-y-4 mt-3">
                       {renderSEOField("cityCategoryPageH1Pattern", "H1 Title Pattern", "e.g., {{categoryName}} in {{cityName}}", undefined, false, Pilcrow)}
                       {renderSEOField("cityCategoryPageTitlePattern", "Meta Title Pattern", "e.g., {{categoryName}} Services in {{cityName}} | FixBro", undefined, false, Type)}
@@ -286,7 +336,6 @@ export default function SEOSettingsPage() {
                   <hr/>
                   <div>
                     <h4 className="text-md font-semibold mb-3 flex items-center"><Layers className="mr-2 h-5 w-5 text-muted-foreground"/>Area-Specific Category Pages (e.g., /city/area/category):</h4>
-                    <CardDescription>Placeholders: <code>{"{{areaName}}"}</code>, <code>{"{{cityName}}"}</code>, <code>{"{{categoryName}}"}</code></CardDescription>
                     <div className="space-y-4 mt-3">
                       {renderSEOField("areaCategoryPageH1Pattern", "H1 Title Pattern", "e.g., {{categoryName}} in {{areaName}}, {{cityName}}", undefined, false, Pilcrow)}
                       {renderSEOField("areaCategoryPageTitlePattern", "Meta Title Pattern", "e.g., {{categoryName}} - {{areaName}}, {{cityName}} | FixBro", undefined, false, Type)}
@@ -294,37 +343,35 @@ export default function SEOSettingsPage() {
                       {renderSEOField("areaCategoryPageKeywordsPattern", "Meta Keywords Pattern", "e.g., {{categoryName}} {{areaName}}, {{areaName}} {{cityName}} services", undefined, false, Target)}
                     </div>
                   </div>
-                  <hr/>
-                  <div>
-                    <h4 className="text-md font-semibold mb-3">Service Pages:</h4>
-                    <div className="space-y-4">
-                      {renderSEOField("servicePageH1Pattern", "H1 Title Pattern", "e.g., {{serviceName}} in {{areaName}}", undefined, false, Pilcrow)}
-                      {renderSEOField("servicePageTitlePattern", "Meta Title Pattern", "e.g., {{serviceName}} - {{areaName}}, {{cityName}} | FixBro", undefined, false, Type)}
-                      {renderSEOField("servicePageDescriptionPattern", "Meta Description Pattern", "e.g., Get expert {{serviceName}} for {{serviceDescription}} in {{areaName}}.", undefined, true, FileText)}
-                      {renderSEOField("servicePageKeywordsPattern", "Meta Keywords Pattern", "e.g., {{serviceName}}, {{categoryName}}, {{areaName}}, order {{serviceName}}", undefined, false, Target)}
+                </CardContent>
+              </Card>
+            </TabsContent>
+
+            <TabsContent value="dynamic_templates">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Global Content Templates</CardTitle>
+                  <CardDescription>
+                    Define default SEO Bio (bottom content) and FAQs using placeholders. These are used when no specific override exists.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-10">
+                  <div className="space-y-6">
+                    <div className="flex items-center gap-2">
+                        <Building className="h-5 w-5 text-primary" />
+                        <h4 className="text-lg font-bold">City-Category Defaults</h4>
                     </div>
+                    {renderSEOField("cityCategorySeoContentTemplate", "Default Bio Template (HTML)", "e.g., <h3>Professional {{categoryName}} in {{cityName}}</h3>...", "Placeholder: {{cityName}}, {{categoryName}}", true)}
+                    {renderFaqTemplateField("cityCategoryFaqsTemplate", "Default FAQ Template (JSON)", "JSON array with {{cityName}}, {{categoryName}} placeholders.")}
                   </div>
-                  <hr/>
-                  <div>
-                    <h4 className="text-md font-semibold mb-3 flex items-center"><Map className="mr-2 h-5 w-5 text-muted-foreground"/>City Pages (e.g., /city-slug):</h4>
-                    <CardDescription>Patterns for pages like <code>/bangalore</code>. Use <code>{"{{cityName}}"}</code>.</CardDescription>
-                    <div className="space-y-4 mt-3">
-                      {renderSEOField("cityPageH1Pattern", "H1 Title Pattern", "e.g., Trusted Services in {{cityName}}", undefined, false, Pilcrow)}
-                      {renderSEOField("cityPageTitlePattern", "Meta Title Pattern", "e.g., Home Services in {{cityName}} | FixBro", undefined, false, Type)}
-                      {renderSEOField("cityPageDescriptionPattern", "Meta Description Pattern", "e.g., Professional home services across {{cityName}}.", undefined, true, FileText)}
-                      {renderSEOField("cityPageKeywordsPattern", "Meta Keywords Pattern", "e.g., {{cityName}} repair services, home maintenance {{cityName}}", undefined, false, Target)}
+                  
+                  <div className="space-y-6 pt-6 border-t">
+                    <div className="flex items-center gap-2">
+                        <MapPin className="h-5 w-5 text-primary" />
+                        <h4 className="text-lg font-bold">Area-Category Defaults</h4>
                     </div>
-                  </div>
-                  <hr/>
-                  <div>
-                    <h4 className="text-md font-semibold mb-3 flex items-center"><Map className="mr-2 h-5 w-5 text-muted-foreground"/>Area Pages (e.g., /city/area):</h4>
-                    <CardDescription>Patterns for pages like <code>/city-slug/area-slug</code>. Use <code>{"{{cityName}}"}</code> and <code>{"{{areaName}}"}</code>.</CardDescription>
-                    <div className="space-y-4 mt-3">
-                      {renderSEOField("areaPageH1Pattern", "H1 Title Pattern", "e.g., Services in {{areaName}}, {{cityName}}", undefined, false, Pilcrow)}
-                      {renderSEOField("areaPageTitlePattern", "Meta Title Pattern", "e.g., {{areaName}}, {{cityName}} Home Services | FixBro", undefined, false, Type)}
-                      {renderSEOField("areaPageDescriptionPattern", "Meta Description Pattern", "e.g., Find all home services in {{areaName}}, {{cityName}}.", undefined, true, FileText)}
-                      {renderSEOField("areaPageKeywordsPattern", "Meta Keywords Pattern", "e.g., {{areaName}}, {{cityName}}, home services, local repair", undefined, false, Target)}
-                    </div>
+                    {renderSEOField("areaCategorySeoContentTemplate", "Default Bio Template (HTML)", "e.g., <h3>Top-rated {{categoryName}} in {{areaName}}</h3>...", "Placeholder: {{areaName}}, {{cityName}}, {{categoryName}}", true)}
+                    {renderFaqTemplateField("areaCategoryFaqsTemplate", "Default FAQ Template (JSON)", "JSON array with {{areaName}}, {{cityName}}, {{categoryName}} placeholders.")}
                   </div>
                 </CardContent>
               </Card>

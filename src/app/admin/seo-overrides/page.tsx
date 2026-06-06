@@ -24,6 +24,7 @@ const generateSeoSlug = (parts: (string | undefined)[]): string => {
 };
 
 export default function SeoOverridesPage() {
+  const [activeTab, setActiveTab] = useState<string>("city-category");
   const [cityCategorySettings, setCityCategorySettings] = useState<CityCategorySeoSetting[]>([]);
   const [areaCategorySettings, setAreaCategorySettings] = useState<AreaCategorySeoSetting[]>([]);
   const [categories, setCategories] = useState<FirestoreCategory[]>([]);
@@ -224,7 +225,7 @@ export default function SeoOverridesPage() {
           <CardDescription>Manage specific SEO settings for City-Category and Area-Category combinations.</CardDescription>
         </CardHeader>
       </Card>
-      <Tabs defaultValue="city-category">
+      <Tabs value={activeTab} onValueChange={setActiveTab}>
         <TabsList className="grid w-full grid-cols-2">
           <TabsTrigger value="city-category">City-Category SEO</TabsTrigger>
           <TabsTrigger value="area-category">Area-Category SEO</TabsTrigger>
@@ -300,6 +301,7 @@ export default function SeoOverridesPage() {
               <CityCategorySeoForm
                 onSubmit={handleCityCategoryFormSubmit}
                 initialData={editingSetting as CityCategorySeoSetting | null}
+                existingSettings={cityCategorySettings}
                 cities={cities}
                 categories={categories}
                 onCancel={() => { setIsFormOpen(false); setEditingSetting(null); setFormType(null); }}
@@ -309,6 +311,7 @@ export default function SeoOverridesPage() {
               <AreaCategorySeoForm
                 onSubmit={handleAreaCategoryFormSubmit}
                 initialData={editingSetting as AreaCategorySeoSetting | null}
+                existingSettings={areaCategorySettings}
                 cities={cities}
                 areas={areas}
                 categories={categories}

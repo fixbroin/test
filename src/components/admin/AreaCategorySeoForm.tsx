@@ -10,12 +10,16 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import type { FirestoreCity, FirestoreArea, FirestoreCategory, AreaCategorySeoSetting } from '@/types/firestore';
-import { useEffect, useState, useCallback } from "react";
-import { Loader2, Wand2, Edit2, Lock } from "lucide-react";
+import { useEffect, useState, useCallback, useMemo } from "react";
+import { cn } from "@/lib/utils";
+import { Loader2, Wand2, Edit2, Lock, CheckCircle, Search, MapPin, Building, Tags } from "lucide-react";
 import { generateAreaCategorySeo } from '@/ai/flows/generateAreaCategorySeoFlow';
 import { useToast } from "@/hooks/use-toast";
 import { db } from '@/lib/firebase';
 import { collection, query, where, getDocs, limit } from "firebase/firestore";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from "@/components/ui/dialog";
+import { Badge } from "@/components/ui/badge";
+import { ScrollArea } from "@/components/ui/scroll-area";
 
 const generateSeoSlug = (parts: (string | undefined)[]): string => {
     return parts.filter(Boolean).map(part => part!.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '')).join('/');
@@ -44,6 +48,7 @@ export type AreaCategorySeoFormData = z.infer<typeof areaCategorySeoFormSchema>;
 interface AreaCategorySeoFormProps {
   onSubmit: (data: AreaCategorySeoFormData & { id?: string }) => Promise<void>;
   initialData?: AreaCategorySeoSetting | null;
+  existingSettings?: AreaCategorySeoSetting[];
   cities: FirestoreCity[];
   areas: FirestoreArea[];
   categories: FirestoreCategory[];
@@ -51,10 +56,27 @@ interface AreaCategorySeoFormProps {
   isSubmitting?: boolean;
 }
 
-export default function AreaCategorySeoForm({ onSubmit: onSubmitProp, initialData, cities, areas, categories, onCancel, isSubmitting = false }: AreaCategorySeoFormProps) {
+export default function AreaCategorySeoForm({ 
+  onSubmit: onSubmitProp, 
+  initialData, 
+  existingSettings = [],
+  cities, 
+  areas, 
+  categories, 
+  onCancel, 
+  isSubmitting = false 
+}: AreaCategorySeoFormProps) {
   const [filteredAreas, setFilteredAreas] = useState<FirestoreArea[]>([]);
   const [isGeneratingSeo, setIsGeneratingSeo] = useState(false);
   const [isSlugEditable, setIsSlugEditable] = useState(false);
+  
+  const [isCityPickerOpen, setIsCityPickerOpen] = useState(false);
+  const [citySearch, setCitySearch] = useState("");
+  const [isAreaPickerOpen, setIsAreaPickerOpen] = useState(false);
+  const [areaSearch, setAreaSearch] = useState("");
+  const [isCategoryPickerOpen, setIsCategoryPickerOpen] = useState(false);
+  const [categorySearch, setCategorySearch] = useState("");
+  
   const { toast } = useToast();
 
   const form = useForm<AreaCategorySeoFormData>({
@@ -68,6 +90,22 @@ export default function AreaCategorySeoForm({ onSubmit: onSubmitProp, initialDat
   const watchedAreaId = form.watch("areaId");
   const watchedCategoryId = form.watch("categoryId");
   const watchedSlug = form.watch("slug");
+
+  const selectedCity = useMemo(() => cities.find(c => c.id === watchedCityId), [cities, watchedCityId]);
+  const selectedArea = useMemo(() => areas.find(a => a.id === watchedAreaId), [areas, watchedAreaId]);
+  const selectedCategory = useMemo(() => categories.find(c => c.id === watchedCategoryId), [categories, watchedCategoryId]);
+
+  const searchableCities = useMemo(() => {
+    return cities.filter(c => c.name.toLowerCase().includes(citySearch.toLowerCase()));
+  }, [cities, citySearch]);
+
+  const searchableAreas = useMemo(() => {
+    return filteredAreas.filter(a => a.name.toLowerCase().includes(areaSearch.toLowerCase()));
+  }, [filteredAreas, areaSearch]);
+
+  const searchableCategories = useMemo(() => {
+    return categories.filter(c => c.name.toLowerCase().includes(categorySearch.toLowerCase()));
+  }, [categories, categorySearch]);
 
   const checkSlugUniqueness = useCallback(async (baseSlug: string, currentId?: string) => {
     let uniqueSlug = baseSlug;
@@ -227,44 +265,251 @@ export default function AreaCategorySeoForm({ onSubmit: onSubmitProp, initialDat
     <Form {...form}>
       <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-6">
         <FormField control={form.control} name="cityId" render={({ field }) => (
-          <FormItem><FormLabel>City</FormLabel>
-            <Select
-              key={`city-${field.value || 'new'}`}
-              onValueChange={field.onChange}
-              value={field.value || undefined}
-              disabled={effectiveIsSubmitting || isEditing}
-            >
-              <FormControl><SelectTrigger><SelectValue placeholder="Select city" /></SelectTrigger></FormControl>
-              <SelectContent>{cities.map(c => (<SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>))}</SelectContent>
-            </Select>
+          <FormItem className="flex flex-col">
+            <FormLabel>City</FormLabel>
+            <Dialog open={isCityPickerOpen} onOpenChange={setIsCityPickerOpen}>
+              <DialogTrigger asChild>
+                <Button
+                  variant="outline"
+                  role="combobox"
+                  className={cn(
+                    "w-full justify-between text-left font-normal",
+                    !field.value && "text-muted-foreground"
+                  )}
+                  disabled={effectiveIsSubmitting || isEditing}
+                >
+                  {selectedCity ? (
+                    <div className="flex items-center gap-2">
+                      <Building className="h-4 w-4 text-primary" />
+                      <span>{selectedCity.name}</span>
+                    </div>
+                  ) : (
+                    "Search and select city..."
+                  )}
+                  <Search className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="sm:max-w-[425px]">
+                <DialogHeader>
+                  <DialogTitle>Select City</DialogTitle>
+                  <DialogDescription>
+                    Search and select a city.
+                  </DialogDescription>
+                </DialogHeader>
+                <div className="space-y-4 py-4">
+                  <div className="relative">
+                    <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+                    <Input
+                      placeholder="Type city name..."
+                      className="pl-8"
+                      value={citySearch}
+                      onChange={(e) => setCitySearch(e.target.value)}
+                    />
+                  </div>
+                  <ScrollArea className="h-[300px] rounded-md border p-2">
+                    <div className="space-y-1">
+                      {searchableCities.length === 0 ? (
+                        <p className="text-center py-4 text-sm text-muted-foreground">No cities found.</p>
+                      ) : (
+                        searchableCities.map((city) => (
+                          <Button
+                            key={city.id}
+                            variant={field.value === city.id ? "secondary" : "ghost"}
+                            className="w-full justify-start text-left h-auto py-3 px-3 relative group"
+                            onClick={() => {
+                              field.onChange(city.id);
+                              setIsCityPickerOpen(false);
+                              setCitySearch("");
+                            }}
+                          >
+                            <span className="font-semibold text-sm">{city.name}</span>
+                          </Button>
+                        ))
+                      )}
+                    </div>
+                  </ScrollArea>
+                </div>
+              </DialogContent>
+            </Dialog>
             <FormMessage />
           </FormItem>
         )}/>
         <FormField control={form.control} name="areaId" render={({ field }) => (
-          <FormItem><FormLabel>Area</FormLabel>
-            <Select
-              key={`area-${field.value || 'new'}-${watchedCityId}`}
-              onValueChange={field.onChange}
-              value={field.value || undefined}
-              disabled={effectiveIsSubmitting || isEditing || !watchedCityId || filteredAreas.length === 0}
-            >
-              <FormControl><SelectTrigger><SelectValue placeholder={!watchedCityId ? "Select city first" : (filteredAreas.length === 0 ? "No areas for city" : "Select area")} /></SelectTrigger></FormControl>
-              <SelectContent>{filteredAreas.map(a => (<SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>))}</SelectContent>
-            </Select>
+          <FormItem className="flex flex-col">
+            <FormLabel>Area</FormLabel>
+            <Dialog open={isAreaPickerOpen} onOpenChange={setIsAreaPickerOpen}>
+              <DialogTrigger asChild>
+                <Button
+                  variant="outline"
+                  role="combobox"
+                  className={cn(
+                    "w-full justify-between text-left font-normal",
+                    !field.value && "text-muted-foreground"
+                  )}
+                  disabled={effectiveIsSubmitting || isEditing || !watchedCityId || filteredAreas.length === 0}
+                >
+                  {selectedArea ? (
+                    <div className="flex items-center gap-2">
+                      <MapPin className="h-4 w-4 text-primary" />
+                      <span>{selectedArea.name}</span>
+                    </div>
+                  ) : (
+                    !watchedCityId ? "Select city first" : "Search and select area..."
+                  )}
+                  <Search className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="sm:max-w-[425px]">
+                <DialogHeader>
+                  <DialogTitle>Select Area</DialogTitle>
+                  <DialogDescription>
+                    Search areas in the selected city. ✅ indicates existing SEO settings.
+                  </DialogDescription>
+                </DialogHeader>
+                <div className="space-y-4 py-4">
+                  <div className="relative">
+                    <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+                    <Input
+                      placeholder="Type area name..."
+                      className="pl-8"
+                      value={areaSearch}
+                      onChange={(e) => setAreaSearch(e.target.value)}
+                    />
+                  </div>
+                  <ScrollArea className="h-[300px] rounded-md border p-2">
+                    <div className="space-y-1">
+                      {searchableAreas.length === 0 ? (
+                        <p className="text-center py-4 text-sm text-muted-foreground">No areas found.</p>
+                      ) : (
+                        searchableAreas.map((area) => {
+                          const generatedCategories = existingSettings
+                            .filter(s => s.areaId === area.id)
+                            .map(s => s.categoryName);
+                          const hasGenerated = generatedCategories.length > 0;
+                          
+                          return (
+                            <Button
+                              key={area.id}
+                              variant={field.value === area.id ? "secondary" : "ghost"}
+                              className="w-full justify-start text-left h-auto py-3 px-3 relative group"
+                              onClick={() => {
+                                field.onChange(area.id);
+                                setIsAreaPickerOpen(false);
+                                setAreaSearch("");
+                              }}
+                            >
+                              <div className="flex flex-col gap-1 pr-8">
+                                <span className="font-semibold text-sm">{area.name}</span>
+                                {hasGenerated && (
+                                  <div className="flex flex-wrap gap-1">
+                                    {generatedCategories.map(cat => (
+                                      <Badge 
+                                        key={cat} 
+                                        variant="outline" 
+                                        className="text-[9px] py-0 px-1.5 h-4 bg-green-50 text-green-700 border-green-200"
+                                      >
+                                        {cat}
+                                      </Badge>
+                                    ))}
+                                  </div>
+                                )}
+                              </div>
+                              {hasGenerated && (
+                                <CheckCircle className="absolute right-3 top-3 h-4 w-4 text-green-500" />
+                              )}
+                            </Button>
+                          );
+                        })
+                      )}
+                    </div>
+                  </ScrollArea>
+                </div>
+              </DialogContent>
+            </Dialog>
             <FormMessage />
           </FormItem>
         )}/>
         <FormField control={form.control} name="categoryId" render={({ field }) => (
-          <FormItem><FormLabel>Category</FormLabel>
-            <Select
-              key={`category-${field.value || 'new'}`}
-              onValueChange={field.onChange}
-              value={field.value || undefined}
-              disabled={effectiveIsSubmitting || isEditing}
-            >
-              <FormControl><SelectTrigger><SelectValue placeholder="Select category" /></SelectTrigger></FormControl>
-              <SelectContent>{categories.map(c => (<SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>))}</SelectContent>
-            </Select>
+          <FormItem className="flex flex-col">
+            <FormLabel>Category</FormLabel>
+            <Dialog open={isCategoryPickerOpen} onOpenChange={setIsCategoryPickerOpen}>
+              <DialogTrigger asChild>
+                <Button
+                  variant="outline"
+                  role="combobox"
+                  className={cn(
+                    "w-full justify-between text-left font-normal",
+                    !field.value && "text-muted-foreground"
+                  )}
+                  disabled={effectiveIsSubmitting || isEditing}
+                >
+                  {selectedCategory ? (
+                    <div className="flex items-center gap-2">
+                      <Tags className="h-4 w-4 text-primary" />
+                      <span>{selectedCategory.name}</span>
+                    </div>
+                  ) : (
+                    "Search and select category..."
+                  )}
+                  <Search className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="sm:max-w-[425px]">
+                <DialogHeader>
+                  <DialogTitle>Select Category</DialogTitle>
+                  <DialogDescription>
+                    Search categories. ✅ indicates existing SEO for the chosen area.
+                  </DialogDescription>
+                </DialogHeader>
+                <div className="space-y-4 py-4">
+                  <div className="relative">
+                    <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+                    <Input
+                      placeholder="Type category name..."
+                      className="pl-8"
+                      value={categorySearch}
+                      onChange={(e) => setCategorySearch(e.target.value)}
+                    />
+                  </div>
+                  <ScrollArea className="h-[300px] rounded-md border p-2">
+                    <div className="space-y-1">
+                      {searchableCategories.length === 0 ? (
+                        <p className="text-center py-4 text-sm text-muted-foreground">No categories found.</p>
+                      ) : (
+                        searchableCategories.map((category) => {
+                          const isGenerated = watchedAreaId && existingSettings.some(s => s.areaId === watchedAreaId && s.categoryId === category.id);
+                          
+                          return (
+                            <Button
+                              key={category.id}
+                              variant={field.value === category.id ? "secondary" : "ghost"}
+                              className="w-full justify-start text-left h-auto py-3 px-3 relative group"
+                              onClick={() => {
+                                field.onChange(category.id);
+                                setIsCategoryPickerOpen(false);
+                                setCategorySearch("");
+                              }}
+                            >
+                              <div className="flex flex-col gap-1 pr-8">
+                                <span className="font-semibold text-sm">{category.name}</span>
+                                {isGenerated && (
+                                  <Badge variant="outline" className="text-[10px] py-0 h-4 bg-green-50 text-green-700 border-green-200">
+                                    Already Generated
+                                  </Badge>
+                                )}
+                              </div>
+                              {isGenerated && (
+                                <CheckCircle className="absolute right-3 top-3 h-4 w-4 text-green-500" />
+                              )}
+                            </Button>
+                          );
+                        })
+                      )}
+                    </div>
+                  </ScrollArea>
+                </div>
+              </DialogContent>
+            </Dialog>
             <FormMessage />
           </FormItem>
         )}/>

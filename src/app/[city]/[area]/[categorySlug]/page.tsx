@@ -115,18 +115,20 @@ export async function generateMetadata(
   const searchTerm = getCategorySearchTerm(categoryData.name);
   const placeholderData = { cityName: cityData.name, areaName: areaData.name, categoryName: categoryData.name, categorySearchTerm: searchTerm };
 
+  // PRIORITY: 1. Manual Override | 2. Global Pattern (Dynamic) | 3. Generic Category SEO
   const title = replacePlaceholders(
-    seoOverride?.meta_title || categoryData.metaTitle || categoryData.seo_title || seoSettings.areaCategoryPageTitlePattern, 
-    placeholderData
+    seoOverride?.meta_title || seoSettings.areaCategoryPageTitlePattern || categoryData.metaTitle || categoryData.seo_title, 
+    placeholderData,
+    true
   ) || `Best ${searchTerm} in ${areaData.name}, ${cityData.name} | Expert ${searchTerm} Near Me`;
 
   const description = replacePlaceholders(
-    seoOverride?.meta_description || categoryData.metaDescription || categoryData.seo_description || seoSettings.areaCategoryPageDescriptionPattern, 
+    seoOverride?.meta_description || seoSettings.areaCategoryPageDescriptionPattern || categoryData.metaDescription || categoryData.seo_description, 
     placeholderData
   ) || `Hire top-rated ${searchTerm} experts in ${areaData.name}, ${cityData.name}. Trusted professionals, transparent pricing, and quality home services near you.`;
 
   const keywords = (replacePlaceholders(
-    seoOverride?.meta_keywords || categoryData.metaKeywords || categoryData.seo_keywords || seoSettings.areaCategoryPageKeywordsPattern, 
+    seoOverride?.meta_keywords || seoSettings.areaCategoryPageKeywordsPattern || categoryData.metaKeywords || categoryData.seo_keywords, 
     placeholderData
   ) || `${searchTerm} in ${areaData.name}, best ${searchTerm} near me`).split(',').map(k => k.trim()).filter(k => k);
 
@@ -176,8 +178,9 @@ export default async function AreaCategoryPage({ params }: AreaCategoryPageProps
   const searchTerm = getCategorySearchTerm(categoryData.name);
   const placeholderData = { cityName: cityData.name, areaName: areaData.name, categoryName: categoryData.name, categorySearchTerm: searchTerm };
   
+  // PRIORITY: 1. Manual Override | 2. Global Pattern (Dynamic) | 3. Generic Category SEO
   const h1Title = replacePlaceholders(
-    seoOverride?.h1_title || categoryData.h1_title || seoSettings.areaCategoryPageH1Pattern, 
+    seoOverride?.h1_title || seoSettings.areaCategoryPageH1Pattern || categoryData.h1_title, 
     placeholderData
   ) || `Best Professional ${searchTerm} in ${areaData.name}, ${cityData.name}`;
 
@@ -223,12 +226,14 @@ export default async function AreaCategoryPage({ params }: AreaCategoryPageProps
     <>
       <JsonLdScript data={areaCategorySchema} idSuffix={`area-cat-${cityData.id}-${areaData.id}-${categoryData.id}`} />
       <CategoryPageClient 
-        categorySlug={catSlug} 
-        citySlug={citySlug} 
-        areaSlug={areaSlug} 
-        breadcrumbItems={breadcrumbItems} 
-        initialData={fullCategoryData || undefined}
-        initialH1Title={h1Title}
+      categorySlug={catSlug} 
+      citySlug={citySlug} 
+      areaSlug={areaSlug} 
+      cityName={cityData.name}
+      areaName={areaData.name}
+      breadcrumbItems={breadcrumbItems} 
+      initialData={fullCategoryData || undefined}
+      initialH1Title={h1Title}
       />
     </>
   );

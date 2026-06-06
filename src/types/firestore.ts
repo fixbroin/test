@@ -708,6 +708,12 @@ export interface FirestoreSEOSettings {
   fallbackRatingValue?: string;
   fallbackReviewCount?: string;
 
+  // Dynamic Content Templates (NEW)
+  cityCategorySeoContentTemplate?: string;
+  cityCategoryFaqsTemplate?: FaqItem[];
+  areaCategorySeoContentTemplate?: string;
+  areaCategoryFaqsTemplate?: FaqItem[];
+
   updatedAt?: Timestamp;
 }
 
