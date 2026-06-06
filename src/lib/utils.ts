@@ -85,19 +85,39 @@ export function getZonedDate(date?: Date | string | number, timeZone: string = '
  * Prevents "yesterday" issues when formatting dates in UTC.
  */
 export function formatZonedDateToISO(date?: Date | string | number, timeZone: string = 'Asia/Kolkata'): string {
-  const d = date ? new Date(date) : new Date();
-  const parts = new Intl.DateTimeFormat('en-CA', { 
-    timeZone, 
-    year: 'numeric', 
-    month: '2-digit', 
-    day: '2-digit' 
-  }).formatToParts(d);
-  
-  const year = parts.find(p => p.type === 'year')?.value;
-  const month = parts.find(p => p.type === 'month')?.value;
-  const day = parts.find(p => p.type === 'day')?.value;
-  
-  return `${year}-${month}-${day}`;
+  try {
+    const d = date ? new Date(date) : new Date();
+    if (isNaN(d.getTime())) throw new Error("Invalid date");
+
+    const formatter = new Intl.DateTimeFormat('en-CA', { 
+      timeZone, 
+      year: 'numeric', 
+      month: '2-digit', 
+      day: '2-digit' 
+    });
+    
+    // en-CA format is usually YYYY-MM-DD
+    const formatted = formatter.format(d);
+    if (formatted.match(/^\d{4}-\d{2}-\d{2}$/)) {
+        return formatted;
+    }
+
+    // Fallback using parts if en-CA didn't give what we wanted
+    const parts = formatter.formatToParts(d);
+    const year = parts.find(p => p.type === 'year')?.value;
+    const month = parts.find(p => p.type === 'month')?.value;
+    const day = parts.find(p => p.type === 'day')?.value;
+    
+    if (year && month && day) {
+        return `${year}-${month}-${day}`;
+    }
+    
+    throw new Error("Formatting failed");
+  } catch (e) {
+    console.error("formatZonedDateToISO failed:", e);
+    // Ultimate fallback to local ISO string part
+    return new Date().toISOString().split('T')[0];
+  }
 }
 
 /**

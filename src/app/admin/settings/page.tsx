@@ -27,14 +27,21 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 const APP_CONFIG_COLLECTION = "webSettings";
 const APP_CONFIG_DOC_ID = "applicationConfig";
 
+interface TimezoneOption {
+  label: string;
+  subLabel: string;
+  value: string;
+  searchLabel: string;
+}
+
 // Generate a comprehensive list of world timezones with offsets
-const generateTimezones = () => {
+const generateTimezones = (): TimezoneOption[] => {
   try {
     const tzList = (Intl as any).supportedValuesOf ? (Intl as any).supportedValuesOf('timeZone') : [
       'Asia/Kolkata', 'Asia/Dubai', 'UTC', 'America/New_York', 'Europe/London', 'Asia/Singapore', 'Australia/Sydney'
     ];
     
-    return tzList.map((tz: string) => {
+    return tzList.map((tz: string): TimezoneOption => {
       try {
         const now = new Date();
         const formatter = new Intl.DateTimeFormat('en-US', {
@@ -62,10 +69,10 @@ const generateTimezones = () => {
       } catch (e) {
         return { label: tz, subLabel: tz, value: tz, searchLabel: tz.toLowerCase() };
       }
-    }).sort((a: any, b: any) => a.label.localeCompare(b.label));
+    }).sort((a: TimezoneOption, b: TimezoneOption) => a.label.localeCompare(b.label));
   } catch (e) {
     console.error("Timezone generation failed", e);
-    return [{ label: "UTC (Offset +0)", value: "UTC", searchLabel: "utc" }];
+    return [{ label: "UTC (Offset +0)", subLabel: "UTC", value: "UTC", searchLabel: "utc" }];
   }
 };
 
@@ -82,7 +89,7 @@ export default function AdminSettingsPage() {
   const filteredTimezones = useMemo(() => {
     if (!timezoneSearch) return ALL_TIMEZONES;
     const search = timezoneSearch.toLowerCase().replace(/\//g, ' ').trim();
-    return ALL_TIMEZONES.filter(tz => tz.searchLabel.includes(search));
+    return ALL_TIMEZONES.filter((tz: TimezoneOption) => tz.searchLabel.includes(search));
   }, [timezoneSearch]);
 
   const loadSettingsFromFirestore = useCallback(async () => {

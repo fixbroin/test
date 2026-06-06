@@ -26,7 +26,7 @@ import { useLoading } from '@/contexts/LoadingContext';
 import { useRouter, usePathname } from 'next/navigation';
 import { useApplicationConfig } from '@/hooks/useApplicationConfig';
 import { defaultAppSettings } from '@/config/appDefaults';
-import { getZonedDate } from '@/lib/utils';
+import { getZonedDate, formatZonedDateToISO } from '@/lib/utils';
 import Breadcrumbs from '@/components/shared/Breadcrumbs';
 import type { BreadcrumbItem } from '@/types/ui';
 import { logUserActivity } from '@/lib/activityLogger';
@@ -81,7 +81,7 @@ export default function SchedulePage() {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-                selectedDate: date.toISOString(),
+                selectedDate: formatZonedDateToISO(date, appConfig?.timezone),
                 cartEntries: cartEntries
             })
         });

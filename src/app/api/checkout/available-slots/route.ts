@@ -253,8 +253,25 @@ export async function POST(req: NextRequest) {
         const appConfig = (appConfigSnap.exists ? appConfigSnap.data() : defaultAppSettings) as AppSettings;
         const timezone = appConfig.timezone || 'Asia/Kolkata';
 
-        // Robust parsing: "YYYY-MM-DD" should be treated as UTC midnight for calculation start
-        const [y, m, d] = selectedDate.split('-').map(Number);
+        // Robust parsing: Extract "YYYY-MM-DD" part even if it's a full ISO string
+        let dateStr = selectedDate;
+        if (selectedDate.includes('T')) {
+            dateStr = formatZonedDateToISO(new Date(selectedDate), timezone);
+        }
+
+        const dateParts = dateStr.split('-');
+        if (dateParts.length < 3) {
+            return NextResponse.json({ error: "Invalid date format. Expected YYYY-MM-DD." }, { status: 400 });
+        }
+
+        const y = parseInt(dateParts[0], 10);
+        const m = parseInt(dateParts[1], 10);
+        const d = parseInt(dateParts[2], 10);
+
+        if (isNaN(y) || isNaN(m) || isNaN(d)) {
+            return NextResponse.json({ error: "Invalid date components." }, { status: 400 });
+        }
+
         const dateObj = new Date(Date.UTC(y, m - 1, d, 0, 0, 0)); 
         const dateISO = formatZonedDateToISO(dateObj, timezone);
 
