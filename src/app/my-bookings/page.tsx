@@ -25,7 +25,7 @@ import { Separator } from "@/components/ui/separator";
 import AppImage from "@/components/ui/AppImage";
 import { triggerPushNotification } from "@/lib/fcmUtils";
 import { ADMIN_EMAIL } from "@/contexts/AuthContext";
-import { getTimestampMillis } from "@/lib/utils";
+import { getTimestampMillis, formatDateInTimezone, formatTimeInTimezone } from "@/lib/utils";
 
 
 // Enriched booking type to include provider details
@@ -114,6 +114,26 @@ export default function MyBookingsPage() {
   const { config: appConfig, isLoading: isLoadingAppSettings } = useApplicationConfig();
   const router = useRouter();
   const { showLoading } = useLoading();
+
+  const formatBookingTimestamp = (timestamp?: any): string => {
+    const millis = getTimestampMillis(timestamp);
+    if (!millis) return 'N/A';
+    return formatDateInTimezone(millis, appConfig.timezone, { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: true });
+  };
+
+  const formatDateForDisplay = (dateString: string | undefined): string => {
+      if (!dateString) return 'N/A';
+      try {
+          if (dateString.includes('-')) {
+              const [y, m, d] = dateString.split('-').map(Number);
+              const dateObj = new Date(y, m - 1, d);
+              return formatDateInTimezone(dateObj, appConfig.timezone, { day: '2-digit', month: 'short', year: 'numeric' });
+          }
+          return formatDateInTimezone(dateString, appConfig.timezone, { day: '2-digit', month: 'short', year: 'numeric' });
+      } catch (e) {
+          return dateString;
+      }
+  };
 
   const [showCancellationDialog, setShowCancellationDialog] = useState(false);
   const [cancellationDialogContent, setCancellationDialogContent] = useState<{ title: string; description: React.ReactNode; actionText?: string; onAction?: () => void; showPayButton?: boolean; feeAmount?: number, feeType?: 'fixed' | 'percentage' } | null>(null);
@@ -420,6 +440,7 @@ export default function MyBookingsPage() {
         contactEmail: globalCompanySettings?.contactEmail || "support@fixbro.in",
         contactMobile: globalCompanySettings?.contactMobile || "+91-7353113455",
         logoUrl: globalCompanySettings?.logoUrl || undefined,
+        timezone: appConfig?.timezone || "Asia/Kolkata",
       };
       await generateInvoicePdf(booking, companyDetailsForInvoice);
     } catch (error) {
@@ -503,7 +524,7 @@ export default function MyBookingsPage() {
                     <div>
                       <p className="text-muted-foreground text-green-600 font-semibold">Estimated Completion</p>
                       <p className="font-medium text-green-700">
-                        {new Date(booking.estimatedEndTime).toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' })} at {new Date(booking.estimatedEndTime).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true })}
+                        {formatDateInTimezone(booking.estimatedEndTime, appConfig.timezone, { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' })} at {formatTimeInTimezone(booking.estimatedEndTime, appConfig.timezone)}
                       </p>
                     </div>
                   )}

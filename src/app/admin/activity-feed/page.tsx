@@ -27,7 +27,8 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import { cn } from '@/lib/utils';
+import { cn, formatDateInTimezone, formatTimeInTimezone } from '@/lib/utils';
+import { useApplicationConfig } from '@/hooks/useApplicationConfig';
 import { motion, AnimatePresence } from 'framer-motion';
 import { getArchivedActivities } from '@/lib/adminDashboardUtils';
 import { triggerRefresh } from '@/lib/revalidateUtils';
@@ -75,6 +76,7 @@ const formatTimestamp = (timestamp?: any): string => {
 import { onSnapshot } from "firebase/firestore";
 
 export default function AdminActivityFeedPage() {
+  const { config: appConfig } = useApplicationConfig();
   const [cachedActivities, setCachedActivities] = useState<UserActivity[]>([]);
   const [liveActivities, setLiveActivities] = useState<UserActivity[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -82,7 +84,11 @@ export default function AdminActivityFeedPage() {
   const [userNames, setUserNames] = useState<Record<string, string>>({});
   const { toast } = useToast();
 
-  // 1. Fetch Archived History (Cheap Cache)
+  const formatActivityTimestamp = useCallback((timestamp?: any): string => {
+    const millis = getTimestampMillis(timestamp);
+    if (!millis) return 'N/A';
+    return `${formatDateInTimezone(millis, appConfig?.timezone, { day: '2-digit', month: 'short' })} ${formatTimeInTimezone(millis, appConfig?.timezone)}`;
+  }, [appConfig?.timezone]);
   const loadCachedData = useCallback(async () => {
     try {
       const result = await getArchivedActivities();
@@ -345,7 +351,7 @@ export default function AdminActivityFeedPage() {
         <EventBadge eventType={activity.eventType} />
         <div className="text-right">
           <p className="text-[10px] font-black text-slate-900 dark:text-slate-100 uppercase tracking-tighter">
-            {formatTimestamp(activity.timestamp)}
+            {formatActivityTimestamp(activity.timestamp)}
           </p>
         </div>
       </div>
@@ -479,7 +485,7 @@ export default function AdminActivityFeedPage() {
                           <TableCell className="text-right pr-8">
                             <div className="flex flex-col items-end gap-0.5">
                               <span className="text-[11px] font-black text-slate-900 dark:text-slate-100 uppercase tracking-tighter">
-                                {formatTimestamp(activity.timestamp)}
+                                {formatActivityTimestamp(activity.timestamp)}
                               </span>
                             </div>
                           </TableCell>

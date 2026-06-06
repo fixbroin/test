@@ -5,6 +5,7 @@ import jsPDF from 'jspdf';
 import 'jspdf-autotable'; 
 import type { UserOptions, CellWidthType } from 'jspdf-autotable';
 import type { FirestoreBooking, BookingServiceItem, AppliedPlatformFeeItem } from '@/types/firestore';
+import { formatDateInTimezone } from './utils';
 
 interface ExtendedHeadCellDef {
   cellWidth?: CellWidthType;
@@ -24,6 +25,7 @@ interface CompanyDetails {
   contactEmail: string;
   contactMobile: string;
   logoUrl?: string;
+  timezone?: string;
 }
 
 const getBasePriceForInvoice = (displayedPrice: number, isTaxInclusive?: boolean, taxPercent?: number): number => {
@@ -33,19 +35,9 @@ const getBasePriceForInvoice = (displayedPrice: number, isTaxInclusive?: boolean
   return displayedPrice;
 };
 
-const formatDateForIndiaDisplay = (dateString: string | undefined): string => {
-    if (!dateString) return 'N/A';
-    try {
-        // Assuming dateString is YYYY-MM-DD or easily parsable by new Date()
-        const date = new Date(dateString.replace(/-/g, '/')); // Handle YYYY-MM-DD
-        return date.toLocaleDateString('en-IN', { day: '2-digit', month: '2-digit', year: 'numeric' });
-    } catch (e) {
-        return dateString; // Fallback to original string if parsing fails
-    }
-};
-
 export const generateInvoicePdf = async (booking: FirestoreBooking, companyDetails?: CompanyDetails): Promise<string> => {
   const doc = new jsPDF();
+  const timezone = companyDetails?.timezone || 'Asia/Kolkata';
 
   const defaultCompanyDetails: CompanyDetails = {
     name: companyDetails?.name || "FixBro.in",
@@ -53,6 +45,7 @@ export const generateInvoicePdf = async (booking: FirestoreBooking, companyDetai
     contactEmail: companyDetails?.contactEmail || 'support@fixbro.in',
     contactMobile: companyDetails?.contactMobile || '+91-7353113455',
     logoUrl: companyDetails?.logoUrl,
+    timezone: timezone
   };
   
   doc.setFontSize(18);
@@ -73,8 +66,16 @@ export const generateInvoicePdf = async (booking: FirestoreBooking, companyDetai
 
   doc.setFontSize(10);
   doc.text(`Invoice #: ${booking.bookingId}`, 196, 30, { align: "right" });
-  doc.text(`Date: ${new Date().toLocaleDateString('en-IN', { day: '2-digit', month: '2-digit', year: 'numeric' })}`, 196, 36, { align: "right" });
-  doc.text(`Service Date: ${formatDateForIndiaDisplay(booking.scheduledDate)}`, 196, 42, { align: "right" });
+  doc.text(`Date: ${formatDateInTimezone(new Date(), timezone)}`, 196, 36, { align: "right" });
+  
+  // Format scheduledDate correctly
+  let displayScheduledDate = booking.scheduledDate || 'N/A';
+  if (booking.scheduledDate && booking.scheduledDate.includes('-')) {
+      const [y, m, d] = booking.scheduledDate.split('-').map(Number);
+      const dateObj = new Date(y, m - 1, d);
+      displayScheduledDate = formatDateInTimezone(dateObj, timezone);
+  }
+  doc.text(`Service Date: ${displayScheduledDate}`, 196, 42, { align: "right" });
 
   let startYCustomer = 55;
   doc.setFontSize(12);

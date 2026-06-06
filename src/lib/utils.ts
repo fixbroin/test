@@ -66,3 +66,36 @@ export function formatZonedDateToISO(date?: Date | string | number, timeZone: st
   // Using Intl.DateTimeFormat with en-CA gives YYYY-MM-DD format
   return new Intl.DateTimeFormat('en-CA', { timeZone, year: 'numeric', month: '2-digit', day: '2-digit' }).format(d);
 }
+
+/**
+ * Converts a "wall clock" date (created by getZonedDate) back to a real UTC Date object.
+ * This is necessary before calling .toISOString() or sending the date to the client.
+ */
+export function convertWallClockToUTC(wallClockDate: Date, timeZone: string = 'Asia/Kolkata'): Date {
+  // Use a temporary date to find the offset difference between server local and target timezone
+  const testDate = new Date(wallClockDate.getTime());
+  const zonedString = testDate.toLocaleString('en-US', { timeZone });
+  const zonedDate = new Date(zonedString);
+  const offset = zonedDate.getTime() - testDate.getTime();
+  return new Date(testDate.getTime() - offset);
+}
+
+/**
+ * Formats a date string or object for display, respecting the target timezone.
+ */
+export function formatDateInTimezone(date: Date | string | number | undefined, timeZone: string = 'Asia/Kolkata', options: Intl.DateTimeFormatOptions = { day: '2-digit', month: '2-digit', year: 'numeric' }): string {
+    if (!date) return 'N/A';
+    const d = new Date(date);
+    if (isNaN(d.getTime())) return String(date);
+    return new Intl.DateTimeFormat('en-IN', { ...options, timeZone }).format(d);
+}
+
+/**
+ * Formats a time string or object for display, respecting the target timezone.
+ */
+export function formatTimeInTimezone(date: Date | string | number | undefined, timeZone: string = 'Asia/Kolkata', options: Intl.DateTimeFormatOptions = { hour: '2-digit', minute: '2-digit', hour12: true }): string {
+    if (!date) return 'N/A';
+    const d = new Date(date);
+    if (isNaN(d.getTime())) return String(date);
+    return new Intl.DateTimeFormat('en-IN', { ...options, timeZone }).format(d);
+}

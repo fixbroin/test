@@ -13,7 +13,7 @@ import { useApplicationConfig } from '@/hooks/useApplicationConfig';
 import { useToast } from '@/hooks/use-toast';
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { motion } from 'framer-motion';
-import { cn } from '@/lib/utils';
+import { cn, formatDateInTimezone, formatTimeInTimezone } from '@/lib/utils';
 import PwaInstallButton from '@/components/shared/PwaInstallButton';
 import DashboardTrendingServiceCard from '@/components/admin/DashboardTrendingServiceCard';
 import { getDashboardData, type DashboardData, clearSearchHotspots } from '@/lib/adminDashboardUtils';
@@ -273,7 +273,7 @@ const { user, firestoreUser } = useAuth();
                       <div className="flex justify-between items-center mb-1">
                         <p className="text-sm font-bold tracking-tight">{activity.title}</p>
                         <span className="text-[10px] font-black text-muted-foreground uppercase bg-background/80 px-2 py-0.5 rounded-full border shadow-sm">
-                          {formatDistanceToNow(new Date(activity.timestamp), { addSuffix: true })}
+                          {formatTimeInTimezone(activity.timestamp, appConfig?.timezone)}
                         </span>
                       </div>
                       <p className="text-xs text-muted-foreground font-medium">{activity.description}</p>

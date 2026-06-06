@@ -315,6 +315,7 @@ export async function POST(request: Request) {
                 address: appConfig?.companyAddress || "#44 G S Palya Road Konappana Agrahara Electronic City Phase 2 -560100",
                 contactEmail: appConfig?.companyEmail || 'support@fixbro.in',
                 contactMobile: appConfig?.companyPhone || '+91-7353113455',
+                timezone: appConfig?.timezone || 'Asia/Kolkata',
             };
             const pdfDataUri = await generateInvoicePdf(booking, companyDetails);
             if (pdfDataUri && pdfDataUri.includes(',')) {

@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { adminDb } from '@/lib/firebaseAdmin';
 import { AppSettings, FirestoreService, FirestoreSubCategory, TimeSlotCategoryLimit, FirestoreBooking } from '@/types/firestore';
 import { defaultAppSettings } from '@/config/appDefaults';
-import { getZonedDate, formatZonedDateToISO } from '@/lib/utils';
+import { getZonedDate, formatZonedDateToISO, convertWallClockToUTC } from '@/lib/utils';
 
 interface CartEntry {
   serviceId: string;
@@ -124,7 +124,7 @@ function calculateEndDateTime(
     
     const finalDate = getZonedDate(currentDate, timezone);
     finalDate.setHours(Math.floor(currentMinutes / 60), currentMinutes % 60, 0, 0);
-    return finalDate.toISOString();
+    return convertWallClockToUTC(finalDate, timezone).toISOString();
 }
 
 /**

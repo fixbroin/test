@@ -28,7 +28,7 @@ import { Badge } from '@/components/ui/badge';
 import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Input } from "@/components/ui/input";
-import { cn } from '@/lib/utils';
+import { cn, formatDateInTimezone, formatTimeInTimezone } from '@/lib/utils';
 import AppImage from '@/components/ui/AppImage';
 import { getDashboardData, getArchivedBookings, type DashboardData } from '@/lib/adminDashboardUtils';
 import { triggerRefresh } from '@/lib/revalidateUtils';
@@ -133,6 +133,17 @@ export default function AdminBookingsPage() {
   const [selectedBooking, setSelectedBooking] = useState<FirestoreBooking | null>(null);
   const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false);
   const { config: appConfig, isLoading: isLoadingAppSettings } = useApplicationConfig();
+
+  const formatDateForDisplay = useCallback((dateString: string | undefined): string => {
+    if (!dateString) return 'N/A';
+    // For YYYY-MM-DD strings, we want to treat them as local to the business timezone
+    if (dateString.includes('-')) {
+        const [y, m, d] = dateString.split('-').map(Number);
+        const dateObj = new Date(y, m - 1, d);
+        return formatDateInTimezone(dateObj, appConfig.timezone);
+    }
+    return formatDateInTimezone(dateString, appConfig.timezone);
+  }, [appConfig.timezone]);
 
   const [isAssignModalOpen, setIsAssignModalOpen] = useState(false);
   const [bookingToAssign, setBookingToAssign] = useState<FirestoreBooking | null>(null);
@@ -497,7 +508,9 @@ export default function AdminBookingsPage() {
             <div className="flex items-center gap-2"><Clock className="h-4 w-4 text-primary" /> {booking.scheduledTimeSlot}</div>
         </div>
         {booking.estimatedEndTime && (
-          <div className="text-[10px] font-black flex items-center text-emerald-600 bg-emerald-500/10 px-2 py-1 rounded-md w-fit"><History className="h-3 w-3 mr-1.5" />Ends: {new Date(booking.estimatedEndTime).toLocaleDateString('en-IN', { day: '2-digit', month: '2-digit' })} {new Date(booking.estimatedEndTime).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true })}</div>
+          <div className="text-[10px] font-black flex items-center text-emerald-600 bg-emerald-500/10 px-2 py-1 rounded-md w-fit">
+            <History className="h-3 w-3 mr-1.5" />Ends: {formatDateInTimezone(booking.estimatedEndTime, appConfig.timezone, { day: '2-digit', month: '2-digit' })} {formatTimeInTimezone(booking.estimatedEndTime, appConfig.timezone)}
+          </div>
         )}
         <div className="pt-1">
           <Select value={booking.status} onValueChange={(s) => handleStatusChange(booking, s as BookingStatus)} disabled={isUpdatingStatus === booking.id}>
@@ -582,10 +595,10 @@ export default function AdminBookingsPage() {
                             <div className="text-sm font-bold">{formatDateForDisplay(b.scheduledDate)}</div>
                             <div className="text-xs">{b.scheduledTimeSlot}</div>
                             {b.estimatedEndTime && (
-                              <div className="text-[10px] font-black flex items-center mt-1 text-emerald-600 bg-emerald-500/10 px-2 py-0.5 rounded-full w-fit">
-                                <History className="h-3 w-3 mr-1" />Ends: {new Date(b.estimatedEndTime).toLocaleDateString('en-IN', { day: '2-digit', month: '2-digit' })} {new Date(b.estimatedEndTime).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true })}
-                              </div>
-                            )}
+  <div className="text-[10px] font-black flex items-center mt-1 text-emerald-600 bg-emerald-500/10 px-2 py-0.5 rounded-full w-fit">
+    <History className="h-3 w-3 mr-1" />Ends: {formatDateInTimezone(b.estimatedEndTime, appConfig.timezone, { day: '2-digit', month: '2-digit' })} {formatTimeInTimezone(b.estimatedEndTime, appConfig.timezone)}
+  </div>
+)}
                           </TableCell>
                           <TableCell>
                             <Badge variant="outline" className={cn("text-[10px] font-bold uppercase tracking-tighter shadow-sm", getPaymentBadgeClass(b.paymentMethod, b.status))}>
