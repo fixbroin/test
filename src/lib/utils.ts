@@ -50,11 +50,34 @@ export function getTimestampMillis(ts: any): number {
 /**
  * Returns a Date object shifted to represent the target timezone's local time.
  * Useful for "now" calculations on servers with different default timezones.
+ * It uses a component-based approach which is much more reliable than string parsing.
  */
 export function getZonedDate(date?: Date | string | number, timeZone: string = 'Asia/Kolkata'): Date {
   const d = date ? new Date(date) : new Date();
-  const zonedString = d.toLocaleString('en-US', { timeZone }); //
-  return new Date(zonedString);
+  
+  // Extract components in the target timezone
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone,
+    year: 'numeric',
+    month: 'numeric',
+    day: 'numeric',
+    hour: 'numeric',
+    minute: 'numeric',
+    second: 'numeric',
+    hour12: false
+  }).formatToParts(d);
+
+  const findPart = (type: string) => parseInt(parts.find(p => p.type === type)?.value || '0', 10);
+  
+  // Create a new Date object using these components as "local" time
+  return new Date(
+    findPart('year'),
+    findPart('month') - 1,
+    findPart('day'),
+    findPart('hour'),
+    findPart('minute'),
+    findPart('second')
+  );
 }
 
 /**
@@ -63,8 +86,18 @@ export function getZonedDate(date?: Date | string | number, timeZone: string = '
  */
 export function formatZonedDateToISO(date?: Date | string | number, timeZone: string = 'Asia/Kolkata'): string {
   const d = date ? new Date(date) : new Date();
-  // Using Intl.DateTimeFormat with en-CA gives YYYY-MM-DD format
-  return new Intl.DateTimeFormat('en-CA', { timeZone, year: 'numeric', month: '2-digit', day: '2-digit' }).format(d);
+  const parts = new Intl.DateTimeFormat('en-CA', { 
+    timeZone, 
+    year: 'numeric', 
+    month: '2-digit', 
+    day: '2-digit' 
+  }).formatToParts(d);
+  
+  const year = parts.find(p => p.type === 'year')?.value;
+  const month = parts.find(p => p.type === 'month')?.value;
+  const day = parts.find(p => p.type === 'day')?.value;
+  
+  return `${year}-${month}-${day}`;
 }
 
 /**
@@ -72,12 +105,12 @@ export function formatZonedDateToISO(date?: Date | string | number, timeZone: st
  * This is necessary before calling .toISOString() or sending the date to the client.
  */
 export function convertWallClockToUTC(wallClockDate: Date, timeZone: string = 'Asia/Kolkata'): Date {
-  // Use a temporary date to find the offset difference between server local and target timezone
-  const testDate = new Date(wallClockDate.getTime());
-  const zonedString = testDate.toLocaleString('en-US', { timeZone });
-  const zonedDate = new Date(zonedString);
-  const offset = zonedDate.getTime() - testDate.getTime();
-  return new Date(testDate.getTime() - offset);
+  // Use a component-based diff to find the exact offset in milliseconds
+  const testDate = new Date(); // Use current time as a baseline for offset
+  const zoned = getZonedDate(testDate, timeZone);
+  const offset = zoned.getTime() - testDate.getTime();
+  
+  return new Date(wallClockDate.getTime() - offset);
 }
 
 /**
