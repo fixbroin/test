@@ -76,6 +76,8 @@ export const defaultAppSettings: AppSettings = {
 
   enableStatusUpdateEmails: true,
 
+  timezone: 'Asia/Kolkata', // Default timezone
+
   // UI/UX
   loaderType: 'logo-pulse',
 

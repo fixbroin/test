@@ -23,6 +23,16 @@ import { Tooltip, TooltipProvider, TooltipTrigger, TooltipContent } from '@/comp
 const APP_CONFIG_COLLECTION = "webSettings";
 const APP_CONFIG_DOC_ID = "applicationConfig";
 
+const TIMEZONES = [
+  { label: "India (IST) - Asia/Kolkata", value: "Asia/Kolkata" },
+  { label: "Dubai (GST) - Asia/Dubai", value: "Asia/Dubai" },
+  { label: "New York (EST/EDT) - America/New_York", value: "America/New_York" },
+  { label: "London (GMT/BST) - Europe/London", value: "Europe/London" },
+  { label: "Singapore (SGT) - Asia/Singapore", value: "Asia/Singapore" },
+  { label: "Sydney (AEST/AEDT) - Australia/Sydney", value: "Australia/Sydney" },
+  { label: "UTC", value: "UTC" },
+];
+
 
 export default function AdminSettingsPage() {
   const { toast } = useToast();
@@ -321,6 +331,35 @@ export default function AdminSettingsPage() {
               <CardDescription>Basic application-wide configurations.</CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
+              {/* Timezone Configuration */}
+              <div className="space-y-4 p-4 border rounded-md shadow-sm bg-muted/5">
+                <h3 className="text-lg font-semibold flex items-center">
+                  <Clock className="mr-2 h-5 w-5 text-primary" /> Application Timezone
+                </h3>
+                <div className="space-y-2">
+                  <Label htmlFor="timezone">Select Timezone</Label>
+                  <Select
+                    value={settings.timezone || 'Asia/Kolkata'}
+                    onValueChange={(value) => handleSelectChange('timezone', value)}
+                    disabled={isSaving}
+                  >
+                    <SelectTrigger id="timezone">
+                      <SelectValue placeholder="Select application timezone" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {TIMEZONES.map((tz) => (
+                        <SelectItem key={tz.value} value={tz.value}>
+                          {tz.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <p className="text-xs text-muted-foreground">
+                    This timezone will be used for booking slots, email timestamps, and all date/time calculations.
+                  </p>
+                </div>
+              </div>
+
               <div className="space-y-4 p-4 border rounded-md shadow-sm">
                 <h3 className="text-lg font-semibold">Minimum Booking Policy</h3>
                 <div className="flex items-center justify-between rounded-lg border p-4">

@@ -46,3 +46,23 @@ export function getTimestampMillis(ts: any): number {
   
   return 0;
 }
+
+/**
+ * Returns a Date object shifted to represent the target timezone's local time.
+ * Useful for "now" calculations on servers with different default timezones.
+ */
+export function getZonedDate(date?: Date | string | number, timeZone: string = 'Asia/Kolkata'): Date {
+  const d = date ? new Date(date) : new Date();
+  const zonedString = d.toLocaleString('en-US', { timeZone });
+  return new Date(zonedString);
+}
+
+/**
+ * Formats a Date to an ISO string (YYYY-MM-DD) in the target timezone.
+ * Prevents "yesterday" issues when formatting dates in UTC.
+ */
+export function formatZonedDateToISO(date?: Date | string | number, timeZone: string = 'Asia/Kolkata'): string {
+  const d = date ? new Date(date) : new Date();
+  // Using Intl.DateTimeFormat with en-CA gives YYYY-MM-DD format
+  return new Intl.DateTimeFormat('en-CA', { timeZone, year: 'numeric', month: '2-digit', day: '2-digit' }).format(d);
+}

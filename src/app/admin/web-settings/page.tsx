@@ -44,6 +44,7 @@ const generalInfoSchema = z.object({
   contactEmail: z.string().email("Invalid email address.").optional().or(z.literal('')),
   contactMobile: z.string().regex(/^\+?[1-9]\d{1,14}$/, "Invalid phone format.").optional().or(z.literal('')),
   address: z.string().max(200, "Address is too long.").optional().or(z.literal('')),
+  timezone: z.string().optional().or(z.literal('')),
   logoImageHint: z.string().max(50, { message: "Hint should be max 50 characters."}).optional().or(z.literal('')),
   websiteIconImageHint: z.string().max(50, { message: "Hint should be max 50 characters."}).optional().or(z.literal('')),
 });

@@ -26,6 +26,7 @@ import { useLoading } from '@/contexts/LoadingContext';
 import { useRouter, usePathname } from 'next/navigation';
 import { useApplicationConfig } from '@/hooks/useApplicationConfig';
 import { defaultAppSettings } from '@/config/appDefaults';
+import { getZonedDate } from '@/lib/utils';
 import Breadcrumbs from '@/components/shared/Breadcrumbs';
 import type { BreadcrumbItem } from '@/types/ui';
 import { logUserActivity } from '@/lib/activityLogger';
@@ -107,7 +108,7 @@ export default function SchedulePage() {
       setDataFetchError(null);
       try {
         const savedDateStr = localStorage.getItem('fixbroScheduledDate');
-        const now = new Date();
+        const now = getZonedDate(new Date(), appConfig.timezone);
         let initialDateToDisplay = new Date(now); 
         initialDateToDisplay.setHours(0,0,0,0);
         if (savedDateStr) {
@@ -201,10 +202,10 @@ export default function SchedulePage() {
   
 
   const today = useMemo(() => {
-    const d = new Date();
+    const d = getZonedDate(new Date(), appConfig.timezone);
     d.setHours(0, 0, 0, 0);
     return d;
-  }, []);
+  }, [appConfig.timezone]);
 
   const handleProceed = () => {
     if (typeof window !== 'undefined' && selectedDate && selectedTimeSlot && selectedSlotData) {
@@ -410,7 +411,7 @@ export default function SchedulePage() {
                                    <p className="text-xs text-muted-foreground uppercase tracking-wider font-bold">Estimated Completion</p>
                                    <p className="text-sm font-bold">
                                      {selectedSlotData && (
-                                       `Ends on ${new Date(selectedSlotData.endDateTime).toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' })} at ${new Date(selectedSlotData.endDateTime).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true })}`
+                                       `Ends on ${new Date(selectedSlotData.endDateTime).toLocaleDateString('en-IN', { timeZone: appConfig.timezone, weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' })} at ${new Date(selectedSlotData.endDateTime).toLocaleTimeString('en-IN', { timeZone: appConfig.timezone, hour: '2-digit', minute: '2-digit', hour12: true })}`
                                      )}
                                    </p>
                                  </div>

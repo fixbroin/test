@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { adminDb } from '@/lib/firebaseAdmin';
 import { AppSettings, FirestoreService, FirestoreSubCategory, TimeSlotCategoryLimit, FirestoreBooking } from '@/types/firestore';
 import { defaultAppSettings } from '@/config/appDefaults';
+import { getZonedDate, formatZonedDateToISO } from '@/lib/utils';
 
 interface CartEntry {
   serviceId: string;
@@ -72,9 +73,10 @@ function calculateEndDateTime(
     bufferDuration: number,
     appConfig: AppSettings
 ): string {
+    const timezone = appConfig.timezone || 'Asia/Kolkata';
     let remainingMinutes = workDuration + bufferDuration;
     let currentMinutes = startMinutes;
-    const currentDate = new Date(startDateISO);
+    const currentDate = getZonedDate(new Date(startDateISO), timezone);
     
     let daysSearched = 0;
     while (remainingMinutes > 0 && daysSearched < 30) {
@@ -120,7 +122,7 @@ function calculateEndDateTime(
         daysSearched++;
     }
     
-    const finalDate = new Date(currentDate);
+    const finalDate = getZonedDate(currentDate, timezone);
     finalDate.setHours(Math.floor(currentMinutes / 60), currentMinutes % 60, 0, 0);
     return finalDate.toISOString();
 }
@@ -136,24 +138,25 @@ function* simulateProgression(
     bufferDuration: number,
     appConfig: AppSettings
 ) {
+    const timezone = appConfig.timezone || 'Asia/Kolkata';
     let remainingMinutesToBlock = workDuration;
     let bufferRemaining = bufferDuration;
     let isWorkCompleted = false;
     let currentMinutes = startMinutes;
-    const currentDate = new Date(startDateISO);
+    const currentDate = getZonedDate(new Date(startDateISO), timezone);
     
     const slotInterval = appConfig.timeSlotSettings?.slotIntervalMinutes || DEFAULT_SLOT_INTERVAL_MINUTES;
 
     let daysSearched = 0;
     while (remainingMinutesToBlock > 0 && daysSearched < 30) {
-        let dateISO = currentDate.toLocaleDateString('en-CA');
+        let dateISO = formatZonedDateToISO(currentDate, timezone);
         let dayName = getDayName(currentDate);
         let dayAvailability = appConfig.timeSlotSettings?.weeklyAvailability[dayName] || defaultAppSettings.timeSlotSettings.weeklyAvailability[dayName];
 
         let loopGuard = 0;
         while (!dayAvailability.isEnabled && loopGuard < 7) {
             currentDate.setDate(currentDate.getDate() + 1);
-            dateISO = currentDate.toLocaleDateString('en-CA');
+            dateISO = formatZonedDateToISO(currentDate, timezone);
             dayName = getDayName(currentDate);
             dayAvailability = appConfig.timeSlotSettings?.weeklyAvailability[dayName] || defaultAppSettings.timeSlotSettings.weeklyAvailability[dayName];
             currentMinutes = parseTimeToMinutes(dayAvailability.startTime);
@@ -239,15 +242,19 @@ export async function POST(req: NextRequest) {
             return NextResponse.json({ error: "Missing required parameters." }, { status: 400 });
         }
 
+        // Fetch config first to get timezone
+        const appConfigSnap = await adminDb.collection("webSettings").doc("applicationConfig").get();
+        const appConfig = (appConfigSnap.exists ? appConfigSnap.data() : defaultAppSettings) as AppSettings;
+        const timezone = appConfig.timezone || 'Asia/Kolkata';
+
         const dateObj = new Date(selectedDate);
-        const dateISO = dateObj.toLocaleDateString('en-CA');
+        const dateISO = formatZonedDateToISO(dateObj, timezone);
 
         const lookBackDate = new Date(dateObj);
         lookBackDate.setDate(lookBackDate.getDate() - 7);
-        const lookBackISO = lookBackDate.toLocaleDateString('en-CA');
+        const lookBackISO = formatZonedDateToISO(lookBackDate, timezone);
 
-        const [appConfigSnap, limitsSnap, servicesSnap, subCatsSnap, bookingsSnap] = await Promise.all([
-            adminDb.collection("webSettings").doc("applicationConfig").get(),
+        const [limitsSnap, servicesSnap, subCatsSnap, bookingsSnap] = await Promise.all([
             adminDb.collection("timeSlotCategoryLimits").get(),
             adminDb.collection("adminServices").get(),
             adminDb.collection("adminSubCategories").get(),
@@ -257,7 +264,6 @@ export async function POST(req: NextRequest) {
                 .get()
         ]);
 
-        const appConfig = (appConfigSnap.exists ? appConfigSnap.data() : defaultAppSettings) as AppSettings;
         const limitsData = Object.fromEntries(limitsSnap.docs.map(doc => [doc.data().categoryId, { id: doc.id, ...doc.data() } as TimeSlotCategoryLimit]));
         const servicesData = Object.fromEntries(servicesSnap.docs.map(doc => [doc.id, { id: doc.id, ...doc.data() } as FirestoreService]));
         const subCatsData = Object.fromEntries(subCatsSnap.docs.map(doc => [doc.id, { id: doc.id, ...doc.data() } as FirestoreSubCategory]));
@@ -354,7 +360,7 @@ export async function POST(req: NextRequest) {
             return NextResponse.json({ availableTimeSlots: [], totalCartDuration });
         }
 
-        const now = new Date();
+        const now = getZonedDate(new Date(), timezone);
         const earliestBookableTime = new Date(now.getTime() + (limitLateBookingHours * 60 * 60 * 1000));
         const dayStartMinutes = parseTimeToMinutes(selectedDayAvail.startTime);
         const dayEndMinutes = parseTimeToMinutes(selectedDayAvail.endTime);
@@ -363,7 +369,8 @@ export async function POST(req: NextRequest) {
 
         let potentialStart = dayStartMinutes;
         while (potentialStart < dayEndMinutes) {
-            const slotDateTime = new Date(dateObj);
+            // Construct slotDateTime in target timezone
+            const slotDateTime = getZonedDate(new Date(selectedDate), timezone);
             slotDateTime.setHours(Math.floor(potentialStart / 60), potentialStart % 60, 0, 0);
 
             if (slotDateTime < earliestBookableTime) {

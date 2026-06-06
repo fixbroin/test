@@ -605,6 +605,8 @@ export interface AppSettings {
 
   loaderType?: string; // Added for compatibility with appDefaults.ts
 
+  timezone?: string; // NEW: Configurable application timezone
+
   updatedAt?: Timestamp; // For tracking updates in Firestore
 }
 

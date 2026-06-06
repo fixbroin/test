@@ -8,6 +8,7 @@ import { sendProviderBookingAssignmentEmail } from '@/ai/flows/sendProviderBooki
 import { getBaseUrl } from '@/lib/config';
 import { generateInvoicePdf } from '@/lib/invoiceGenerator';
 import { triggerRefresh } from '@/lib/revalidateUtils';
+import { getZonedDate } from '@/lib/utils';
 
 // Define ADMIN_EMAIL - should match your AuthContext
 const ADMIN_EMAIL = "fixbro.in@gmail.com"; 
@@ -179,8 +180,9 @@ export async function POST(request: Request) {
             const currentWithdrawableBalance = providerData?.withdrawableBalance || 0;
             const commission = calculateProviderFee(booking.totalAmount, appConfig.providerFeeType, appConfig.providerFeeValue);
             
-            // Monthly Stats Logic
-            const now = new Date();
+            // Monthly Stats Logic using Configured Timezone
+            const timezone = appConfig.timezone || 'Asia/Kolkata';
+            const now = getZonedDate(new Date(), timezone);
             const monthKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
             let stats = providerData?.monthlyStats || { monthKey, gross: 0, commission: 0, cashCollected: 0, withdrawals: 0, onlineNet: 0, cashCommission: 0 };
             
