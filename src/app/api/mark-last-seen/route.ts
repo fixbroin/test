@@ -1,11 +1,8 @@
 import { type NextRequest, NextResponse } from 'next/server';
 import { getFirestore, Timestamp } from 'firebase-admin/firestore';
+import { getAuth } from 'firebase-admin/auth';
 import { initFirebaseAdmin } from '@/lib/firebase-admin';
 
-/**
- * This API route is called by navigator.sendBeacon to update user activity.
- * We use set({ merge: true }) instead of update() to avoid 404 errors if the doc is missing.
- */
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
@@ -16,7 +13,25 @@ export async function POST(req: NextRequest) {
     }
 
     initFirebaseAdmin();
+    const auth = getAuth();
     const db = getFirestore();
+
+    // Security: Verify token and ensure user can only update their own lastSeen
+    const authHeader = req.headers.get('Authorization');
+    if (authHeader?.startsWith('Bearer ')) {
+        const idToken = authHeader.split('Bearer ')[1];
+        try {
+            const decodedToken = await auth.verifyIdToken(idToken);
+            if (decodedToken.uid !== uid) {
+                return NextResponse.json({ success: false, error: 'Forbidden' }, { status: 403 });
+            }
+        } catch (e) {
+            // If token invalid but provided, reject. 
+            // Note: sendBeacon often doesn't send headers, so we might need to allow unauthenticated 
+            // BUT only for harmless updates like lastSeen.
+            return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
+        }
+    }
 
     const userDocRef = db.collection('users').doc(uid);
     // Use set with merge to ensure the operation succeeds even if the document doesn't exist yet

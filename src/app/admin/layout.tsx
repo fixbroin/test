@@ -7,14 +7,12 @@ import { usePathname, useRouter } from 'next/navigation';
 import {
   SidebarProvider,
   Sidebar,
-  SidebarContent,
   SidebarTrigger,
   SidebarInset,
 } from '@/components/ui/sidebar';
 import AdminSidebarContent from '@/components/admin/AdminSidebarContent';
 import ProtectedRoute from '@/components/auth/ProtectedRoute';
 import { useAuth } from '@/hooks/useAuth';
-import { ADMIN_EMAIL } from '@/contexts/AuthContext';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -25,7 +23,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from '@/components/ui/button';
-import { UserCircle, KeyRound, LogOut, Loader2, Bell, ShieldCheck, ChevronDown, Settings2 } from 'lucide-react';
+import { UserCircle, KeyRound, LogOut, Loader2, Bell, ShieldCheck, ChevronDown } from 'lucide-react';
 import { auth, db } from '@/lib/firebase'; 
 import { sendPasswordResetEmail } from 'firebase/auth';
 import { useToast } from '@/hooks/use-toast';
@@ -37,10 +35,9 @@ import AdminFloatingChatButton from '@/components/admin/AdminFloatingChatButton'
 import FloatingAdminChatWindow from '@/components/admin/FloatingAdminChatWindow';
 import { useTotalAdminUnreadChatCount } from '@/hooks/useTotalAdminUnreadChatCount';
 import { useGlobalSettings } from '@/hooks/useGlobalSettings';
-import { collection, query, where, onSnapshot, orderBy, limit, Timestamp, doc, updateDoc } from 'firebase/firestore'; 
+import { collection, query, where, onSnapshot, orderBy, limit, doc, updateDoc } from 'firebase/firestore'; 
 import type { FirestoreNotification } from '@/types/firestore'; 
 import NewBookingAdminPopup from '@/components/admin/NewBookingAdminPopup'; 
-import { cn } from '@/lib/utils';
 
 const AdminPageLoader = () => (
   <div className="flex justify-center items-center min-h-[calc(100vh-120px)]">
@@ -50,21 +47,28 @@ const AdminPageLoader = () => (
 );
 
 export default function AdminLayout({ children }: PropsWithChildren) {
-  const { user: adminUser, firestoreUser, isLoading: authIsLoading, logOut: handleLogoutAuth } = useAuth();
+  const { user: adminUser, adminRole, isLoading: authIsLoading, logOut: handleLogoutAuth } = useAuth();
   const { toast } = useToast();
   const pathname = usePathname();
   const router = useRouter();
   const { showLoading, hideLoading } = useLoading();
   const [isFloatingChatOpen, setIsFloatingChatOpen] = useState(false);
 
-  // Derived isAdmin check from firestoreUser for better reliability on refresh
-  const isAdmin = useMemo(() => {
-    return firestoreUser && firestoreUser.email && ADMIN_EMAIL && firestoreUser.email.toLowerCase() === ADMIN_EMAIL.toLowerCase();
-  }, [firestoreUser]);
+  // isAdmin is now defined as having any valid adminRole
+  const isAdmin = !!adminRole;
+  
+  // Format role name for display (e.g. "super_admin" -> "Master")
+  const roleDisplayLabel = useMemo(() => {
+    if (adminRole === 'super_admin') return "Master";
+    if (adminRole === 'booking_admin') return "Operations";
+    if (adminRole === 'finance_admin') return "Finance";
+    if (adminRole === 'content_admin') return "Content";
+    return "Staff";
+  }, [adminRole]);
 
   const { count: unreadAdminNotificationsCount, isLoading: isLoadingAdminNotifications } = useUnreadNotificationsCount(adminUser?.uid);
 
-  const { totalUnreadCount, isLoading: isLoadingTotalUnread } = useTotalAdminUnreadChatCount(adminUser?.uid);
+  const { isLoading: isLoadingTotalUnread } = useTotalAdminUnreadChatCount(adminUser?.uid);
   const { settings: globalSettings, isLoading: isLoadingGlobalSettings } = useGlobalSettings();
   const adminChatAudioRef = useRef<HTMLAudioElement | null>(null);
   const previousTotalUnreadCountRef = useRef<number>(0);
@@ -295,7 +299,7 @@ export default function AdminLayout({ children }: PropsWithChildren) {
                         </Avatar>
                         <div className="hidden lg:flex flex-col items-start leading-none gap-1">
                            <span className="text-xs font-black truncate max-w-[100px]">{adminUser.displayName || "Admin"}</span>
-                           <span className="text-[9px] font-bold text-muted-foreground uppercase tracking-widest">Master</span>
+                           <span className="text-[9px] font-bold text-muted-foreground uppercase tracking-widest">{roleDisplayLabel}</span>
                         </div>
                         <ChevronDown className="h-3.5 w-3.5 text-muted-foreground group-hover:text-primary transition-colors" />
                       </Button>

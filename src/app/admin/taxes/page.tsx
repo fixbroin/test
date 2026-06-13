@@ -13,7 +13,11 @@ import TaxForm, { type TaxFormData } from '@/components/admin/TaxForm';
 import { db } from '@/lib/firebase';
 import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc, orderBy, query, Timestamp } from "firebase/firestore";
 import { useToast } from "@/hooks/use-toast";
+import { triggerRefresh } from '@/lib/revalidateUtils';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
+import { useAuth } from '@/hooks/useAuth';
+import { hasActionPermission } from '@/config/rbac';
+import PermissionGuard from '@/components/admin/PermissionGuard';
 
 export default function AdminTaxesPage() {
   const [taxes, setTaxes] = useState<FirestoreTax[]>([]);
@@ -58,9 +62,8 @@ export default function AdminTaxesPage() {
   const handleDeleteTax = async (taxId: string) => {
     setIsSubmitting(true);
     try {
-      // TODO: Check if this tax is currently used by any services before deleting.
-      // For now, direct delete.
       await deleteDoc(doc(db, "adminTaxes", taxId));
+      await triggerRefresh('global-cache');
       setTaxes(taxes.filter(tax => tax.id !== taxId));
       toast({ title: "Success", description: "Tax configuration deleted successfully." });
     } catch (error) {
@@ -76,6 +79,7 @@ export default function AdminTaxesPage() {
     try {
       const taxDocRef = doc(db, "adminTaxes", tax.id);
       await updateDoc(taxDocRef, { isActive: !tax.isActive, updatedAt: Timestamp.now() });
+      await triggerRefresh('global-cache');
       await fetchTaxes(); // Re-fetch to update UI state
       toast({ title: "Status Updated", description: `Tax ${tax.taxName} ${!tax.isActive ? "activated" : "deactivated"}.`});
     } catch (error) {
@@ -104,6 +108,7 @@ export default function AdminTaxesPage() {
         await addDoc(taxesCollectionRef, { ...payload, createdAt: Timestamp.now() });
         toast({ title: "Success", description: "Tax configuration added successfully." });
       }
+      await triggerRefresh('global-cache');
       setIsFormOpen(false);
       setEditingTax(null);
       await fetchTaxes(); 

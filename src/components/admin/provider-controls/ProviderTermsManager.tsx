@@ -8,6 +8,7 @@ import { Loader2, Save, FileText } from "lucide-react";
 import { useToast } from '@/hooks/use-toast';
 import { db } from '@/lib/firebase';
 import { doc, getDoc, setDoc, Timestamp } from "firebase/firestore";
+import { triggerRefresh } from '@/lib/revalidateUtils';
 
 const COLLECTION_NAME = "providerControlOptions";
 const DOCUMENT_ID = "termsAndConditions";
@@ -45,6 +46,7 @@ export default function ProviderTermsManager() {
         content,
         updatedAt: Timestamp.now(),
       }, { merge: true });
+      await triggerRefresh('global-cache');
       toast({ title: "Success", description: "Provider terms updated successfully." });
     } catch (error) {
       console.error("Error saving terms:", error);

@@ -14,6 +14,7 @@ import type { SkillLevelOption } from '@/types/firestore'; // Ensure this type i
 import { db } from '@/lib/firebase';
 import { doc, getDoc, setDoc, Timestamp } from "firebase/firestore";
 import { useToast } from "@/hooks/use-toast";
+import { triggerRefresh } from '@/lib/revalidateUtils';
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import * as z from "zod";
@@ -87,6 +88,7 @@ export default function SkillLevelManager() {
       const currentLevels = levels.filter(l => l.id !== levelId);
       const docRef = doc(db, COLLECTION_NAME, DOCUMENT_ID);
       await setDoc(docRef, { [ARRAY_FIELD_NAME]: currentLevels, updatedAt: Timestamp.now() }, { merge: true });
+      await triggerRefresh('global-cache');
       setLevels(currentLevels.sort((a,b) => a.order - b.order));
       toast({ title: "Success", description: "Skill level deleted." });
     } catch (error) {
@@ -114,6 +116,7 @@ export default function SkillLevelManager() {
     try {
       const docRef = doc(db, COLLECTION_NAME, DOCUMENT_ID);
       await setDoc(docRef, { [ARRAY_FIELD_NAME]: updatedLevels, updatedAt: Timestamp.now() }, { merge: true });
+      await triggerRefresh('global-cache');
       setLevels(updatedLevels.sort((a,b) => a.order - b.order));
       toast({ title: "Success", description: `Skill level ${editingLevel ? 'updated' : 'added'}.` });
       setIsFormOpen(false);

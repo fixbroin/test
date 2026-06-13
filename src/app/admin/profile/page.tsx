@@ -20,10 +20,6 @@ import { ref as storageRefStandard, uploadBytesResumable, getDownloadURL, delete
 import { useToast } from '@/hooks/use-toast';
 import { Progress } from '@/components/ui/progress';
 
-
-
-const ADMIN_EMAIL = "fixbro.in@gmail.com"; 
-
 const profileSchema = z.object({
   displayName: z.string().min(2, { message: "Name must be at least 2 characters." }).max(50, "Name too long."),
   mobileNumber: z.string()
@@ -38,7 +34,7 @@ const generateRandomHexString = (length: number) => Array.from({ length }, () =>
 const isFirebaseStorageUrl = (url: string | null | undefined): boolean => !!url && typeof url === 'string' && url.includes("firebasestorage.googleapis.com");
 
 export default function AdminProfilePage() {
-  const { user, isLoading: authIsLoading } = useAuth();
+  const { user, adminPermissions, isLoading: authIsLoading } = useAuth();
   const { toast } = useToast();
   
   const [currentPhotoURL, setCurrentPhotoURL] = useState<string | null>(null);
@@ -76,10 +72,10 @@ export default function AdminProfilePage() {
   }, [form]);
 
   useEffect(() => {
-    if (user && user.email === ADMIN_EMAIL) {
+    if (user && adminPermissions) {
       fetchAdminData(user);
     }
-  }, [user, fetchAdminData]);
+  }, [user, adminPermissions, fetchAdminData]);
 
 
   const handleImageFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -98,7 +94,7 @@ export default function AdminProfilePage() {
   };
 
   const handleProfileUpdate = async (data: ProfileFormData) => {
-    if (!user || user.email !== ADMIN_EMAIL || !auth.currentUser) {
+    if (!user || !adminPermissions || !auth.currentUser) {
       toast({ title: "Error", description: "Admin user not found or not authenticated.", variant: "destructive" });
       return;
     }
@@ -199,7 +195,7 @@ export default function AdminProfilePage() {
     return <div className="flex justify-center items-center min-h-[calc(100vh-200px)]"><Loader2 className="h-12 w-12 animate-spin text-primary" /></div>;
   }
 
-  if (!user || user.email !== ADMIN_EMAIL) {
+  if (!user || !adminPermissions) {
     return <div className="text-center p-8">Access Denied. This page is for administrators only.</div>;
   }
 

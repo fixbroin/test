@@ -12,6 +12,7 @@ import { triggerRefresh } from '@/lib/revalidateUtils';
 import type { AppSettings, PlatformFeeSetting } from '@/types/firestore'; 
 import { defaultAppSettings } from '@/config/appDefaults'; 
 import PlatformSettingsForm from '@/components/admin/PlatformSettingsForm';
+import PermissionGuard from '@/components/admin/PermissionGuard';
 
 const APP_CONFIG_COLLECTION = "webSettings";
 const APP_CONFIG_DOC_ID = "applicationConfig";
@@ -97,11 +98,13 @@ export default function AdminPlatformSettingsPage() {
         </CardHeader>
       </Card>
 
-      <PlatformSettingsForm
-        initialFees={platformFees}
-        onSave={handleSavePlatformFees}
-        isSaving={isSaving}
-      />
+      <PermissionGuard moduleId="platform_settings" action="write" fallback={<div className="p-8 text-center text-muted-foreground bg-muted/10 rounded-2xl border border-dashed">You do not have permission to modify platform fees. Contact Super Admin for access.</div>}>
+        <PlatformSettingsForm
+          initialFees={platformFees}
+          onSave={handleSavePlatformFees}
+          isSaving={isSaving}
+        />
+      </PermissionGuard>
     </div>
   );
 }

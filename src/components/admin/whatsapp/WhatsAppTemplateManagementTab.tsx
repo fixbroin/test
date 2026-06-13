@@ -13,6 +13,7 @@ import { useToast } from '@/hooks/use-toast';
 import { db } from '@/lib/firebase';
 import { doc, getDoc, setDoc, Timestamp } from "firebase/firestore";
 import type { MarketingAutomationSettings } from '@/types/firestore';
+import { triggerRefresh } from '@/lib/revalidateUtils';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Input } from '@/components/ui/input';
 
@@ -115,6 +116,8 @@ export default function WhatsAppTemplateManagementTab() {
         updatedAt: Timestamp.now(),
       };
       await setDoc(settingsDocRef, dataToSave, { merge: true });
+      await triggerRefresh('marketing-settings');
+      await triggerRefresh('global-cache');
       toast({ title: "Success", description: "WhatsApp automation settings have been saved." });
     } catch (error) {
       toast({ title: "Error", description: "Could not save WhatsApp settings.", variant: "destructive" });

@@ -1,6 +1,8 @@
 "use client";
 
 import { useState, useEffect, useMemo } from 'react';
+import { useAuth } from '@/hooks/useAuth';
+import { hasActionPermission } from '@/config/rbac';
 import AppImage from '@/components/ui/AppImage';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -19,6 +21,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Skeleton } from '@/components/ui/skeleton';
 import { triggerRefresh } from '@/lib/revalidateUtils';
 import { Switch } from '@/components/ui/switch';
+import PermissionGuard from '@/components/admin/PermissionGuard';
 
 const generateSlug = (name: string) => {
   if (!name) return "";
@@ -41,6 +44,7 @@ export default function AdminServicesPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isMounted, setIsMounted] = useState(false);
   const { toast } = useToast();
+  const { adminPermissions } = useAuth();
 
   const servicesCollectionRef = collection(db, "adminServices");
   const categoriesCollectionRef = collection(db, "adminCategories");
@@ -273,9 +277,11 @@ export default function AdminServicesPage() {
             <CardTitle className="text-2xl flex items-center"><ShoppingBag className="mr-2 h-6 w-6 text-primary" /> Manage Services</CardTitle>
             <CardDescription>Add, edit, or delete services. Grouped by category and sub-category.</CardDescription>
           </div>
-          <Button onClick={handleAddService} disabled={isSubmitting || isLoadingData || parentCategories.length === 0 || subCategories.length === 0} className="w-full sm:w-auto">
-            <PlusCircle className="mr-2 h-4 w-4" /> Add New Service
-          </Button>
+          <PermissionGuard moduleId="services" action="create">
+            <Button onClick={handleAddService} disabled={isSubmitting || isLoadingData || parentCategories.length === 0 || subCategories.length === 0} className="w-full sm:w-auto">
+              <PlusCircle className="mr-2 h-4 w-4" /> Add New Service
+            </Button>
+          </PermissionGuard>
         </CardHeader>
       </Card>
 
@@ -349,7 +355,7 @@ export default function AdminServicesPage() {
                                   <Switch 
                                     checked={service.allowPayLater === undefined ? true : service.allowPayLater}
                                     onCheckedChange={() => handleTogglePayLater(service)}
-                                    disabled={isSubmitting}
+                                    disabled={isSubmitting || !hasActionPermission(adminPermissions, 'services', 'write')}
                                     className="scale-75"
                                   />
                                 </TableCell>
@@ -357,20 +363,24 @@ export default function AdminServicesPage() {
                                   <Switch 
                                     checked={service.isActive === undefined ? true : service.isActive}
                                     onCheckedChange={() => handleToggleActive(service)}
-                                    disabled={isSubmitting}
+                                    disabled={isSubmitting || !hasActionPermission(adminPermissions, 'services', 'write')}
                                     className="scale-75"
                                   />
                                 </TableCell>
                                 <TableCell className="p-2">
                                   <div className="flex items-center justify-end gap-1">
-                                    <Button variant="outline" size="icon" className="h-7 w-7" onClick={() => handleEditService(service)} disabled={isSubmitting}><Edit className="h-3.5 w-3.5" /></Button>
-                                    <AlertDialog>
-                                      <AlertDialogTrigger asChild><Button variant="destructive" size="icon" className="h-7 w-7" disabled={isSubmitting}><Trash2 className="h-3.5 w-3.5" /></Button></AlertDialogTrigger>
-                                      <AlertDialogContent>
-                                        <AlertDialogHeader><AlertDialogTitle>Are you sure?</AlertDialogTitle><AlertDialogDescription>This will permanently delete &quot;{service.name}&quot;.</AlertDialogDescription></AlertDialogHeader>
-                                        <AlertDialogFooter><AlertDialogCancel disabled={isSubmitting}>Cancel</AlertDialogCancel><AlertDialogAction onClick={() => handleDeleteService(service.id)} disabled={isSubmitting} className="bg-destructive hover:bg-destructive/90">{isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null} Delete</AlertDialogAction></AlertDialogFooter>
-                                      </AlertDialogContent>
-                                    </AlertDialog>
+                                    <PermissionGuard moduleId="services" action="write">
+                                      <Button variant="outline" size="icon" className="h-7 w-7" onClick={() => handleEditService(service)} disabled={isSubmitting}><Edit className="h-3.5 w-3.5" /></Button>
+                                    </PermissionGuard>
+                                    <PermissionGuard moduleId="services" action="delete">
+                                      <AlertDialog>
+                                        <AlertDialogTrigger asChild><Button variant="destructive" size="icon" className="h-7 w-7" disabled={isSubmitting}><Trash2 className="h-3.5 w-3.5" /></Button></AlertDialogTrigger>
+                                        <AlertDialogContent>
+                                          <AlertDialogHeader><AlertDialogTitle>Are you sure?</AlertDialogTitle><AlertDialogDescription>This will permanently delete &quot;{service.name}&quot;.</AlertDialogDescription></AlertDialogHeader>
+                                          <AlertDialogFooter><AlertDialogCancel disabled={isSubmitting}>Cancel</AlertDialogCancel><AlertDialogAction onClick={() => handleDeleteService(service.id)} disabled={isSubmitting} className="bg-destructive hover:bg-destructive/90">{isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null} Delete</AlertDialogAction></AlertDialogFooter>
+                                        </AlertDialogContent>
+                                      </AlertDialog>
+                                    </PermissionGuard>
                                   </div>
                                 </TableCell>
                               </TableRow>

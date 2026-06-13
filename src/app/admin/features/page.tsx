@@ -12,6 +12,7 @@ import type { FirestoreCategory, FirestoreService } from '@/types/firestore';
 import { db } from '@/lib/firebase';
 import { collection, query, orderBy, getDocs } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
+import PermissionGuard from '@/components/admin/PermissionGuard';
 
 export default function FeaturesPage() {
   const [categories, setCategories] = useState<FirestoreCategory[]>([]);
@@ -54,46 +55,48 @@ export default function FeaturesPage() {
         </CardHeader>
       </Card>
 
-      <Tabs defaultValue="sections_control" className="w-full">
-        <div className="relative mb-6">
-          <TabsList className="h-12 w-full justify-start gap-2 bg-transparent p-0 overflow-x-auto no-scrollbar flex-nowrap border-b border-border rounded-none">
-            <TabsTrigger 
-              value="sections_control"
-              className="relative h-12 rounded-none border-b-2 border-transparent bg-transparent px-4 pb-3 pt-2 font-semibold text-muted-foreground shadow-none transition-none data-[state=active]:border-primary data-[state=active]:text-primary data-[state=active]:shadow-none whitespace-nowrap"
-            >
-              <LayoutGrid className="mr-2 h-4 w-4"/>Sections Control
-            </TabsTrigger>
-            <TabsTrigger 
-              value="category_display"
-              className="relative h-12 rounded-none border-b-2 border-transparent bg-transparent px-4 pb-3 pt-2 font-semibold text-muted-foreground shadow-none transition-none data-[state=active]:border-primary data-[state=active]:text-primary data-[state=active]:shadow-none whitespace-nowrap"
-            >
-              <ListChecks className="mr-2 h-4 w-4"/>Homepage Categories
-            </TabsTrigger>
-            <TabsTrigger 
-              value="ads_management"
-              className="relative h-12 rounded-none border-b-2 border-transparent bg-transparent px-4 pb-3 pt-2 font-semibold text-muted-foreground shadow-none transition-none data-[state=active]:border-primary data-[state=active]:text-primary data-[state=active]:shadow-none whitespace-nowrap"
-            >
-              <ImageIconLucide className="mr-2 h-4 w-4"/>Ad Banners
-            </TabsTrigger>
-          </TabsList>
-        </div>
+      <PermissionGuard moduleId="features" action="write" fallback={<div className="p-8 text-center text-muted-foreground bg-muted/10 rounded-2xl border border-dashed">You do not have permission to modify homepage features. Contact Super Admin for access.</div>}>
+        <Tabs defaultValue="sections_control" className="w-full">
+          <div className="relative mb-6">
+            <TabsList className="h-12 w-full justify-start gap-2 bg-transparent p-0 overflow-x-auto no-scrollbar flex-nowrap border-b border-border rounded-none">
+              <TabsTrigger 
+                value="sections_control"
+                className="relative h-12 rounded-none border-b-2 border-transparent bg-transparent px-4 pb-3 pt-2 font-semibold text-muted-foreground shadow-none transition-none data-[state=active]:border-primary data-[state=active]:text-primary data-[state=active]:shadow-none whitespace-nowrap"
+              >
+                <LayoutGrid className="mr-2 h-4 w-4"/>Sections Control
+              </TabsTrigger>
+              <TabsTrigger 
+                value="category_display"
+                className="relative h-12 rounded-none border-b-2 border-transparent bg-transparent px-4 pb-3 pt-2 font-semibold text-muted-foreground shadow-none transition-none data-[state=active]:border-primary data-[state=active]:text-primary data-[state=active]:shadow-none whitespace-nowrap"
+              >
+                <ListChecks className="mr-2 h-4 w-4"/>Homepage Categories
+              </TabsTrigger>
+              <TabsTrigger 
+                value="ads_management"
+                className="relative h-12 rounded-none border-b-2 border-transparent bg-transparent px-4 pb-3 pt-2 font-semibold text-muted-foreground shadow-none transition-none data-[state=active]:border-primary data-[state=active]:text-primary data-[state=active]:shadow-none whitespace-nowrap"
+              >
+                <ImageIconLucide className="mr-2 h-4 w-4"/>Ad Banners
+              </TabsTrigger>
+            </TabsList>
+          </div>
 
-        <TabsContent value="sections_control" className="mt-0 focus-visible:outline-none">
-          <SectionsControlTab />
-        </TabsContent>
+          <TabsContent value="sections_control" className="mt-0 focus-visible:outline-none">
+            <SectionsControlTab />
+          </TabsContent>
 
-        <TabsContent value="category_display">
-          <CategoryDisplayTab />
-        </TabsContent>
+          <TabsContent value="category_display">
+            <CategoryDisplayTab />
+          </TabsContent>
 
-        <TabsContent value="ads_management">
-          <AdsManagementTab
-            allCategories={categories}
-            allServices={services}
-            isLoadingPrerequisites={isLoadingData}
-          />
-        </TabsContent>
-      </Tabs>
+          <TabsContent value="ads_management">
+            <AdsManagementTab
+              allCategories={categories}
+              allServices={services}
+              isLoadingPrerequisites={isLoadingData}
+            />
+          </TabsContent>
+        </Tabs>
+      </PermissionGuard>
     </div>
   );
 }

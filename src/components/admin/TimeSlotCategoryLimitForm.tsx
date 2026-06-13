@@ -26,22 +26,24 @@ const timeSlotLimitFormSchema = z.object({
 type TimeSlotLimitFormData = z.infer<typeof timeSlotLimitFormSchema>;
 
 interface TimeSlotCategoryLimitFormProps {
-  onSubmitSuccess: () => void; // Callback on successful save
+  onSuccess: () => void; // Callback on successful save
   initialData?: TimeSlotCategoryLimit | null;
   categories: FirestoreCategory[];
   existingLimitCategoryIds: string[]; // To filter categories in dropdown for "add" mode
   onCancel: () => void;
+  isSubmitting?: boolean;
 }
 
 export default function TimeSlotCategoryLimitForm({
-  onSubmitSuccess,
+  onSuccess,
   initialData,
   categories,
   existingLimitCategoryIds,
   onCancel,
+  isSubmitting: isParentSubmitting = false,
 }: TimeSlotCategoryLimitFormProps) {
   const { toast } = useToast();
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isFormBusy, setIsFormBusy] = useState(false);
   const [selectedCategoryName, setSelectedCategoryName] = useState<string | undefined>(undefined);
 
   const form = useForm<TimeSlotLimitFormData>({
@@ -76,10 +78,10 @@ export default function TimeSlotCategoryLimitForm({
   }, [watchedCategoryId, categories]);
 
   const handleSubmit = async (formData: TimeSlotLimitFormData) => {
-    setIsSubmitting(true);
+    setIsFormBusy(true);
     if (!selectedCategoryName) {
         toast({ title: "Error", description: "Category name not found.", variant: "destructive" });
-        setIsSubmitting(false);
+        setIsFormBusy(false);
         return;
     }
     try {
@@ -89,17 +91,18 @@ export default function TimeSlotCategoryLimitForm({
         categoryId: formData.categoryId,
         categoryName: selectedCategoryName, 
         maxConcurrentBookings: formData.maxConcurrentBookings,
+        maxBookings: formData.maxConcurrentBookings, // For consistency with UI usage
         updatedAt: Timestamp.now(),
       };
       await setDoc(limitDocRef, payload, { merge: true }); // Use setDoc with merge to create or update
       
       toast({ title: "Success", description: `Limit for ${selectedCategoryName} ${initialData ? 'updated' : 'added'} successfully.` });
-      onSubmitSuccess(); // Call parent's success handler (e.g., close dialog)
+      onSuccess(); // Call parent's success handler (e.g., close dialog)
     } catch (error) {
       console.error("Error saving time slot limit: ", error);
       toast({ title: "Error", description: (error as Error).message || "Could not save limit.", variant: "destructive" });
     } finally {
-      setIsSubmitting(false);
+      setIsFormBusy(false);
     }
   };
   
@@ -107,6 +110,8 @@ export default function TimeSlotCategoryLimitForm({
   const availableCategoriesForNewLimit = initialData 
     ? categories // If editing, show all categories (dropdown will be disabled for categoryId)
     : categories.filter(cat => !existingLimitCategoryIds.includes(cat.id));
+
+  const effectiveIsSubmitting = isParentSubmitting || isFormBusy;
 
   return (
     <Form {...form}>
@@ -120,7 +125,7 @@ export default function TimeSlotCategoryLimitForm({
               <Select
                 onValueChange={field.onChange}
                 value={field.value}
-                disabled={isSubmitting || !!initialData} // Disable if editing existing limit
+                disabled={effectiveIsSubmitting || !!initialData} // Disable if editing existing limit
               >
                 <FormControl>
                   <SelectTrigger>
@@ -153,7 +158,7 @@ export default function TimeSlotCategoryLimitForm({
             <FormItem>
               <FormLabel>Max Concurrent Bookings Per Slot</FormLabel>
               <FormControl>
-                <Input type="number" placeholder="e.g., 2" {...field} disabled={isSubmitting} />
+                <Input type="number" placeholder="e.g., 2" {...field} disabled={effectiveIsSubmitting} />
               </FormControl>
               <FormDescription>
                 How many bookings for this category can exist in the same time slot.
@@ -164,11 +169,11 @@ export default function TimeSlotCategoryLimitForm({
         />
         
         <div className="flex justify-end space-x-3 pt-4">
-            <Button type="button" variant="outline" onClick={onCancel} disabled={isSubmitting}>
+            <Button type="button" variant="outline" onClick={onCancel} disabled={effectiveIsSubmitting}>
                 Cancel
             </Button>
-            <Button type="submit" disabled={isSubmitting || (availableCategoriesForNewLimit.length === 0 && !initialData)}>
-                {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+            <Button type="submit" disabled={effectiveIsSubmitting || (availableCategoriesForNewLimit.length === 0 && !initialData)}>
+                {effectiveIsSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                 {initialData ? 'Save Changes' : 'Add Limit'}
             </Button>
         </div>

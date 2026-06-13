@@ -14,6 +14,7 @@ import { useToast } from '@/hooks/use-toast';
 import { db } from '@/lib/firebase';
 import { doc, getDoc, setDoc, Timestamp } from "firebase/firestore";
 import type { FeaturesConfiguration } from '@/types/firestore';
+import { triggerRefresh } from '@/lib/revalidateUtils';
 
 const FEATURES_CONFIG_COLLECTION = "webSettings";
 const FEATURES_CONFIG_DOC_ID = "featuresConfiguration";
@@ -93,6 +94,8 @@ export default function SectionsControlTab() {
         updatedAt: Timestamp.now(),
       };
       await setDoc(configDocRef, dataToSave, { merge: true });
+      await triggerRefresh('web-settings');
+      await triggerRefresh('global-cache');
       toast({ title: "Success", description: "Homepage section visibility saved." });
     } catch (error) {
       console.error("Error saving features configuration:", error);

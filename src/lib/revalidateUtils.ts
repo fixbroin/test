@@ -10,7 +10,7 @@ import { FieldValue } from 'firebase-admin/firestore';
  * so that the next request pulls fresh data from Firestore.
  * Also increments the global cache version in Firestore to signal clients.
  */
-export async function triggerRefresh(tag: 'services' | 'categories' | 'cities' | 'bookings' | 'users' | 'content' | 'blog' | 'global' | 'withdrawal-referral-config' | 'withdrawal-provider-config' | string) {
+export async function triggerRefresh(tag: 'services' | 'categories' | 'cities' | 'bookings' | 'users' | 'content' | 'blog' | 'global' | 'withdrawal-referral-config' | 'withdrawal-provider-config' | 'promo-usage' | string) {
   try {
     revalidateTag(tag);
     

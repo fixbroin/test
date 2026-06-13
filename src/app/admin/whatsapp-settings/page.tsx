@@ -9,7 +9,9 @@ import WhatsAppTemplateManagementTab from '@/components/admin/whatsapp/WhatsAppT
 import WhatsAppTestSenderTab from '@/components/admin/whatsapp/WhatsAppTestSenderTab';
 import { getBaseUrl } from '@/lib/config';
 import { Button } from '@/components/ui/button';
-import { useToast } from '@/hooks/use-toast';
+import { useToast } from "@/hooks/use-toast";
+import PermissionGuard from '@/components/admin/PermissionGuard';
+
 
 export default function WhatsAppSettingsPage() {
   const { toast } = useToast();
@@ -63,31 +65,33 @@ export default function WhatsAppSettingsPage() {
         </CardContent>
       </Card>
 
-      <Tabs defaultValue="templates" className="w-full">
-        <div className="relative mb-6">
-          <TabsList className="h-12 w-full justify-start gap-2 bg-transparent p-0 overflow-x-auto no-scrollbar flex-nowrap border-b border-border rounded-none">
-            <TabsTrigger 
-              value="templates"
-              className="relative h-12 rounded-none border-b-2 border-transparent bg-transparent px-4 pb-3 pt-2 font-semibold text-muted-foreground shadow-none transition-none data-[state=active]:border-primary data-[state=active]:text-primary data-[state=active]:shadow-none whitespace-nowrap"
-            >
-              <FileText className="mr-2 h-4 w-4"/>Manage Templates
-            </TabsTrigger>
-            <TabsTrigger 
-              value="test_sender"
-              className="relative h-12 rounded-none border-b-2 border-transparent bg-transparent px-4 pb-3 pt-2 font-semibold text-muted-foreground shadow-none transition-none data-[state=active]:border-primary data-[state=active]:text-primary data-[state=active]:shadow-none whitespace-nowrap"
-            >
-              <Beaker className="mr-2 h-4 w-4"/>Test Sender
-            </TabsTrigger>
-          </TabsList>
-        </div>
+      <PermissionGuard moduleId="whatsapp_settings" action="write" fallback={<div className="p-8 text-center text-muted-foreground bg-muted/10 rounded-2xl border border-dashed">You do not have permission to modify WhatsApp settings or send test messages.</div>}>
+        <Tabs defaultValue="templates" className="w-full">
+          <div className="relative mb-6">
+            <TabsList className="h-12 w-full justify-start gap-2 bg-transparent p-0 overflow-x-auto no-scrollbar flex-nowrap border-b border-border rounded-none">
+              <TabsTrigger 
+                value="templates"
+                className="relative h-12 rounded-none border-b-2 border-transparent bg-transparent px-4 pb-3 pt-2 font-semibold text-muted-foreground shadow-none transition-none data-[state=active]:border-primary data-[state=active]:text-primary data-[state=active]:shadow-none whitespace-nowrap"
+              >
+                <FileText className="mr-2 h-4 w-4"/>Manage Templates
+              </TabsTrigger>
+              <TabsTrigger 
+                value="test_sender"
+                className="relative h-12 rounded-none border-b-2 border-transparent bg-transparent px-4 pb-3 pt-2 font-semibold text-muted-foreground shadow-none transition-none data-[state=active]:border-primary data-[state=active]:text-primary data-[state=active]:shadow-none whitespace-nowrap"
+              >
+                <Beaker className="mr-2 h-4 w-4"/>Test Sender
+              </TabsTrigger>
+            </TabsList>
+          </div>
 
-        <TabsContent value="templates" className="mt-0 focus-visible:outline-none">
-            <WhatsAppTemplateManagementTab />
-        </TabsContent>
-        <TabsContent value="test_sender">
-            <WhatsAppTestSenderTab />
-        </TabsContent>
-      </Tabs>
+          <TabsContent value="templates" className="mt-0 focus-visible:outline-none">
+              <WhatsAppTemplateManagementTab />
+          </TabsContent>
+          <TabsContent value="test_sender">
+              <WhatsAppTestSenderTab />
+          </TabsContent>
+        </Tabs>
+      </PermissionGuard>
     </div>
   );
 }

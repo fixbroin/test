@@ -199,27 +199,6 @@ const Header = () => {
       { href: '/auth/login', label: 'Login / Sign Up', isProtected: false }
   ];
 
-
-  if (!isMounted || settingsAreLoading) {
-    return (
-      <header className="bg-background/80 backdrop-blur-md shadow-sm sticky top-0 z-50 border-b">
-        <div data-hydration-state="skeleton" className="container mx-auto px-4 h-16 grid grid-cols-2 md:grid-cols-header-layout items-center">
-          <div className="flex items-center justify-start">
-             <div className="h-8 w-24 bg-muted rounded animate-pulse" />
-          </div>
-          <div className="hidden md:flex justify-center col-start-2">
-            <div className="h-8 w-24 bg-muted rounded animate-pulse" />
-          </div>
-          <div className="flex items-center justify-end gap-2">
-             <div className="h-8 w-8 bg-muted rounded-full animate-pulse" />
-             <div className="h-8 w-8 bg-muted rounded-full animate-pulse" />
-             <div className="h-8 w-8 bg-muted rounded-full animate-pulse" />
-          </div>
-        </div>
-      </header>
-    );
-  }
-
   return (
     <>
       <header className="bg-background/95 backdrop-blur-xl shadow-sm sticky top-0 z-50 border-b border-border/40 transition-all duration-300">
@@ -245,7 +224,7 @@ const Header = () => {
                  </button>
               ))}
              
-              { !isLoadingFeaturesConfig && featuresConfig.showCustomServiceButton && (
+              { featuresConfig.showCustomServiceButton && (
                  <button
                     onClick={(e) => handleAuthRequiredNav(e, '/custom-service')}
                     className={cn(
@@ -258,7 +237,7 @@ const Header = () => {
                     <Construction className="mr-2 h-4 w-4" /> Custom Service
                  </button>
               )}
-              { !isLoadingAppConfig && (appConfig.isProviderRegistrationEnabled || (user && user.email === ADMIN_EMAIL)) && (
+              { (appConfig.isProviderRegistrationEnabled || (user && user.email === ADMIN_EMAIL)) && (
                 <button
                   onClick={(e) => handleSimpleNav(e, '/provider-registration')}
                   className={cn(

@@ -14,6 +14,7 @@ import { Loader2, Save, Volume2, Trash2, UploadCloud, MessageSquare, Bot, Music,
 import { useToast } from '@/hooks/use-toast';
 import { db, storage } from '@/lib/firebase';
 import { doc, setDoc, Timestamp } from "firebase/firestore";
+import { triggerRefresh } from '@/lib/revalidateUtils';
 import { ref as storageRef, uploadBytesResumable, getDownloadURL, deleteObject } from "firebase/storage";
 import type { GlobalWebSettings } from '@/types/firestore';
 import { useGlobalSettings } from '@/hooks/useGlobalSettings';
@@ -128,6 +129,7 @@ export default function ChatSettingsForm() {
         chatNotificationSoundUrl: finalSoundUrl,
         updatedAt: Timestamp.now(),
       }, { merge: true });
+      await triggerRefresh('global-cache');
       toast({ title: "Settings Saved", description: "Your chat preferences have been updated." });
     } catch (error) {
       toast({ title: "Save Failed", variant: "destructive" });

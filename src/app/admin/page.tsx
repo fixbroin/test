@@ -19,6 +19,7 @@ import DashboardTrendingServiceCard from '@/components/admin/DashboardTrendingSe
 import { getDashboardData, type DashboardData, clearSearchHotspots } from '@/lib/adminDashboardUtils';
 import { useAuth } from '@/hooks/useAuth';
 import { useAdminStats } from '@/hooks/useAdminStats';
+import PermissionGuard from '@/components/admin/PermissionGuard';
 
 const containerVariants = {
   hidden: { opacity: 0 },

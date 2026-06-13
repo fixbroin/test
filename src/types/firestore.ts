@@ -42,10 +42,13 @@ export interface FirestoreCategory {
 export interface FirestoreSubCategory {
   id: string; // Firestore document ID
   parentId: string; // ID of the parent FirestoreCategory
+  parentCategoryId?: string; // Consistency
+  parentCategoryName: string; // Denormalized
   name: string;
   slug: string;
   order: number;
   isActive?: boolean; // New field
+  isHidden?: boolean; // Visibility toggle
   imageUrl?: string;
   imageHint?: string;
   h1_title?: string;
@@ -488,6 +491,7 @@ export interface TimeSlotCategoryLimit {
   categoryId: string;
   categoryName: string; // Denormalized for easier display in admin
   maxConcurrentBookings: number; // Max bookings allowed for this category in a single time slot
+  maxBookings?: number; // Consistency with UI usage
   updatedAt: Timestamp;
 }
 
@@ -506,11 +510,18 @@ export interface FirestorePromoCode {
   usesCount: number; // How many times this code has been used
   validFrom?: Timestamp; // Optional start date of validity
   validUntil?: Timestamp; // Optional end date of validity
+  // Consistency fields used in admin code
+  startDate?: Timestamp; 
+  endDate?: Timestamp;
+  currentUsage?: number;
+  usageLimit?: number;
   isActive: boolean;
   isHidden?: boolean; // If true, don't show in public lists
   createdAt: Timestamp;
   updatedAt?: Timestamp;
 }
+
+export type FirestoreSlideshow = FirestoreSlide;
 
 // Platform Fee Setting Type
 export interface PlatformFeeSetting {

@@ -8,8 +8,12 @@ import { MessageSquare, Settings, Send, Sparkles } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import ChatSettingsForm from '@/components/admin/ChatSettingsForm';
 import AdminGlobalMessageForm from '@/components/admin/AdminGlobalMessageForm';
+import { useAuth } from '@/hooks/useAuth';
+import { hasActionPermission } from '@/config/rbac';
+import PermissionGuard from '@/components/admin/PermissionGuard';
 
 export default function AdminChatPage() {
+  const { adminPermissions } = useAuth();
   return (
     <div className="max-w-7xl mx-auto space-y-8 pb-10 px-2 sm:px-4">
       <header className="flex flex-col md:flex-row md:items-end justify-between gap-4 border-b pb-6">
@@ -69,7 +73,9 @@ export default function AdminChatPage() {
 
         <TabsContent value="global_popup" className="focus-visible:outline-none focus-visible:ring-0">
           <div className="w-full animate-in fade-in slide-in-from-bottom-4 duration-500">
-            <AdminGlobalMessageForm />
+            <PermissionGuard moduleId="chat" action="write" fallback={<div className="p-8 text-center text-muted-foreground bg-muted/10 rounded-2xl border border-dashed">You do not have permission to send global broadcasts.</div>}>
+              <AdminGlobalMessageForm />
+            </PermissionGuard>
           </div>
         </TabsContent>
       </Tabs>

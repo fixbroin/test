@@ -12,6 +12,7 @@ export interface AdminStats {
   activeUsers: number;
   newSignups30d: number;
   earnedCommission: number;
+  totalDiscountGiven?: number;
   updatedAt?: any;
 }
 
@@ -23,6 +24,7 @@ export function useAdminStats() {
     activeUsers: 0,
     newSignups30d: 0,
     earnedCommission: 0,
+    totalDiscountGiven: 0,
   });
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -40,6 +42,7 @@ export function useAdminStats() {
           activeUsers: data.totalUsers || 0,
           newSignups30d: data.newSignups30d || 0,
           earnedCommission: data.earnedCommission || 0,
+          totalDiscountGiven: data.totalDiscountGiven || 0,
           updatedAt: data.updatedAt,
         });
       }

@@ -10,6 +10,7 @@ import { triggerPushNotification } from '@/lib/fcmUtils';
 import { collection, query, orderBy, onSnapshot, doc, updateDoc, Timestamp, runTransaction, getDoc, addDoc, deleteDoc, where, getDocs } from "firebase/firestore";
 import type { WithdrawalRequest, WithdrawalStatus, FirestoreNotification, FirestoreUser, ProviderApplication } from '@/types/firestore';
 import { useToast } from "@/hooks/use-toast";
+import PermissionGuard from '@/components/admin/PermissionGuard';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Users, Banknote, RefreshCw } from "lucide-react";
 import { cn } from '@/lib/utils';
@@ -374,45 +375,57 @@ export default function ProviderWithdrawalsPage() {
                               <div className="flex justify-end gap-2">
                                   {req.status === 'pending' && (
                                       <>
-                                          <Button variant="outline" size="sm" className="text-green-600 hover:text-green-700 hover:bg-green-50" onClick={() => handleUpdateStatus(req, 'approved')} disabled={isUpdating === req.id}>
-                                              <Check className="h-4 w-4" />
-                                          </Button>
-                                          <Button variant="outline" size="sm" className="text-yellow-600 hover:text-yellow-700 hover:bg-yellow-50" onClick={() => openRejectionDialog(req, 're_submit')} disabled={isUpdating === req.id}>
-                                              <AlertTriangle className="h-4 w-4" />
-                                          </Button>
-                                          <Button variant="outline" size="sm" className="text-destructive hover:bg-destructive/10" onClick={() => openRejectionDialog(req, 'rejected')} disabled={isUpdating === req.id}>
-                                              <X className="h-4 w-4" />
-                                          </Button>
+                                          <PermissionGuard moduleId="provider_withdrawals" action="write">
+                                              <Button variant="outline" size="sm" className="text-green-600 hover:text-green-700 hover:bg-green-50" onClick={() => handleUpdateStatus(req, 'approved')} disabled={isUpdating === req.id}>
+                                                  <Check className="h-4 w-4" />
+                                              </Button>
+                                          </PermissionGuard>
+                                          <PermissionGuard moduleId="provider_withdrawals" action="write">
+                                              <Button variant="outline" size="sm" className="text-yellow-600 hover:text-yellow-700 hover:bg-yellow-50" onClick={() => openRejectionDialog(req, 're_submit')} disabled={isUpdating === req.id}>
+                                                  <AlertTriangle className="h-4 w-4" />
+                                              </Button>
+                                          </PermissionGuard>
+                                          <PermissionGuard moduleId="provider_withdrawals" action="write">
+                                              <Button variant="outline" size="sm" className="text-destructive hover:bg-destructive/10" onClick={() => openRejectionDialog(req, 'rejected')} disabled={isUpdating === req.id}>
+                                                  <X className="h-4 w-4" />
+                                              </Button>
+                                          </PermissionGuard>
                                       </>
                                   )}
                                   {req.status === 'approved' && (
-                                      <Button variant="outline" size="sm" onClick={() => handleUpdateStatus(req, 'processing')} disabled={isUpdating === req.id}>
-                                          Process
-                                      </Button>
+                                      <PermissionGuard moduleId="provider_withdrawals" action="write">
+                                          <Button variant="outline" size="sm" onClick={() => handleUpdateStatus(req, 'processing')} disabled={isUpdating === req.id}>
+                                              Process
+                                          </Button>
+                                      </PermissionGuard>
                                   )}
                                   {req.status === 'processing' && (
-                                      <Button variant="outline" size="sm" className="text-green-600" onClick={() => handleUpdateStatus(req, 'completed')} disabled={isUpdating === req.id}>
-                                          Complete
-                                      </Button>
+                                      <PermissionGuard moduleId="provider_withdrawals" action="write">
+                                          <Button variant="outline" size="sm" className="text-green-600" onClick={() => handleUpdateStatus(req, 'completed')} disabled={isUpdating === req.id}>
+                                              Complete
+                                          </Button>
+                                      </PermissionGuard>
                                   )}
 
-                                  <AlertDialog>
-                                      <AlertDialogTrigger asChild>
-                                          <Button variant="ghost" size="sm" className="text-muted-foreground hover:text-destructive" disabled={isUpdating === req.id}>
-                                              <Trash2 className="h-4 w-4" />
-                                          </Button>
-                                      </AlertDialogTrigger>
-                                      <AlertDialogContent>
-                                          <AlertDialogHeader>
-                                              <AlertDialogTitle>Delete Request?</AlertDialogTitle>
-                                              <AlertDialogDescriptionComponent>Permanently remove this request record. This action will adjust the provider's balance if the request was not yet completed.</AlertDialogDescriptionComponent>
-                                          </AlertDialogHeader>
-                                          <AlertDialogFooter>
-                                              <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                              <AlertDialogAction onClick={() => handleDeleteRequest(req)} className="bg-destructive hover:bg-destructive/90">Delete</AlertDialogAction>
-                                          </AlertDialogFooter>
-                                      </AlertDialogContent>
-                                  </AlertDialog>
+                                  <PermissionGuard moduleId="provider_withdrawals" action="delete">
+                                      <AlertDialog>
+                                          <AlertDialogTrigger asChild>
+                                              <Button variant="ghost" size="sm" className="text-muted-foreground hover:text-destructive" disabled={isUpdating === req.id}>
+                                                  <Trash2 className="h-4 w-4" />
+                                              </Button>
+                                          </AlertDialogTrigger>
+                                          <AlertDialogContent>
+                                              <AlertDialogHeader>
+                                                  <AlertDialogTitle>Delete Request?</AlertDialogTitle>
+                                                  <AlertDialogDescriptionComponent>Permanently remove this request record. This action will adjust the provider's balance if the request was not yet completed.</AlertDialogDescriptionComponent>
+                                              </AlertDialogHeader>
+                                              <AlertDialogFooter>
+                                                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                                  <AlertDialogAction onClick={() => handleDeleteRequest(req)} className="bg-destructive hover:bg-destructive/90">Delete</AlertDialogAction>
+                                              </AlertDialogFooter>
+                                          </AlertDialogContent>
+                                      </AlertDialog>
+                                  </PermissionGuard>
                               </div>
                           </TableCell>
                        </TableRow>

@@ -32,8 +32,11 @@ import { initializeUserNumbers } from '@/lib/systemStatsUtils';
 import { resequenceUserNumbers } from '@/lib/systemStatsUtils';
 
 import { useAdminStats } from '@/hooks/useAdminStats';
+import { useAuth } from '@/hooks/useAuth';
+import { hasActionPermission } from '@/config/rbac';
+import PermissionGuard from '@/components/admin/PermissionGuard';
 
-const formatUserTimestamp = (timestamp?: any): string => {
+const formatUserTimestamp = (timestamp?: unknown): string => {
   const millis = getTimestampMillis(timestamp);
   if (!millis) return 'N/A';
   return new Date(millis).toLocaleDateString('en-IN', { day: '2-digit', month: '2-digit', year: 'numeric' });
@@ -69,6 +72,7 @@ const PAGE_SIZE = 20;
 
 export default function AdminUsersPage() {
   const { stats } = useAdminStats();
+  const { adminPermissions } = useAuth();
   const [users, setUsers] = useState<FirestoreUser[]>([]);
   const [lastDoc, setLastDoc] = useState<QueryDocumentSnapshot | null>(null);
   const [hasMore, setHasMore] = useState(true);
@@ -339,7 +343,7 @@ export default function AdminUsersPage() {
     } else if (format === 'pdf') {
       const doc = new jsPDF();
       doc.text("User Directory Export", 14, 16);
-      (doc as any).autoTable({ head: [headers], body: data, startY: 20 });
+      (doc as unknown as { autoTable: (options: Record<string, unknown>) => void }).autoTable({ head: [headers], body: data, startY: 20 });
       doc.save(`${filename}.pdf`);
     }
   };
@@ -409,37 +413,41 @@ export default function AdminUsersPage() {
         >
           <Eye className="h-4 w-4 mr-2" /> View Details
         </Button>
-        <Button 
-          variant="ghost"
-          className={cn(
-            "h-10 px-3 rounded-xl shadow-sm transition-all duration-300",
-            user.isActive 
-              ? "bg-amber-500/10 text-amber-600 hover:bg-amber-500 hover:text-white" 
-              : "bg-emerald-500/10 text-emerald-600 hover:bg-emerald-500 hover:text-white"
-          )}
-          onClick={() => handleToggleUserStatus(user.id, user.isActive)}
-          disabled={isUpdatingStatus === user.id}
-        >
-          {user.isActive ? <UserX className="h-4 w-4" /> : <UserCheck className="h-4 w-4" />}
-        </Button>
-        <AlertDialog>
-          <AlertDialogTrigger asChild>
-            <Button variant="ghost" className="h-10 px-3 rounded-xl bg-destructive/5 text-destructive border border-destructive/10 hover:bg-destructive hover:text-white transition-all duration-300 shadow-sm" disabled={isDeleting === user.id || !user.id}>
-              <Trash2 className="h-4 w-4" />
-            </Button>
-          </AlertDialogTrigger>
-          <AlertDialogContent className="rounded-[2.5rem]">
-            <AlertDialogHeader>
-              <div className="bg-destructive/10 w-12 h-12 rounded-2xl flex items-center justify-center mb-4"><ShieldAlert className="h-6 w-6 text-destructive" /></div>
-              <AlertDialogTitle className="text-xl font-black tracking-tight uppercase">Confirm Deletion</AlertDialogTitle>
-              <AlertDialogDescription className="font-medium text-sm">Remove <span className="text-destructive font-black underline">{user.displayName || user.email}</span> from system?</AlertDialogDescription>
-            </AlertDialogHeader>
-            <AlertDialogFooter className="mt-6">
-              <AlertDialogCancel className="rounded-xl border-none bg-muted">Cancel</AlertDialogCancel>
-              <AlertDialogAction onClick={() => handleDeleteUser(user.id!)} className="bg-destructive hover:bg-destructive/90 rounded-xl px-6">Confirm Delete</AlertDialogAction>
-            </AlertDialogFooter>
-          </AlertDialogContent>
-        </AlertDialog>
+        <PermissionGuard moduleId="users" action="write">
+          <Button 
+            variant="ghost"
+            className={cn(
+              "h-10 px-3 rounded-xl shadow-sm transition-all duration-300",
+              user.isActive 
+                ? "bg-amber-500/10 text-amber-600 hover:bg-amber-500 hover:text-white" 
+                : "bg-emerald-500/10 text-emerald-600 hover:bg-emerald-500 hover:text-white"
+            )}
+            onClick={() => handleToggleUserStatus(user.id, user.isActive)}
+            disabled={isUpdatingStatus === user.id}
+          >
+            {user.isActive ? <UserX className="h-4 w-4" /> : <UserCheck className="h-4 w-4" />}
+          </Button>
+        </PermissionGuard>
+        <PermissionGuard moduleId="users" action="delete">
+          <AlertDialog>
+            <AlertDialogTrigger asChild>
+              <Button variant="ghost" className="h-10 px-3 rounded-xl bg-destructive/5 text-destructive border border-destructive/10 hover:bg-destructive hover:text-white transition-all duration-300 shadow-sm" disabled={isDeleting === user.id || !user.id}>
+                <Trash2 className="h-4 w-4" />
+              </Button>
+            </AlertDialogTrigger>
+            <AlertDialogContent className="rounded-[2.5rem]">
+              <AlertDialogHeader>
+                <div className="bg-destructive/10 w-12 h-12 rounded-2xl flex items-center justify-center mb-4"><ShieldAlert className="h-6 w-6 text-destructive" /></div>
+                <AlertDialogTitle className="text-xl font-black tracking-tight uppercase">Confirm Deletion</AlertDialogTitle>
+                <AlertDialogDescription className="font-medium text-sm">Remove <span className="text-destructive font-black underline">{user.displayName || user.email}</span> from system?</AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter className="mt-6">
+                <AlertDialogCancel className="rounded-xl border-none bg-muted">Cancel</AlertDialogCancel>
+                <AlertDialogAction onClick={() => handleDeleteUser(user.id!)} className="bg-destructive hover:bg-destructive/90 rounded-xl px-6">Confirm Delete</AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+        </PermissionGuard>
       </div>
     </motion.div>
   );
@@ -560,29 +568,33 @@ export default function AdminUsersPage() {
                           </TableCell>
                           <TableCell className="text-xs font-black text-muted-foreground uppercase tracking-tighter">{formatUserTimestamp(user.createdAt)}</TableCell>
                           <TableCell className="text-center">
-                            <button onClick={() => handleToggleUserStatus(user.id, user.isActive)} className="focus:outline-none" disabled={isUpdatingStatus === user.id}>
-                              <StatusBadge isActive={user.isActive} isLoading={isUpdatingStatus === user.id} />
-                            </button>
+                            <PermissionGuard moduleId="users" action="write" fallback={<StatusBadge isActive={user.isActive} isLoading={false} />}>
+                              <button onClick={() => handleToggleUserStatus(user.id, user.isActive)} className="focus:outline-none" disabled={isUpdatingStatus === user.id}>
+                                <StatusBadge isActive={user.isActive} isLoading={isUpdatingStatus === user.id} />
+                              </button>
+                            </PermissionGuard>
                           </TableCell>
                           <TableCell className="pr-8 text-right">
                             <div className="flex items-center justify-end gap-2">
                               <Button variant="ghost" size="icon" className="h-9 w-9 rounded-xl hover:bg-primary hover:text-primary-foreground transition-all duration-300 shadow-sm border border-primary/10" onClick={() => handleViewDetails(user)}><Eye className="h-4 w-4" /></Button>
-                              <AlertDialog>
-                                <AlertDialogTrigger asChild>
-                                  <Button variant="ghost" size="icon" className="h-9 w-9 rounded-xl hover:bg-destructive hover:text-destructive-foreground transition-all duration-300 shadow-sm border border-destructive/10" disabled={isDeleting === user.id || !user.id}><Trash2 className="h-4 w-4" /></Button>
-                                </AlertDialogTrigger>
-                                <AlertDialogContent className="rounded-[2.5rem] p-8 border-none shadow-2xl bg-card">
-                                  <AlertDialogHeader>
-                                    <div className="bg-destructive/10 w-12 h-12 rounded-2xl flex items-center justify-center mb-4"><ShieldAlert className="h-6 w-6 text-destructive" /></div>
-                                    <AlertDialogTitle className="text-2xl font-black tracking-tight uppercase text-foreground">User Expulsion</AlertDialogTitle>
-                                    <AlertDialogDescription className="text-base font-medium text-muted-foreground">This will permanently erase <span className="text-destructive font-black underline">{user.displayName || user.email}</span> from the Firestore database.</AlertDialogDescription>
-                                  </AlertDialogHeader>
-                                  <AlertDialogFooter className="mt-8 gap-3">
-                                    <AlertDialogCancel className="rounded-xl border-none bg-muted hover:bg-muted/80 text-foreground">Retain</AlertDialogCancel>
-                                    <AlertDialogAction onClick={() => handleDeleteUser(user.id!)} className="rounded-xl bg-destructive hover:bg-destructive/90 px-8 text-white">Confirm Erase</AlertDialogAction>
-                                  </AlertDialogFooter>
-                                </AlertDialogContent>
-                              </AlertDialog>
+                              <PermissionGuard moduleId="users" action="delete">
+                                <AlertDialog>
+                                  <AlertDialogTrigger asChild>
+                                    <Button variant="ghost" size="icon" className="h-9 w-9 rounded-xl hover:bg-destructive hover:text-destructive-foreground transition-all duration-300 shadow-sm border border-destructive/10" disabled={isDeleting === user.id || !user.id}><Trash2 className="h-4 w-4" /></Button>
+                                  </AlertDialogTrigger>
+                                  <AlertDialogContent className="rounded-[2.5rem] p-8 border-none shadow-2xl bg-card">
+                                    <AlertDialogHeader>
+                                      <div className="bg-destructive/10 w-12 h-12 rounded-2xl flex items-center justify-center mb-4"><ShieldAlert className="h-6 w-6 text-destructive" /></div>
+                                      <AlertDialogTitle className="text-2xl font-black tracking-tight uppercase text-foreground">User Expulsion</AlertDialogTitle>
+                                      <AlertDialogDescription className="text-base font-medium text-muted-foreground">This will permanently erase <span className="text-destructive font-black underline">{user.displayName || user.email}</span> from the Firestore database.</AlertDialogDescription>
+                                    </AlertDialogHeader>
+                                    <AlertDialogFooter className="mt-8 gap-3">
+                                      <AlertDialogCancel className="rounded-xl border-none bg-muted hover:bg-muted/80 text-foreground">Retain</AlertDialogCancel>
+                                      <AlertDialogAction onClick={() => handleDeleteUser(user.id!)} className="rounded-xl bg-destructive hover:bg-destructive/90 px-8 text-white">Confirm Erase</AlertDialogAction>
+                                    </AlertDialogFooter>
+                                  </AlertDialogContent>
+                                </AlertDialog>
+                              </PermissionGuard>
                             </div>
                           </TableCell>
                         </motion.tr>

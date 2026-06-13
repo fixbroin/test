@@ -4,8 +4,9 @@
 import { adminDb } from './firebaseAdmin';
 import { unstable_cache, revalidateTag } from 'next/cache';
 import { Timestamp } from 'firebase-admin/firestore';
-import type { FirestoreBooking, FirestoreUser, FirestoreService, UserActivity } from '@/types/firestore';
+import type { FirestoreBooking, FirestoreUser, UserActivity } from '@/types/firestore';
 import { serializeFirestoreData } from './serializeUtils';
+import { triggerRefresh } from './revalidateUtils';
 
 export interface DashboardData {
   stats: {
@@ -95,7 +96,7 @@ export const getDashboardData = unstable_cache(
       }
 
       // 3. Analytics: Trending Services (Top 10 bookings - OPTIMIZED to reduce massive reads)
-      const trendingBookings = await adminDb.collection('bookings').orderBy('createdAt', 'desc').limit(100).get();
+      const trendingBookings = await adminDb.collection('bookings').orderBy('createdAt', 'desc').limit(500).get();
       
       // Only fetch details for services that actually appear in recent bookings
       const uniqueServiceIds = new Set<string>();
@@ -121,12 +122,15 @@ export const getDashboardData = unstable_cache(
 
       const topServices = Object.entries(serviceCounts)
         .map(([serviceId, count]) => {
-          const serviceDetails = servicesDataMap.get(serviceId);
-          return serviceDetails ? { ...serializeFirestoreData<any>(serviceDetails), count } : null;
+          const serviceSnap = serviceSnaps.find(s => s.id === serviceId);
+          if (!serviceSnap || !serviceSnap.exists) return null;
+          
+          const serviceDetails = serviceSnap.data();
+          return serviceDetails ? { ...serializeFirestoreData<any>(serviceDetails), id: serviceSnap.id, count } : null;
         })
         .filter(item => item !== null)
         .sort((a, b) => (b as any).count - (a as any).count)
-        .slice(0, 10);
+        .slice(0, 50); // Increased from 10 to 50 to show more services
 
       // 4. Analytics: Search Hotspots
       const searchCounts: { [key: string]: number } = {};
@@ -194,7 +198,7 @@ export const getDashboardData = unstable_cache(
     }
   },
   ['admin-dashboard-stats'],
-  { revalidate: 900, tags: ['global-cache'] }
+  { revalidate: false, tags: ['bookings', 'users', 'global-cache', 'admin-dashboard-stats'] }
 );
 
 export const getArchivedBookings = unstable_cache(
@@ -215,7 +219,7 @@ export const getArchivedBookings = unstable_cache(
     }
   },
   ['archived-bookings', 'bookings'],
-  { revalidate: 86400, tags: ['global-cache'] } // 24 hours
+  { revalidate: false, tags: ['bookings', 'global-cache'] } // Changed to false
 );
 
 export const getArchivedUsers = unstable_cache(
@@ -236,7 +240,7 @@ export const getArchivedUsers = unstable_cache(
     }
   },
   ['archived-users', 'users'],
-  { revalidate: 86400, tags: ['users', 'global-cache'] }
+  { revalidate: false, tags: ['users', 'global-cache'] }
 );
 
 export const getArchivedActivities = unstable_cache(
@@ -257,8 +261,102 @@ export const getArchivedActivities = unstable_cache(
     }
   },
   ['archived-activities'],
-  { revalidate: 86400, tags: ['users', 'global-cache'] }
+  { revalidate: false, tags: ['global-cache'] }
 );
+
+export interface PromoCodeUsageRecord {
+  id: string;
+  bookingId: string;
+  customerName: string;
+  customerEmail: string;
+  discountCode: string;
+  discountAmount: number;
+  status: string;
+  createdAt: string;
+}
+
+export const getPromoCodeUsageHistory = unstable_cache(
+  async (): Promise<PromoCodeUsageRecord[]> => {
+    try {
+      // METHOD B: Read from specialized promoCodeUsage collection
+      // This collection only contains usage records, so 50 records = 50 reads.
+      // Limit to 200 to keep reads predictable as the business grows.
+      const snapshot = await adminDb.collection('promoCodeUsage')
+        .orderBy('createdAt', 'desc')
+        .limit(200) 
+        .get();
+
+      if (snapshot.empty) return [];
+
+      return serializeFirestoreData(snapshot.docs.map(doc => ({
+        ...doc.data(),
+        id: doc.id
+      } as PromoCodeUsageRecord)));
+    } catch (error) {
+      console.error("Error in getPromoCodeUsageHistory:", error);
+      return [];
+    }
+  },
+  ['promo-code-usage-history'],
+  { revalidate: false, tags: ['promo-usage', 'global-cache'] }
+);
+
+/**
+ * MIGRATION TOOL: Moves existing promo usage from 'bookings' to 'promoCodeUsage'
+ */
+export async function migratePromoCodeUsage() {
+  try {
+    // Read all bookings (limit to 5000) and filter in memory to be 100% sure we catch everything
+    const bookingsSnap = await adminDb.collection('bookings')
+      .orderBy('createdAt', 'desc')
+      .limit(5000)
+      .get();
+    
+    const batch = adminDb.batch();
+    let count = 0;
+    let totalDiscount = 0;
+    
+    for (const doc of bookingsSnap.docs) {
+      const data = doc.data();
+      const dCode = data.discountCode || data.promoCode || data.appliedPromoCode;
+      const discountVal = Number(data.discountAmount || 0);
+      
+      if (dCode || (discountVal > 0)) {
+        count++;
+        totalDiscount += discountVal;
+        const usageId = `usage_${doc.id}`;
+        const usageRef = adminDb.collection('promoCodeUsage').doc(usageId);
+        
+        batch.set(usageRef, {
+          bookingId: data.bookingId || "N/A",
+          customerName: data.customerName || "Unknown",
+          customerEmail: data.customerEmail || "No Email",
+          discountCode: dCode ? String(dCode) : "Legacy/Applied",
+          discountAmount: discountVal,
+          status: data.status || "Pending",
+          createdAt: data.createdAt || Timestamp.now()
+        }, { merge: true });
+      }
+    }
+    
+    if (count > 0) {
+      await batch.commit();
+      // Set the initial total discount in stats
+      const statsRef = adminDb.collection('appConfiguration').doc('stats');
+      await statsRef.set({ 
+        totalDiscountGiven: totalDiscount,
+        updatedAt: Timestamp.now()
+      }, { merge: true });
+    }
+    
+    await triggerRefresh('promo-usage');
+    await triggerRefresh('global-cache'); // Refresh stats
+    return { success: true, count };
+  } catch (error) {
+    console.error("Migration Error:", error);
+    return { success: false, error: String(error) };
+  }
+}
 
 export async function clearSearchHotspots() {
   try {

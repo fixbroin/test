@@ -13,6 +13,7 @@ export async function incrementSystemStats(updates: {
   newSignups30d?: number;
   lastUserNumber?: number;
   lastBookingNumber?: number;
+  totalDiscountGiven?: number;
 }) {
   try {
     const statsRef = adminDb.collection('appConfiguration').doc('stats');
@@ -28,6 +29,7 @@ export async function incrementSystemStats(updates: {
     if (updates.newSignups30d) payload.newSignups30d = FieldValue.increment(updates.newSignups30d);
     if (updates.lastUserNumber) payload.lastUserNumber = FieldValue.increment(updates.lastUserNumber);
     if (updates.lastBookingNumber) payload.lastBookingNumber = FieldValue.increment(updates.lastBookingNumber);
+    if (updates.totalDiscountGiven) payload.totalDiscountGiven = FieldValue.increment(updates.totalDiscountGiven);
 
     await statsRef.set(payload, { merge: true });
   } catch (error) {

@@ -14,8 +14,10 @@ import { db } from '@/lib/firebase';
 import { collection, query, orderBy, onSnapshot, doc, updateDoc, deleteDoc, Timestamp, addDoc, limit } from 'firebase/firestore';
 import type { FirestoreContactUsInquiry, FirestorePopupInquiry, InquiryStatus, AppSettings, FirestoreNotification } from '@/types/firestore';
 import { useToast } from "@/hooks/use-toast";
+import PermissionGuard from '@/components/admin/PermissionGuard';
 import { triggerPushNotification } from '@/lib/fcmUtils';
 import { useAuth } from '@/hooks/useAuth';
+import { hasActionPermission } from '@/config/rbac';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription as AlertDialogDescriptionComponent, AlertDialogFooter as AlertDialogFooterComponent, AlertDialogHeader, AlertDialogTitle as AlertDialogTitleComponent, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { sendInquiryReplyEmail, type InquiryReplyEmailInput } from '@/ai/flows/sendInquiryReplyEmailFlow';
 import { useApplicationConfig } from '@/hooks/useApplicationConfig';
@@ -49,7 +51,7 @@ export default function AdminInquiriesPage() {
 
 
   const { toast } = useToast();
-  const { user: adminUser } = useAuth();
+  const { user: adminUser, adminPermissions } = useAuth();
   const { config: appConfig, isLoading: isLoadingAppSettings } = useApplicationConfig();
 
   useEffect(() => {
@@ -246,37 +248,43 @@ export default function AdminInquiriesPage() {
                     
                     <Separator orientation="vertical" className="h-6 mx-1" />
 
-                    <Button variant="outline" size="sm" onClick={() => handleOpenReplyDialog(inquiry, type)} disabled={isSubmittingReply || isLoadingAppSettings} className="h-8 text-xs text-blue-600 border-blue-200 hover:bg-blue-50">
-                      <Edit className="h-3.5 w-3.5 mr-1.5" /> Reply to User
-                    </Button>
+                    <PermissionGuard moduleId="inquiries" action="write">
+                      <Button variant="outline" size="sm" onClick={() => handleOpenReplyDialog(inquiry, type)} disabled={isSubmittingReply || isLoadingAppSettings} className="h-8 text-xs text-blue-600 border-blue-200 hover:bg-blue-50">
+                        <Edit className="h-3.5 w-3.5 mr-1.5" /> Reply to User
+                      </Button>
+                    </PermissionGuard>
 
                     {inquiry.status !== 'resolved' && (
-                      <Button variant="outline" size="sm" onClick={() => handleMarkAsResolved(inquiry.id!, type)} className="h-8 text-xs text-green-600 border-green-200 hover:bg-green-50">
-                        <CheckCircle2 className="h-3.5 w-3.5 mr-1.5" /> Mark Resolved
-                      </Button>
+                      <PermissionGuard moduleId="inquiries" action="write">
+                        <Button variant="outline" size="sm" onClick={() => handleMarkAsResolved(inquiry.id!, type)} className="h-8 text-xs text-green-600 border-green-200 hover:bg-green-50">
+                          <CheckCircle2 className="h-3.5 w-3.5 mr-1.5" /> Mark Resolved
+                        </Button>
+                      </PermissionGuard>
                     )}
 
                     <Separator orientation="vertical" className="h-6 mx-1" />
 
-                    <AlertDialog>
-                      <AlertDialogTrigger asChild>
-                        <Button variant="destructive" size="sm" className="h-8 text-xs">
-                          <Trash2 className="h-3.5 w-3.5 mr-1.5" /> Delete
-                        </Button>
-                      </AlertDialogTrigger>
-                      <AlertDialogContent>
-                        <AlertDialogHeader>
-                          <AlertDialogTitleComponent>Confirm Deletion</AlertDialogTitleComponent>
-                          <AlertDialogDescriptionComponent>
-                            Are you sure you want to delete this inquiry from {inquiry.name || inquiry.email}? This action cannot be undone.
-                          </AlertDialogDescriptionComponent>
-                        </AlertDialogHeader>
-                        <AlertDialogFooterComponent>
-                          <AlertDialogCancel>Cancel</AlertDialogCancel>
-                          <AlertDialogAction onClick={() => handleDeleteInquiry(inquiry.id!, type)} className="bg-destructive hover:bg-destructive/90">Delete</AlertDialogAction>
-                        </AlertDialogFooterComponent>
-                      </AlertDialogContent>
-                    </AlertDialog>
+                    <PermissionGuard moduleId="inquiries" action="delete">
+                      <AlertDialog>
+                        <AlertDialogTrigger asChild>
+                          <Button variant="destructive" size="sm" className="h-8 text-xs">
+                            <Trash2 className="h-3.5 w-3.5 mr-1.5" /> Delete
+                          </Button>
+                        </AlertDialogTrigger>
+                        <AlertDialogContent>
+                          <AlertDialogHeader>
+                            <AlertDialogTitleComponent>Confirm Deletion</AlertDialogTitleComponent>
+                            <AlertDialogDescriptionComponent>
+                              Are you sure you want to delete this inquiry from {inquiry.name || inquiry.email}? This action cannot be undone.
+                            </AlertDialogDescriptionComponent>
+                          </AlertDialogHeader>
+                          <AlertDialogFooterComponent>
+                            <AlertDialogCancel>Cancel</AlertDialogCancel>
+                            <AlertDialogAction onClick={() => handleDeleteInquiry(inquiry.id!, type)} className="bg-destructive hover:bg-destructive/90">Delete</AlertDialogAction>
+                          </AlertDialogFooterComponent>
+                        </AlertDialogContent>
+                      </AlertDialog>
+                    </PermissionGuard>
                   </div>
                 </TableCell>
               </TableRow>
@@ -311,14 +319,17 @@ export default function AdminInquiriesPage() {
         <Button variant="outline" size="sm" onClick={() => handleViewDetails(inquiry, type)} className="h-8 text-xs">
           <Eye className="h-3.5 w-3.5 mr-1" /> Details
         </Button>
-        <Button variant="outline" size="sm" onClick={() => handleOpenReplyDialog(inquiry, type)} disabled={isSubmittingReply || isLoadingAppSettings} className="h-8 text-xs text-blue-600 border-blue-200">
-          <Edit className="h-3.5 w-3.5 mr-1" /> Reply
-        </Button>
-        {inquiry.status !== 'resolved' && (
+        {hasActionPermission(adminPermissions, 'inquiries', 'write') && (
+          <Button variant="outline" size="sm" onClick={() => handleOpenReplyDialog(inquiry, type)} disabled={isSubmittingReply || isLoadingAppSettings} className="h-8 text-xs text-blue-600 border-blue-200">
+            <Edit className="h-3.5 w-3.5 mr-1" /> Reply
+          </Button>
+        )}
+        {inquiry.status !== 'resolved' && hasActionPermission(adminPermissions, 'inquiries', 'write') && (
           <Button variant="outline" size="sm" onClick={() => handleMarkAsResolved(inquiry.id!, type)} className="h-8 text-xs text-green-600 border-green-200">
             <CheckCircle2 className="h-3.5 w-3.5 mr-1" /> Resolve
           </Button>
         )}
+        {hasActionPermission(adminPermissions, 'inquiries', 'delete') && (
         <AlertDialog>
           <AlertDialogTrigger asChild>
             <Button variant="destructive" size="icon" className="h-8 w-8">
@@ -336,6 +347,7 @@ export default function AdminInquiriesPage() {
             </AlertDialogFooterComponent>
           </AlertDialogContent>
         </AlertDialog>
+        )}
       </CardFooter>
     </Card>
   );

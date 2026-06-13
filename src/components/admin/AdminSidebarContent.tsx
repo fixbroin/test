@@ -12,19 +12,21 @@ import {
   useSidebar,
 } from '@/components/ui/sidebar';
 import Logo from '@/components/shared/Logo';
-import { LayoutGrid, List, Layers, Settings, Users, ShoppingBag, Tag, BarChart3, PlaySquare, Settings2, HelpCircle, MessageSquare, ListChecks, Percent, UserCircle as UserProfileIcon, Target, Map, HandCoins, Megaphone, Bell, Activity, Palette, MessageCircle as ChatIcon, Mail, Zap, Receipt, Tv, Users2, MapPin, Cookie, Globe2, KeyRound, Database, FileText, Construction, Handshake, Banknote, ChevronRight, RefreshCw } from 'lucide-react';
+import { LayoutGrid, List, Layers, Settings, Users, ShoppingBag, Tag, BarChart3, PlaySquare, Settings2, HelpCircle, MessageSquare, ListChecks, Percent, UserCircle as UserProfileIcon, Target, Map, HandCoins, Megaphone, Bell, Activity, Palette, MessageCircle as ChatIcon, Mail, Zap, Receipt, Tv, Users2, MapPin, Cookie, Globe2, KeyRound, Database, FileText, Construction, Handshake, Banknote, ChevronRight, RefreshCw, ShieldCheck } from 'lucide-react';
 import { useGlobalSettings } from '@/hooks/useGlobalSettings';
 import { useLoading } from '@/contexts/LoadingContext';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/hooks/useAuth';
 import { useState } from 'react';
 import { useToast } from '@/hooks/use-toast';
+import { hasPathAccess } from '@/config/rbac';
 
 const navItems = [
   { href: '/admin', label: 'Dashboard', icon: LayoutGrid },
   { href: '/admin/profile', label: 'Admin Profile', icon: UserProfileIcon },
   { href: '/admin/notifications', label: 'Admin Notifications', icon: Bell },
   { href: '/admin/activity-feed', label: 'Activity Feed', icon: Activity },
+  { href: '/admin/manage-admins', label: 'Staff Management', icon: ShieldCheck },
   { type: 'separator', label: 'Core Management' },
   { href: '/admin/bookings', label: 'Bookings', icon: Tag },
   { href: '/admin/users', label: 'Users', icon: Users },
@@ -78,9 +80,24 @@ export default function AdminSidebarContent() {
   const { settings: globalSettings } = useGlobalSettings();
   const { isMobile, setOpenMobile } = useSidebar();
   const { showLoading } = useLoading();
-  const { user } = useAuth();
+  const { user, adminPermissions, isSuperAdmin } = useAuth();
   const { toast } = useToast();
   const [isRefreshing, setIsRefreshing] = useState(false);
+
+  // Filter navItems based on granular permissions
+  const filteredNavItems = navItems.filter(item => {
+    if (item.type === 'separator') return true;
+    return hasPathAccess(adminPermissions, item.href!);
+  });
+
+  // Remove trailing separators or double separators
+  const cleanedNavItems = filteredNavItems.filter((item, index, self) => {
+    if (item.type === 'separator') {
+      const nextItem = self[index + 1];
+      if (!nextItem || nextItem.type === 'separator') return false;
+    }
+    return true;
+  });
 
   const handleLinkClick = () => {
     showLoading();
@@ -156,7 +173,7 @@ export default function AdminSidebarContent() {
       </SidebarHeader>
       <SidebarContent className="pb-8">
         <SidebarMenu className="gap-1 px-2 pt-4">
-          {navItems.map((item, index) => {
+          {cleanedNavItems.map((item, index) => {
             if (item.type === 'separator') {
               return (
                 <div key={`sep-${index}`} className="px-4 py-4 mt-4 mb-1">
@@ -199,20 +216,22 @@ export default function AdminSidebarContent() {
         })}
         </SidebarMenu>
 
-        <div className="px-4 mt-8 mb-4">
-            <div className="flex items-center gap-3 mb-4">
-                <span className="text-[10px] font-black text-accent uppercase tracking-[0.2em] whitespace-nowrap">Cache Control</span>
-                <div className="h-px w-full bg-accent/20" />
-            </div>
-            <button
-                onClick={handleRefreshCache}
-                disabled={isRefreshing}
-                className="w-full flex items-center h-11 transition-all duration-300 rounded-xl px-4 group bg-destructive/10 text-destructive border border-destructive/20 hover:bg-destructive hover:text-white shadow-sm disabled:opacity-50"
-            >
-                <RefreshCw className={cn("h-4 w-4 shrink-0 transition-transform duration-700", isRefreshing && "animate-spin")} />
-                <span className="ml-3 truncate font-bold text-sm">Clear System Cache</span>
-            </button>
-        </div>
+        {isSuperAdmin && (
+          <div className="px-4 mt-8 mb-4">
+              <div className="flex items-center gap-3 mb-4">
+                  <span className="text-[10px] font-black text-accent uppercase tracking-[0.2em] whitespace-nowrap">Cache Control</span>
+                  <div className="h-px w-full bg-accent/20" />
+              </div>
+              <button
+                  onClick={handleRefreshCache}
+                  disabled={isRefreshing}
+                  className="w-full flex items-center h-11 transition-all duration-300 rounded-xl px-4 group bg-destructive/10 text-destructive border border-destructive/20 hover:bg-destructive hover:text-white shadow-sm disabled:opacity-50"
+              >
+                  <RefreshCw className={cn("h-4 w-4 shrink-0 transition-transform duration-700", isRefreshing && "animate-spin")} />
+                  <span className="ml-3 truncate font-bold text-sm">Clear System Cache</span>
+              </button>
+          </div>
+        )}
       </SidebarContent>
     </>
   );

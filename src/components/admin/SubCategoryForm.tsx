@@ -291,16 +291,21 @@ export default function SubCategoryForm({ onSubmit: onSubmitProp, initialData, o
       } else {
            setStatusMessage(initialData ? "Saving changes..." : "Creating sub-category...");
       }
-await onSubmitProp({
-  name: formData.name,
-  slug: formData.slug || "",
-  parentId: formData.parentId,
-  order: formData.order,
-  isActive: formData.isActive,
-  imageUrl: finalImageUrl,
-  imageHint: formData.imageHint,
-  id: initialData?.id,
-});
+
+      const parentCat = parentCategories.find(c => c.id === formData.parentId);
+
+      await onSubmitProp({
+        name: formData.name,
+        slug: formData.slug || "",
+        parentId: formData.parentId,
+        parentCategoryId: formData.parentId,
+        parentCategoryName: parentCat?.name || "Unknown",
+        order: formData.order,
+        isActive: formData.isActive,
+        imageUrl: finalImageUrl,
+        imageHint: formData.imageHint,
+        id: initialData?.id,
+      });
       
       setSelectedFile(null);
       if (fileInputRef.current) fileInputRef.current.value = "";

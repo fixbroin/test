@@ -11,6 +11,7 @@ import ServiceZoneForm, { type ServiceZoneFormData } from '@/components/admin/Se
 import { db } from '@/lib/firebase';
 import { collection, onSnapshot, addDoc, updateDoc, deleteDoc, doc, orderBy, query, Timestamp, getDocs } from "firebase/firestore";
 import { useToast } from "@/hooks/use-toast";
+import PermissionGuard from '@/components/admin/PermissionGuard';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
 
@@ -124,9 +125,11 @@ export default function AdminServiceZonesPage() {
             <CardTitle className="text-2xl flex items-center"><Globe2 className="mr-2 h-6 w-6 text-primary" />Manage Service Zones</CardTitle>
             <CardDescription>Define geographic areas where your services are available, now with category-wise filtering.</CardDescription>
           </div>
-          <Button onClick={handleAddZone} disabled={isSubmitting || isLoading} className="w-full sm:w-auto">
-            <PlusCircle className="mr-2 h-4 w-4" /> Add New Zone
-          </Button>
+          <PermissionGuard moduleId="service_zones" action="create">
+            <Button onClick={handleAddZone} disabled={isSubmitting || isLoading} className="w-full sm:w-auto">
+              <PlusCircle className="mr-2 h-4 w-4" /> Add New Zone
+            </Button>
+          </PermissionGuard>
         </CardHeader>
         <CardContent className="pt-6">
           {isLoading ? (

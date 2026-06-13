@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useEffect } from 'react';
@@ -7,7 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Switch } from "@/components/ui/switch";
-import { PlusCircle, Edit, Trash2, Loader2, CheckCircle, XCircle, Zap, PackageSearch } from "lucide-react";
+import { PlusCircle, Edit, Trash2, Loader2, PackageSearch, Zap } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import type { CityCategorySeoSetting, AreaCategorySeoSetting, FirestoreCategory, FirestoreCity, FirestoreArea } from '@/types/firestore';
 import CityCategorySeoForm, { type CityCategorySeoFormData } from '@/components/admin/CityCategorySeoForm';
@@ -18,6 +17,9 @@ import { useToast } from "@/hooks/use-toast";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Skeleton } from '@/components/ui/skeleton';
 import { triggerRefresh } from '@/lib/revalidateUtils';
+import { useAuth } from '@/hooks/useAuth';
+import { hasActionPermission } from '@/config/rbac';
+import PermissionGuard from '@/components/admin/PermissionGuard';
 
 const generateSeoSlug = (parts: (string | undefined)[]): string => {
     return parts.filter(Boolean).map(part => part!.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '')).join('/');
@@ -30,14 +32,15 @@ export default function SeoOverridesPage() {
   const [categories, setCategories] = useState<FirestoreCategory[]>([]);
   const [cities, setCities] = useState<FirestoreCity[]>([]);
   const [areas, setAreas] = useState<FirestoreArea[]>([]);
-  
+
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingSetting, setEditingSetting] = useState<CityCategorySeoSetting | AreaCategorySeoSetting | null>(null);
   const [formType, setFormType] = useState<'cityCategory' | 'areaCategory' | null>(null);
-  
+
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { toast } = useToast();
+  const { adminPermissions } = useAuth();
 
   const cityCatSeoRef = collection(db, "cityCategorySeoSettings");
   const areaCatSeoRef = collection(db, "areaCategorySeoSettings");
@@ -95,7 +98,7 @@ export default function SeoOverridesPage() {
       setIsSubmitting(false);
     }
   };
-  
+
   const handleToggleActive = async (setting: CityCategorySeoSetting | AreaCategorySeoSetting, type: 'cityCategory' | 'areaCategory') => {
     setIsSubmitting(true);
     const collectionRef = type === 'cityCategory' ? cityCatSeoRef : areaCatSeoRef;
@@ -121,14 +124,13 @@ export default function SeoOverridesPage() {
       setIsSubmitting(false);
       return;
     }
-    
-    // Prepare the payload for Firestore, excluding the client-side 'id' if it's a new document
+
     const basePayload: Omit<CityCategorySeoSetting, 'id' | 'createdAt' | 'updatedAt'> = {
         cityId: data.cityId,
         cityName: city.name,
         categoryId: data.categoryId,
         categoryName: category.name,
-        slug: data.slug || generateSeoSlug([city.slug, category.slug]), 
+        slug: data.slug || generateSeoSlug([city.slug, category.slug]),
         h1_title: data.h1_title,
         meta_title: data.meta_title,
         meta_description: data.meta_description,
@@ -140,10 +142,9 @@ export default function SeoOverridesPage() {
     };
 
     try {
-      if (data.id) { // Editing existing
+      if (data.id) { 
         await updateDoc(doc(cityCatSeoRef, data.id), { ...basePayload, updatedAt: Timestamp.now() });
-      } else { // Adding new
-        // Check for duplicates before adding
+      } else { 
         const q = query(cityCatSeoRef, where("cityId", "==", data.cityId), where("categoryId", "==", data.categoryId));
         const snap = await getDocs(q);
         if (!snap.empty) {
@@ -161,7 +162,7 @@ export default function SeoOverridesPage() {
       setIsSubmitting(false);
     }
   };
-  
+
   const handleAreaCategoryFormSubmit = async (data: AreaCategorySeoFormData & { id?: string }) => {
     setIsSubmitting(true);
     const city = cities.find(c => c.id === data.cityId);
@@ -172,22 +173,22 @@ export default function SeoOverridesPage() {
       setIsSubmitting(false);
       return;
     }
-    
+
     const basePayload: Omit<AreaCategorySeoSetting, 'id' | 'createdAt' | 'updatedAt'> = {
       cityId: data.cityId, cityName: city.name, areaId: data.areaId, areaName: area.name,
-      categoryId: data.categoryId, categoryName: category.name, 
+      categoryId: data.categoryId, categoryName: category.name,
       slug: data.slug || generateSeoSlug([city.slug, area.slug, category.slug]),
       h1_title: data.h1_title, meta_title: data.meta_title, meta_description: data.meta_description,
-      meta_keywords: data.meta_keywords, 
+      meta_keywords: data.meta_keywords,
       seo_content: data.seo_content,
       faqs: data.faqs,
       imageHint: data.imageHint, isActive: data.isActive,
     };
 
     try {
-      if (data.id) { // Editing existing
+      if (data.id) { 
         await updateDoc(doc(areaCatSeoRef, data.id), { ...basePayload, updatedAt: Timestamp.now() });
-      } else { // Adding new
+      } else { 
         const q = query(areaCatSeoRef, where("areaId", "==", data.areaId), where("categoryId", "==", data.categoryId));
         const snap = await getDocs(q);
         if (!snap.empty) {
@@ -234,7 +235,9 @@ export default function SeoOverridesPage() {
           <Card>
             <CardHeader className="flex flex-row items-center justify-between">
               <div><CardTitle>City-Category Specific Settings</CardTitle><CardDescription>Overrides for /[city]/category/[categorySlug] pages.</CardDescription></div>
-              <Button onClick={() => handleAddSetting('cityCategory')} disabled={isSubmitting || cities.length === 0 || categories.length === 0}><PlusCircle className="mr-2 h-4 w-4"/>Add New</Button>
+              <PermissionGuard moduleId="seo_overrides" action="create">
+                <Button onClick={() => handleAddSetting('cityCategory')} disabled={isSubmitting || cities.length === 0 || categories.length === 0}><PlusCircle className="mr-2 h-4 w-4"/>Add New</Button>
+              </PermissionGuard>
             </CardHeader>
             <CardContent>
               {cityCategorySettings.length === 0 ? (
@@ -248,8 +251,23 @@ export default function SeoOverridesPage() {
                         <TableCell>{setting.cityName}</TableCell><TableCell>{setting.categoryName}</TableCell>
                         <TableCell className="text-xs text-muted-foreground">{setting.slug}</TableCell>
                         <TableCell className="text-xs max-w-xs truncate" title={setting.h1_title}>{setting.h1_title || "Not set"}</TableCell>
-                        <TableCell className="text-center"><Switch checked={setting.isActive} onCheckedChange={() => handleToggleActive(setting, 'cityCategory')} disabled={isSubmitting}/></TableCell>
-                        <TableCell className="text-right"><div className="flex justify-end gap-2"><Button variant="outline" size="icon" onClick={() => handleEditSetting(setting, 'cityCategory')} disabled={isSubmitting}><Edit className="h-4 w-4"/></Button> <AlertDialog><AlertDialogTrigger asChild><Button variant="destructive" size="icon" disabled={isSubmitting}><Trash2 className="h-4 w-4"/></Button></AlertDialogTrigger><AlertDialogContent><AlertDialogHeader><AlertDialogTitle>Delete Confirmation</AlertDialogTitle><AlertDialogDescription>Delete SEO override for {setting.cityName} - {setting.categoryName}?</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel>Cancel</AlertDialogCancel><AlertDialogAction onClick={() => handleDeleteSetting(setting.id!, 'cityCategory')} disabled={isSubmitting} className="bg-destructive hover:bg-destructive/90">Delete</AlertDialogAction></AlertDialogFooter></AlertDialogContent></AlertDialog></div></TableCell>
+                        <TableCell className="text-center"><Switch checked={setting.isActive} onCheckedChange={() => handleToggleActive(setting, 'cityCategory')} disabled={isSubmitting || !hasActionPermission(adminPermissions, 'seo_overrides', 'write')}/></TableCell>
+                        <TableCell className="text-right">
+                          <div className="flex justify-end gap-2">
+                            <PermissionGuard moduleId="seo_overrides" action="write">
+                              <Button variant="outline" size="icon" onClick={() => handleEditSetting(setting, 'cityCategory')} disabled={isSubmitting}><Edit className="h-4 w-4"/></Button>
+                            </PermissionGuard>
+                            <PermissionGuard moduleId="seo_overrides" action="delete">
+                              <AlertDialog>
+                                <AlertDialogTrigger asChild><Button variant="destructive" size="icon" disabled={isSubmitting}><Trash2 className="h-4 w-4"/></Button></AlertDialogTrigger>
+                                <AlertDialogContent>
+                                  <AlertDialogHeader><AlertDialogTitle>Delete Confirmation</AlertDialogTitle><AlertDialogDescription>Delete SEO override for {setting.cityName} - {setting.categoryName}?</AlertDialogDescription></AlertDialogHeader>
+                                  <AlertDialogFooter><AlertDialogCancel>Cancel</AlertDialogCancel><AlertDialogAction onClick={() => handleDeleteSetting(setting.id!, 'cityCategory')} disabled={isSubmitting} className="bg-destructive hover:bg-destructive/90">Delete</AlertDialogAction></AlertDialogFooter>
+                                </AlertDialogContent>
+                              </AlertDialog>
+                            </PermissionGuard>
+                          </div>
+                        </TableCell>
                       </TableRow>
                     ))}
                   </TableBody>
@@ -262,7 +280,9 @@ export default function SeoOverridesPage() {
           <Card>
             <CardHeader className="flex flex-row items-center justify-between">
               <div><CardTitle>Area-Category Specific Settings</CardTitle><CardDescription>Overrides for /[city]/[area]/[categorySlug] pages.</CardDescription></div>
-              <Button onClick={() => handleAddSetting('areaCategory')} disabled={isSubmitting || cities.length === 0 || areas.length === 0 || categories.length === 0}><PlusCircle className="mr-2 h-4 w-4"/>Add New</Button>
+              <PermissionGuard moduleId="seo_overrides" action="create">
+                <Button onClick={() => handleAddSetting('areaCategory')} disabled={isSubmitting || cities.length === 0 || areas.length === 0 || categories.length === 0}><PlusCircle className="mr-2 h-4 w-4"/>Add New</Button>
+              </PermissionGuard>
             </CardHeader>
             <CardContent>
             {areaCategorySettings.length === 0 ? (
@@ -276,8 +296,23 @@ export default function SeoOverridesPage() {
                         <TableCell>{setting.cityName}</TableCell><TableCell>{setting.areaName}</TableCell><TableCell>{setting.categoryName}</TableCell>
                         <TableCell className="text-xs text-muted-foreground">{setting.slug}</TableCell>
                         <TableCell className="text-xs max-w-xs truncate" title={setting.h1_title}>{setting.h1_title || "Not set"}</TableCell>
-                        <TableCell className="text-center"><Switch checked={setting.isActive} onCheckedChange={() => handleToggleActive(setting, 'areaCategory')} disabled={isSubmitting}/></TableCell>
-                        <TableCell className="text-right"><div className="flex justify-end gap-2"><Button variant="outline" size="icon" onClick={() => handleEditSetting(setting, 'areaCategory')} disabled={isSubmitting}><Edit className="h-4 w-4"/></Button> <AlertDialog><AlertDialogTrigger asChild><Button variant="destructive" size="icon" disabled={isSubmitting}><Trash2 className="h-4 w-4"/></Button></AlertDialogTrigger><AlertDialogContent><AlertDialogHeader><AlertDialogTitle>Delete Confirmation</AlertDialogTitle><AlertDialogDescription>Delete SEO override for {setting.areaName} - {setting.categoryName}?</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel>Cancel</AlertDialogCancel><AlertDialogAction onClick={() => handleDeleteSetting(setting.id!, 'areaCategory')} disabled={isSubmitting} className="bg-destructive hover:bg-destructive/90">Delete</AlertDialogAction></AlertDialogFooter></AlertDialogContent></AlertDialog></div></TableCell>
+                        <TableCell className="text-center"><Switch checked={setting.isActive} onCheckedChange={() => handleToggleActive(setting, 'areaCategory')} disabled={isSubmitting || !hasActionPermission(adminPermissions, 'seo_overrides', 'write')}/></TableCell>
+                        <TableCell className="text-right">
+                          <div className="flex justify-end gap-2">
+                            <PermissionGuard moduleId="seo_overrides" action="write">
+                              <Button variant="outline" size="icon" onClick={() => handleEditSetting(setting, 'areaCategory')} disabled={isSubmitting}><Edit className="h-4 w-4"/></Button>
+                            </PermissionGuard>
+                            <PermissionGuard moduleId="seo_overrides" action="delete">
+                              <AlertDialog>
+                                <AlertDialogTrigger asChild><Button variant="destructive" size="icon" disabled={isSubmitting}><Trash2 className="h-4 w-4"/></Button></AlertDialogTrigger>
+                                <AlertDialogContent>
+                                  <AlertDialogHeader><AlertDialogTitle>Delete Confirmation</AlertDialogTitle><AlertDialogDescription>Delete SEO override for {setting.areaName} - {setting.categoryName}?</AlertDialogDescription></AlertDialogHeader>
+                                  <AlertDialogFooter><AlertDialogCancel>Cancel</AlertDialogCancel><AlertDialogAction onClick={() => handleDeleteSetting(setting.id!, 'areaCategory')} disabled={isSubmitting} className="bg-destructive hover:bg-destructive/90">Delete</AlertDialogAction></AlertDialogFooter>
+                                </AlertDialogContent>
+                              </AlertDialog>
+                            </PermissionGuard>
+                          </div>
+                        </TableCell>
                         </TableRow>
                     ))}
                     </TableBody>
@@ -325,5 +360,3 @@ export default function SeoOverridesPage() {
     </div>
   );
 }
-
-    

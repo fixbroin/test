@@ -15,6 +15,7 @@ import { useToast } from "@/hooks/use-toast";
 import { triggerRefresh } from '@/lib/revalidateUtils';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Skeleton } from '@/components/ui/skeleton';
+import PermissionGuard from '@/components/admin/PermissionGuard';
 
 const generateSlug = (name: string) => {
   return name.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
@@ -142,9 +143,11 @@ export default function AdminCitiesPage() {
             <CardTitle className="text-2xl flex items-center"><MapPin className="mr-2 h-6 w-6 text-primary" />Manage Cities</CardTitle>
             <CardDescription>Add, edit, or delete cities. These will create pages like /city-slug.</CardDescription>
           </div>
-          <Button onClick={handleAddCity} disabled={isSubmitting || isLoading} className="w-full sm:w-auto">
-            <PlusCircle className="mr-2 h-4 w-4" /> Add New City
-          </Button>
+          <PermissionGuard moduleId="cities" action="create">
+            <Button onClick={handleAddCity} disabled={isSubmitting || isLoading} className="w-full sm:w-auto">
+              <PlusCircle className="mr-2 h-4 w-4" /> Add New City
+            </Button>
+          </PermissionGuard>
         </CardHeader>
         <CardContent className="pt-6">
           {isLoading ? (

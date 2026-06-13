@@ -37,7 +37,7 @@ const NotificationIcon = ({ type }: { type: FirestoreNotification['type'] }) => 
 };
 
 export default function AdminNotificationsPage() {
-  const { user, isLoading: authLoading } = useAuth();
+  const { user, isSuperAdmin, adminPermissions, isLoading: authLoading } = useAuth();
   const { toast } = useToast();
   const [notifications, setNotifications] = useState<FirestoreNotification[]>([]);
   const [isLoadingNotifications, setIsLoadingNotifications] = useState(true);
@@ -55,7 +55,7 @@ export default function AdminNotificationsPage() {
       return;
     }
 
-    if (user.email !== ADMIN_EMAIL) {
+    if (!adminPermissions) {
         toast({title: "Access Denied", description: "You are not authorized to view these notifications.", variant: "destructive"});
         setIsLoadingNotifications(false);
         setNotifications([]);
@@ -64,12 +64,11 @@ export default function AdminNotificationsPage() {
 
     setIsLoadingNotifications(true);
     const notificationsCollectionRef = collection(db, "userNotifications");
-    const q = query(
-      notificationsCollectionRef,
-      where("userId", "==", user.uid),
-      orderBy("createdAt", "desc"),
-      limit(100)
-    );
+    
+    // Tiered Query: Super Admin sees everything, others see only their own.
+    const q = isSuperAdmin 
+      ? query(notificationsCollectionRef, orderBy("createdAt", "desc"), limit(100))
+      : query(notificationsCollectionRef, where("userId", "==", user.uid), orderBy("createdAt", "desc"), limit(100));
 
     const unsubscribe = onSnapshot(q, (querySnapshot) => {
       const fetchedNotifications = querySnapshot.docs.map(docSnap => ({
@@ -127,7 +126,11 @@ export default function AdminNotificationsPage() {
     setIsClearing(true);
     try {
       const notificationsCollectionRef = collection(db, "userNotifications");
-      const q = query(notificationsCollectionRef, where("userId", "==", user.uid));
+      // Match the view: Clear everything if Super Admin, otherwise only personal.
+      const q = isSuperAdmin 
+        ? query(notificationsCollectionRef)
+        : query(notificationsCollectionRef, where("userId", "==", user.uid));
+        
       const querySnapshot = await getDocs(q);
 
       if (querySnapshot.empty) {
@@ -184,16 +187,6 @@ export default function AdminNotificationsPage() {
         <BellOff className="mx-auto h-16 w-16 text-muted-foreground mb-4" />
         <h2 className="text-2xl font-semibold mb-2">Admin Login Required</h2>
         <p className="text-muted-foreground mb-6">Please login as admin to view notifications.</p>
-      </div>
-    );
-  }
-  
-  if (user && user.email !== ADMIN_EMAIL && isMounted) {
-     return (
-      <div className="container mx-auto px-4 py-8 max-w-2xl text-center">
-        <BellOff className="mx-auto h-16 w-16 text-muted-foreground mb-4" />
-        <h2 className="text-2xl font-semibold mb-2">Access Denied</h2>
-        <p className="text-muted-foreground mb-6">This section is for administrators only.</p>
       </div>
     );
   }
@@ -261,21 +254,28 @@ export default function AdminNotificationsPage() {
                       <NotificationIcon type={notification.type} />
                     </div>
                     <div className="flex-grow">
-                      {notification.href ? (
-                        <Link href={notification.href} className="hover:underline" onClick={(e) => {
-                            e.stopPropagation(); 
-                            showLoading();
-                             if (!notification.read && notification.id) handleMarkAsRead(notification.id);
-                        }}>
-                            <h3 className={`text-sm font-semibold ${!notification.read ? "text-primary" : ""}`}>
-                              {notification.title}
-                            </h3>
-                        </Link>
-                      ) : (
-                        <h3 className={`text-sm font-semibold ${!notification.read ? "text-primary" : ""}`}>
-                          {notification.title}
-                        </h3>
-                      )}
+                      <div className="flex items-center gap-2 mb-1">
+                        {notification.href ? (
+                          <Link href={notification.href} className="hover:underline" onClick={(e) => {
+                              e.stopPropagation(); 
+                              showLoading();
+                               if (!notification.read && notification.id) handleMarkAsRead(notification.id);
+                          }}>
+                              <h3 className={`text-sm font-semibold ${!notification.read ? "text-primary" : ""}`}>
+                                {notification.title}
+                              </h3>
+                          </Link>
+                        ) : (
+                          <h3 className={`text-sm font-semibold ${!notification.read ? "text-primary" : ""}`}>
+                            {notification.title}
+                          </h3>
+                        )}
+                        {isSuperAdmin && notification.userId !== user?.uid && (
+                          <span className="text-[8px] font-black uppercase tracking-tighter bg-muted text-muted-foreground px-1.5 py-0.5 rounded">
+                            Recipient: {notification.userId.slice(0, 6)}...
+                          </span>
+                        )}
+                      </div>
                       <p className="text-xs text-muted-foreground mt-0.5">{notification.message}</p>
                       <p className="text-[10px] text-muted-foreground mt-1.5">
                         {(() => {

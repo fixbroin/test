@@ -23,6 +23,7 @@ import { Tooltip, TooltipProvider, TooltipTrigger, TooltipContent } from '@/comp
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Check, ChevronsUpDown, Search as SearchIcon } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import PermissionGuard from '@/components/admin/PermissionGuard';
 
 const APP_CONFIG_COLLECTION = "webSettings";
 const APP_CONFIG_DOC_ID = "applicationConfig";
@@ -997,10 +998,12 @@ export default function AdminSettingsPage() {
               </div>
             </CardContent>
             <CardFooter className="border-t px-6 py-4">
-              <Button onClick={() => handleSaveSettings("Notification")} disabled={isSaving}>
-                {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
-                Save Notification Settings
-              </Button>
+              <PermissionGuard moduleId="settings" action="write">
+                <Button onClick={() => handleSaveSettings("Notification")} disabled={isSaving}>
+                  {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
+                  Save Notification Settings
+                </Button>
+              </PermissionGuard>
             </CardFooter>
           </Card>
         </TabsContent>

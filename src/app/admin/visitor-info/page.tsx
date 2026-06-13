@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useMemo } from 'react';
+import Link from 'next/link';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
@@ -37,6 +38,8 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { getTimestampMillis } from '@/lib/utils';
+import { useAuth } from '@/hooks/useAuth';
+import PermissionGuard from '@/components/admin/PermissionGuard';
 
 const ITEMS_PER_PAGE = 50;
 
@@ -532,5 +535,3 @@ const InfoIcon = ({ className }: { className?: string }) => (
         <circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/>
     </svg>
 );
-
-import Link from 'next/link';

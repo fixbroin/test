@@ -24,6 +24,7 @@ import { sendProviderApplicationStatusEmail } from '@/ai/flows/sendProviderAppli
 import { getBaseUrl } from '@/lib/config'; 
 import { Separator } from "@/components/ui/separator";
 import { getTimestampMillis } from '@/lib/utils';
+import PermissionGuard from '@/components/admin/PermissionGuard';
 
 const PROVIDER_APPLICATION_COLLECTION = "providerApplications";
 const applicationStatusOptions: ProviderApplicationStatus[] = ['pending_review', 'pending_step_1', 'pending_step_2', 'pending_step_3', 'pending_step_4', 'approved', 'rejected', 'needs_update'];
@@ -250,41 +251,51 @@ export default function AdminProviderApplicationsPage() {
         <Button variant="outline" size="sm" onClick={() => handleViewDetails(app)} className="h-8 text-xs">
           <Eye className="h-3.5 w-3.5 mr-1" /> Details
         </Button>
-        <Button variant="outline" size="sm" onClick={() => router.push(`/provider-registration?editApplicationId=${app.id}`)} className="h-8 text-xs">
-          <Edit className="h-3.5 w-3.5 mr-1" /> Edit
-        </Button>
-        {app.status !== 'approved' && (
-          <Button variant="outline" size="sm" onClick={() => handleUpdateStatus(app.id!, 'approved')} className="h-8 text-xs text-green-600 border-green-200 hover:bg-green-50">
-            <CheckCircle className="h-3.5 w-3.5 mr-1" /> Approve
+        <PermissionGuard moduleId="provider_applications" action="write">
+          <Button variant="outline" size="sm" onClick={() => router.push(`/provider-registration?editApplicationId=${app.id}`)} className="h-8 text-xs">
+            <Edit className="h-3.5 w-3.5 mr-1" /> Edit
           </Button>
+        </PermissionGuard>
+        {app.status !== 'approved' && (
+          <PermissionGuard moduleId="provider_applications" action="write">
+            <Button variant="outline" size="sm" onClick={() => handleUpdateStatus(app.id!, 'approved')} className="h-8 text-xs text-green-600 border-green-200 hover:bg-green-50">
+              <CheckCircle className="h-3.5 w-3.5 mr-1" /> Approve
+            </Button>
+          </PermissionGuard>
         )}
         {app.status !== 'rejected' && (
-          <Button variant="outline" size="sm" onClick={() => { setShowNotesInputFor(app.id!); setPendingStatusForNotes('rejected'); }} className="h-8 text-xs text-destructive border-destructive/20 hover:bg-destructive/10">
-            <XCircle className="h-3.5 w-3.5 mr-1" /> Reject
-          </Button>
+          <PermissionGuard moduleId="provider_applications" action="write">
+            <Button variant="outline" size="sm" onClick={() => { setShowNotesInputFor(app.id!); setPendingStatusForNotes('rejected'); }} className="h-8 text-xs text-destructive border-destructive/20 hover:bg-destructive/10">
+              <XCircle className="h-3.5 w-3.5 mr-1" /> Reject
+            </Button>
+          </PermissionGuard>
         )}
         {app.status !== 'needs_update' && (
-          <Button variant="outline" size="sm" onClick={() => { setShowNotesInputFor(app.id!); setPendingStatusForNotes('needs_update'); }} className="h-8 text-xs text-yellow-600 border-yellow-200 hover:bg-yellow-50">
-            <AlertTriangle className="h-3.5 w-3.5 mr-1" /> Update
-          </Button>
-        )}
-        <AlertDialog>
-          <AlertDialogTrigger asChild>
-            <Button variant="destructive" size="icon" className="h-8 w-8">
-              <Trash2 className="h-3.5 w-3.5" />
+          <PermissionGuard moduleId="provider_applications" action="write">
+            <Button variant="outline" size="sm" onClick={() => { setShowNotesInputFor(app.id!); setPendingStatusForNotes('needs_update'); }} className="h-8 text-xs text-yellow-600 border-yellow-200 hover:bg-yellow-50">
+              <AlertTriangle className="h-3.5 w-3.5 mr-1" /> Update
             </Button>
-          </AlertDialogTrigger>
-          <AlertDialogContent>
-            <AlertDialogHeader>
-              <AlertDialogTitle>Confirm Deletion</AlertDialogTitle>
-              <AlertDialogDescription>Permanently delete application for {app.fullName || "this provider"}?</AlertDialogDescription>
-            </AlertDialogHeader>
-            <AlertDialogFooter>
-              <AlertDialogCancel>Cancel</AlertDialogCancel>
-              <AlertDialogAction onClick={() => handleDeleteApplication(app.id!)} className="bg-destructive hover:bg-destructive/90">Delete</AlertDialogAction>
-            </AlertDialogFooter>
-          </AlertDialogContent>
-        </AlertDialog>
+          </PermissionGuard>
+        )}
+        <PermissionGuard moduleId="provider_applications" action="delete">
+          <AlertDialog>
+            <AlertDialogTrigger asChild>
+              <Button variant="destructive" size="icon" className="h-8 w-8">
+                <Trash2 className="h-3.5 w-3.5" />
+              </Button>
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Confirm Deletion</AlertDialogTitle>
+                <AlertDialogDescription>Permanently delete application for {app.fullName || "this provider"}?</AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                <AlertDialogAction onClick={() => handleDeleteApplication(app.id!)} className="bg-destructive hover:bg-destructive/90">Delete</AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+        </PermissionGuard>
       </CardFooter>
       {showNotesInputFor === app.id && (
         <div className="p-4 pt-0 space-y-3 bg-muted/10">
@@ -380,45 +391,55 @@ export default function AdminProviderApplicationsPage() {
                             <Button variant="outline" size="icon" onClick={() => handleViewDetails(app)} className="h-8 w-8" title="View Details">
                               <Eye className="h-4 w-4" />
                             </Button>
-                            <Button variant="outline" size="icon" onClick={() => router.push(`/provider-registration?editApplicationId=${app.id}`)} className="h-8 w-8" title="Edit Application">
-                              <Edit className="h-4 w-4" />
-                            </Button>
+                            <PermissionGuard moduleId="provider_applications" action="write">
+                              <Button variant="outline" size="icon" onClick={() => router.push(`/provider-registration?editApplicationId=${app.id}`)} className="h-8 w-8" title="Edit Application">
+                                <Edit className="h-4 w-4" />
+                              </Button>
+                            </PermissionGuard>
                             
                             {app.status !== 'approved' && (
-                              <Button variant="outline" size="icon" onClick={() => handleUpdateStatus(app.id!, 'approved')} className="h-8 w-8 text-green-600 border-green-200 hover:bg-green-50" title="Approve">
-                                <CheckCircle className="h-4 w-4" />
-                              </Button>
+                              <PermissionGuard moduleId="provider_applications" action="write">
+                                <Button variant="outline" size="icon" onClick={() => handleUpdateStatus(app.id!, 'approved')} className="h-8 w-8 text-green-600 border-green-200 hover:bg-green-50" title="Approve">
+                                  <CheckCircle className="h-4 w-4" />
+                                </Button>
+                              </PermissionGuard>
                             )}
                             
                             {app.status !== 'rejected' && (
-                              <Button variant="outline" size="icon" onClick={() => { setShowNotesInputFor(app.id!); setPendingStatusForNotes('rejected'); }} className="h-8 w-8 text-destructive border-destructive/20 hover:bg-destructive/10" title="Reject">
-                                <XCircle className="h-4 w-4" />
-                              </Button>
+                              <PermissionGuard moduleId="provider_applications" action="write">
+                                <Button variant="outline" size="icon" onClick={() => { setShowNotesInputFor(app.id!); setPendingStatusForNotes('rejected'); }} className="h-8 w-8 text-destructive border-destructive/20 hover:bg-destructive/10" title="Reject">
+                                  <XCircle className="h-4 w-4" />
+                                </Button>
+                              </PermissionGuard>
                             )}
 
                             {app.status !== 'needs_update' && (
-                              <Button variant="outline" size="icon" onClick={() => { setShowNotesInputFor(app.id!); setPendingStatusForNotes('needs_update'); }} className="h-8 w-8 text-yellow-600 border-yellow-200 hover:bg-yellow-50" title="Request Update">
-                                <AlertTriangle className="h-4 w-4" />
-                              </Button>
+                              <PermissionGuard moduleId="provider_applications" action="write">
+                                <Button variant="outline" size="icon" onClick={() => { setShowNotesInputFor(app.id!); setPendingStatusForNotes('needs_update'); }} className="h-8 w-8 text-yellow-600 border-yellow-200 hover:bg-yellow-50" title="Request Update">
+                                  <AlertTriangle className="h-4 w-4" />
+                                </Button>
+                              </PermissionGuard>
                             )}
 
-                            <AlertDialog>
-                              <AlertDialogTrigger asChild>
-                                <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:bg-destructive/10" title="Delete">
-                                  <Trash2 className="h-4 w-4" />
-                                </Button>
-                              </AlertDialogTrigger>
-                              <AlertDialogContent>
-                                <AlertDialogHeader>
-                                  <AlertDialogTitle>Confirm Deletion</AlertDialogTitle>
-                                  <AlertDialogDescription>Permanently delete application for {app.fullName || "this provider"}?</AlertDialogDescription>
-                                </AlertDialogHeader>
-                                <AlertDialogFooter>
-                                  <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                  <AlertDialogAction onClick={() => handleDeleteApplication(app.id!)} className="bg-destructive hover:bg-destructive/90">Delete</AlertDialogAction>
-                                </AlertDialogFooter>
-                              </AlertDialogContent>
-                            </AlertDialog>
+                            <PermissionGuard moduleId="provider_applications" action="delete">
+                              <AlertDialog>
+                                <AlertDialogTrigger asChild>
+                                  <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:bg-destructive/10" title="Delete">
+                                    <Trash2 className="h-4 w-4" />
+                                  </Button>
+                                </AlertDialogTrigger>
+                                <AlertDialogContent>
+                                  <AlertDialogHeader>
+                                    <AlertDialogTitle>Confirm Deletion</AlertDialogTitle>
+                                    <AlertDialogDescription>Permanently delete application for {app.fullName || "this provider"}?</AlertDialogDescription>
+                                  </AlertDialogHeader>
+                                  <AlertDialogFooter>
+                                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                    <AlertDialogAction onClick={() => handleDeleteApplication(app.id!)} className="bg-destructive hover:bg-destructive/90">Delete</AlertDialogAction>
+                                  </AlertDialogFooter>
+                                </AlertDialogContent>
+                              </AlertDialog>
+                            </PermissionGuard>
                           </div>
                           {showNotesInputFor === app.id && (
                             <div className="mt-2 p-2 border rounded-md bg-muted/50 space-y-2 max-w-xs ml-auto text-left">

@@ -26,6 +26,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
 import { Badge } from '@/components/ui/badge';
 import { getTimestampMillis } from '@/lib/utils';
+import PermissionGuard from '@/components/admin/PermissionGuard';
 
 const WEB_SETTINGS_DOC_ID = "global";
 const WEB_SETTINGS_COLLECTION = "webSettings";
@@ -1196,9 +1197,11 @@ export default function WebSettingsPage() {
                         </div>
 
                         <div className="flex justify-end pt-2">
-                            <Button type="submit" disabled={isSavingContent} size="lg" className="w-full sm:w-auto">
-                                {isSavingContent ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />} Save Page Content & Banner
-                            </Button>
+                            <PermissionGuard moduleId="web_settings" action="write">
+                                <Button type="submit" disabled={isSavingContent} size="lg" className="w-full sm:w-auto">
+                                    {isSavingContent ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />} Save Page Content & Banner
+                                </Button>
+                            </PermissionGuard>
                         </div>
                     </form>
                     </Form>

@@ -12,10 +12,13 @@ import { Switch } from "@/components/ui/switch";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { KeyRound, Save, Loader2, Mail, Phone, MessageSquare } from "lucide-react";
 import { useApplicationConfig } from '@/hooks/useApplicationConfig';
-import { useToast } from "@/hooks/use-toast";
+import { useToast } from '@/hooks/use-toast';
+import PermissionGuard from '@/components/admin/PermissionGuard';
+
 import { db } from '@/lib/firebase';
 import { doc, setDoc, Timestamp } from 'firebase/firestore';
 import type { AppSettings, LoginMethod } from '@/types/firestore';
+import { triggerRefresh } from '@/lib/revalidateUtils';
 
 const loginSettingsSchema = z.object({
   enableEmailPasswordLogin: z.boolean().default(true),
@@ -74,6 +77,8 @@ export default function LoginSettingsPage() {
         updatedAt: Timestamp.now(),
       };
       await setDoc(settingsDocRef, settingsToUpdate, { merge: true });
+      await triggerRefresh('app-settings');
+      await triggerRefresh('global-cache');
       toast({ title: "Success", description: "Login settings saved successfully." });
     } catch (error) {
       console.error("Error saving login settings:", error);
@@ -144,10 +149,12 @@ export default function LoginSettingsPage() {
           </Card>
           
           <div className="flex justify-end pt-4">
-            <Button type="submit" disabled={isSaving}>
-              {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
-              Save All Login Settings
-            </Button>
+            <PermissionGuard moduleId="login_settings" action="write">
+              <Button type="submit" disabled={isSaving}>
+                {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
+                Save All Login Settings
+              </Button>
+            </PermissionGuard>
           </div>
         </form>
       </Form>

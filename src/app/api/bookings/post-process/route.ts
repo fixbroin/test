@@ -70,6 +70,22 @@ export async function POST(request: Request) {
     if (!booking.isStatsTracked) {
         tasks.push(incrementSystemStats({ totalBookings: 1 }));
         tasks.push(adminDb.collection('bookings').doc(bookingDocId).update({ isStatsTracked: true }));
+        
+        // --- NEW: Log Promo Code Usage (Method B) ---
+        if (booking.discountCode) {
+            const usageId = `usage_${bookingDocId}`;
+            tasks.push(adminDb.collection('promoCodeUsage').doc(usageId).set({
+                bookingId: booking.bookingId || "N/A",
+                customerName: booking.customerName || "Unknown",
+                customerEmail: booking.customerEmail || "No Email",
+                discountCode: String(booking.discountCode),
+                discountAmount: Number(booking.discountAmount || 0),
+                status: booking.status || "Pending",
+                createdAt: booking.createdAt || Timestamp.now()
+            }));
+            tasks.push(incrementSystemStats({ totalDiscountGiven: Number(booking.discountAmount || 0) }));
+            tasks.push(triggerRefresh('promo-usage'));
+        }
     }
 
     // --- NEW: Notify Assigned Provider ---

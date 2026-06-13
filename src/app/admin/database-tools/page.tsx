@@ -10,6 +10,8 @@ import { Database, UploadCloud, Download, Loader2, AlertTriangle } from "lucide-
 import { useToast } from "@/hooks/use-toast";
 import { db } from '@/lib/firebase';
 import { collection, getDocs, doc, writeBatch, query, collectionGroup } from "firebase/firestore";
+import PermissionGuard from '@/components/admin/PermissionGuard';
+import { triggerRefresh } from '@/lib/revalidateUtils';
 
 // Define the list of collections to be exported.
 // This list should be updated if new collections are added to the app.
@@ -133,6 +135,7 @@ export default function DatabaseToolsPage() {
            await batch.commit();
         }
 
+        await triggerRefresh('global-cache');
         toast({ title: "Import Successful", description: `Successfully imported ${totalOperations} documents.` });
       } catch (error) {
         console.error("Error importing database:", error);
@@ -210,10 +213,12 @@ export default function DatabaseToolsPage() {
             </div>
         </CardContent>
         <CardFooter>
-          <Button onClick={handleImport} disabled={isImporting || !importFile}>
-            {isImporting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <UploadCloud className="mr-2 h-4 w-4" />}
-            {isImporting ? "Importing..." : "Import and Overwrite Data"}
-          </Button>
+          <PermissionGuard moduleId="database_tools" action="write">
+            <Button onClick={handleImport} disabled={isImporting || !importFile}>
+              {isImporting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <UploadCloud className="mr-2 h-4 w-4" />}
+              {isImporting ? "Importing..." : "Import and Overwrite Data"}
+            </Button>
+          </PermissionGuard>
         </CardFooter>
       </Card>
     </div>

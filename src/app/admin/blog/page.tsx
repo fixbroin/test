@@ -18,7 +18,9 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Badge } from '@/components/ui/badge';
 import Link from 'next/link';
 import { useAuth } from '@/hooks/useAuth';
+import { hasActionPermission } from '@/config/rbac';
 import { triggerRefresh } from '@/lib/revalidateUtils';
+import PermissionGuard from '@/components/admin/PermissionGuard';
 
 export default function AdminBlogPage() {
   const [posts, setPosts] = useState<FirestoreBlogPost[]>([]);
@@ -28,7 +30,7 @@ export default function AdminBlogPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { toast } = useToast();
-  const { user } = useAuth();
+  const { user, adminPermissions } = useAuth();
 
   const postsCollectionRef = collection(db, "blogPosts");
   const categoriesCollectionRef = collection(db, "adminCategories");
@@ -153,9 +155,11 @@ export default function AdminBlogPage() {
             <CardTitle className="text-2xl flex items-center"><FileText className="mr-2 h-6 w-6 text-primary" />Manage Blog Posts</CardTitle>
             <CardDescription>Create, edit, and publish articles for your website's blog.</CardDescription>
           </div>
-          <Button onClick={handleAddPost} disabled={isSubmitting || isLoading} className="w-full sm:w-auto">
-            <PlusCircle className="mr-2 h-4 w-4" /> Add New Post
-          </Button>
+          <PermissionGuard moduleId="blog" action="create">
+            <Button onClick={handleAddPost} disabled={isSubmitting || isLoading} className="w-full sm:w-auto">
+              <PlusCircle className="mr-2 h-4 w-4" /> Add New Post
+            </Button>
+          </PermissionGuard>
         </CardHeader>
         <CardContent className="pt-6">
           {isLoading ? (
@@ -173,19 +177,25 @@ export default function AdminBlogPage() {
                     <TableCell><Link href={`/blog/${post.slug}`} target="_blank" className="text-xs text-muted-foreground hover:underline">{post.slug}</Link></TableCell>
                     <TableCell>
                       <div className="flex items-center space-x-2">
-                        <Switch id={`publish-switch-${post.id}`} checked={post.isPublished} onCheckedChange={() => handleTogglePublished(post)} disabled={isSubmitting}/>
-                        <Badge variant={post.isPublished ? 'default' : 'secondary'} className={post.isPublished ? 'bg-green-500' : ''}>{post.isPublished ? 'Published' : 'Draft'}</Badge>
+                        <PermissionGuard moduleId="blog" action="write" fallback={<Badge variant={post.isPublished ? 'default' : 'secondary'} className={post.isPublished ? 'bg-green-500' : ''}>{post.isPublished ? 'Published' : 'Draft'}</Badge>}>
+                          <Switch id={`publish-switch-${post.id}`} checked={post.isPublished} onCheckedChange={() => handleTogglePublished(post)} disabled={isSubmitting}/>
+                          <Badge variant={post.isPublished ? 'default' : 'secondary'} className={post.isPublished ? 'bg-green-500' : ''}>{post.isPublished ? 'Published' : 'Draft'}</Badge>
+                        </PermissionGuard>
                       </div>
                     </TableCell>
                     <TableCell className="text-right">
-                      <Button variant="outline" size="icon" onClick={() => handleEditPost(post)} disabled={isSubmitting}><Edit className="h-4 w-4" /></Button>
-                      <AlertDialog>
-                        <AlertDialogTrigger asChild><Button variant="destructive" size="icon" disabled={isSubmitting} className="ml-2"><Trash2 className="h-4 w-4" /></Button></AlertDialogTrigger>
-                        <AlertDialogContent>
-                          <AlertDialogHeader><AlertDialogTitle>Are you sure?</AlertDialogTitle><AlertDialogDescription>This will permanently delete the post "{post.title}".</AlertDialogDescription></AlertDialogHeader>
-                          <AlertDialogFooter><AlertDialogCancel>Cancel</AlertDialogCancel><AlertDialogAction onClick={() => handleDeletePost(post)} className="bg-destructive hover:bg-destructive/90">Delete</AlertDialogAction></AlertDialogFooter>
-                        </AlertDialogContent>
-                      </AlertDialog>
+                      <PermissionGuard moduleId="blog" action="write">
+                        <Button variant="outline" size="icon" onClick={() => handleEditPost(post)} disabled={isSubmitting}><Edit className="h-4 w-4" /></Button>
+                      </PermissionGuard>
+                      <PermissionGuard moduleId="blog" action="delete">
+                        <AlertDialog>
+                          <AlertDialogTrigger asChild><Button variant="destructive" size="icon" disabled={isSubmitting} className="ml-2"><Trash2 className="h-4 w-4" /></Button></AlertDialogTrigger>
+                          <AlertDialogContent>
+                            <AlertDialogHeader><AlertDialogTitle>Are you sure?</AlertDialogTitle><AlertDialogDescription>This will permanently delete the post "{post.title}".</AlertDialogDescription></AlertDialogHeader>
+                            <AlertDialogFooter><AlertDialogCancel>Cancel</AlertDialogCancel><AlertDialogAction onClick={() => handleDeletePost(post)} className="bg-destructive hover:bg-destructive/90">Delete</AlertDialogAction></AlertDialogFooter>
+                          </AlertDialogContent>
+                        </AlertDialog>
+                      </PermissionGuard>
                     </TableCell>
                   </TableRow>
                 ))}

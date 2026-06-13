@@ -14,6 +14,7 @@ import { Loader2, Save, HandCoins } from "lucide-react";
 import { useToast } from '@/hooks/use-toast';
 import { db } from '@/lib/firebase';
 import { doc, setDoc, Timestamp } from "firebase/firestore";
+import { triggerRefresh } from '@/lib/revalidateUtils';
 import type { AppSettings, ProviderFeeType } from '@/types/firestore';
 import { useApplicationConfig } from '@/hooks/useApplicationConfig';
 
@@ -64,6 +65,7 @@ export default function ProviderFeesSetupTab() {
         updatedAt: Timestamp.now(),
       };
       await setDoc(settingsDocRef, settingsToUpdate, { merge: true });
+      await triggerRefresh('global-cache');
       toast({ title: "Success", description: "Provider fee settings have been saved." });
     } catch (error) {
       console.error("Error saving provider fee settings:", error);

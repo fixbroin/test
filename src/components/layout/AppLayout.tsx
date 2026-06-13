@@ -18,6 +18,7 @@ import { useIsMobile } from '@/hooks/use-mobile';
 import { cn } from '@/lib/utils';
 import CookieConsentBanner from '@/components/shared/CookieConsentBanner';
 import CompleteProfileDialog from '@/components/auth/CompleteProfileDialog';
+import AdminCompleteProfileDialog from '@/components/admin/AdminCompleteProfileDialog';
 import PwaInstallButton from '@/components/shared/PwaInstallButton';
 
 const AppLayout: React.FC<PropsWithChildren> = ({ children }) => {
@@ -29,7 +30,7 @@ const AppLayout: React.FC<PropsWithChildren> = ({ children }) => {
   const [isHeaderVisible, setIsHeaderVisible] = useState(true);
   const lastScrollY = useRef(0);
 
-  const { user, isLoading: authIsLoading, isCompletingProfile, userCredentialForProfileCompletion, completeProfileSetup, cancelProfileCompletion } = useAuth();
+  const { user, isLoading: authIsLoading, isCompletingProfile, isCompletingProfileAsAdmin, userCredentialForProfileCompletion, completeProfileSetup, cancelProfileCompletion } = useAuth();
   const [pendingReviewBooking, setPendingReviewBooking] = useState<FirestoreBooking | null>(null);
   const [isReviewPopupOpen, setIsReviewPopupOpen] = useState(false);
 
@@ -327,9 +328,17 @@ const AppLayout: React.FC<PropsWithChildren> = ({ children }) => {
           onReviewSubmitted={handleReviewSubmitted}
         />
       )}
-      {isClientMounted && userCredentialForProfileCompletion && (
+      {isClientMounted && userCredentialForProfileCompletion && isCompletingProfile && (
         <CompleteProfileDialog
             isOpen={isCompletingProfile}
+            userCredential={userCredentialForProfileCompletion}
+            onSubmit={completeProfileSetup}
+            onClose={cancelProfileCompletion}
+        />
+      )}
+      {isClientMounted && userCredentialForProfileCompletion && isCompletingProfileAsAdmin && (
+        <AdminCompleteProfileDialog
+            isOpen={isCompletingProfileAsAdmin}
             userCredential={userCredentialForProfileCompletion}
             onSubmit={completeProfileSetup}
             onClose={cancelProfileCompletion}

@@ -14,6 +14,7 @@ import type { ExperienceLevelOption } from '@/types/firestore';
 import { db } from '@/lib/firebase';
 import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc, orderBy, query, Timestamp, getDoc, setDoc } from "firebase/firestore";
 import { useToast } from "@/hooks/use-toast";
+import { triggerRefresh } from '@/lib/revalidateUtils';
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import * as z from "zod";
@@ -86,6 +87,7 @@ export default function ExperienceLevelManager() {
       const currentLevels = levels.filter(l => l.id !== levelId);
       const docRef = doc(db, COLLECTION_NAME, DOCUMENT_ID);
       await setDoc(docRef, { [ARRAY_FIELD_NAME]: currentLevels, updatedAt: Timestamp.now() }, { merge: true });
+      await triggerRefresh('global-cache');
       setLevels(currentLevels.sort((a,b) => a.order - b.order));
       toast({ title: "Success", description: "Experience level deleted." });
     } catch (error) {
@@ -113,6 +115,7 @@ export default function ExperienceLevelManager() {
     try {
       const docRef = doc(db, COLLECTION_NAME, DOCUMENT_ID);
       await setDoc(docRef, { [ARRAY_FIELD_NAME]: updatedLevels, updatedAt: Timestamp.now() }, { merge: true });
+      await triggerRefresh('global-cache');
       setLevels(updatedLevels.sort((a,b) => a.order - b.order));
       toast({ title: "Success", description: `Experience level ${editingLevel ? 'updated' : 'added'}.` });
       setIsFormOpen(false);

@@ -7,7 +7,7 @@ interface CacheEntry {
 
 const cache = new Map<string, CacheEntry>();
 const STALE_TIME_MS = 10 * 60 * 1000; // 10 minutes default for in-memory
-const PERSISTENT_STALE_TIME_MS = 30 * 60 * 1000; // 30 minutes for settings
+const PERSISTENT_STALE_TIME_MS = 30 * 24 * 60 * 60 * 1000; // 30 days for settings (lifetime cache)
 
 /**
  * Sets a value in the cache with the current timestamp.

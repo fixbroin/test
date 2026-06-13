@@ -12,6 +12,8 @@ import { db } from '@/lib/firebase';
 import { collection, onSnapshot, query, orderBy, limit } from "firebase/firestore";
 import { useToast } from "@/hooks/use-toast";
 import { useAdminStats } from "@/hooks/useAdminStats";
+import { useAuth } from "@/hooks/useAuth";
+import PermissionGuard from "@/components/admin/PermissionGuard";
 
 
 
@@ -20,13 +22,17 @@ interface ReportData {
   totalBookings: number;
   completedBookings: number;
   activeBookings: number; // Confirmed or Processing
-  bookingsPerMonth: { monthYear: string; bookings: number }[];
+  bookingsPerMonth: { monthYear: string; bookings: number; earnings: number }[];
 }
 
 const chartConfig = {
   bookings: {
     label: "Bookings",
     color: "hsl(var(--chart-1))",
+  },
+  earnings: {
+    label: "Earnings",
+    color: "hsl(var(--chart-2))",
   },
 } satisfies ChartConfig;
 
@@ -78,7 +84,7 @@ export default function AdminReportsPage() {
       const newTotalBookings = fetchedBookings.length;
       let newCompletedBookings = 0;
       let newActiveBookings = 0;
-      const monthlyBookingsData: { [key: string]: { monthYear: string; bookings: number } } = {};
+      const monthlyBookingsData: { [key: string]: { monthYear: string; bookings: number; earnings: number } } = {};
 
       fetchedBookings.forEach(booking => {
         // Only count revenue for COMPLETED bookings to match Dashboard logic
@@ -108,9 +114,12 @@ export default function AdminReportsPage() {
         const monthYear = `${year}-${month.toString().padStart(2, '0')}`;
         
         if (!monthlyBookingsData[monthYear]) {
-          monthlyBookingsData[monthYear] = { monthYear, bookings: 0 };
+          monthlyBookingsData[monthYear] = { monthYear, bookings: 0, earnings: 0 };
         }
         monthlyBookingsData[monthYear].bookings++;
+        if (booking.status === "Completed") {
+          monthlyBookingsData[monthYear].earnings += booking.totalAmount || 0;
+        }
       });
       
       const calculatedReportData: ReportData = {
@@ -255,8 +264,7 @@ export default function AdminReportsPage() {
                         return value;
                       }
                       return date.toLocaleDateString('en-US', { month: 'short', year: '2-digit', timeZone: 'UTC' });
-                    } catch (e) {
-                      // console.error("XAxis tickFormatter error:", e, "for value:", value);
+                    } catch {
                       return value; // Fallback
                     }
                   }}
@@ -268,6 +276,56 @@ export default function AdminReportsPage() {
             </ChartContainer>
           ) : (
             <p className="text-muted-foreground text-center py-4">Not enough data to display monthly booking chart.</p>
+          )}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-xl">Earnings Per Month</CardTitle>
+          <CardDescription>Visual representation of revenue over time (completed bookings only).</CardDescription>
+        </CardHeader>
+        <CardContent>
+          {reportData.bookingsPerMonth.length > 0 ? (
+            <ChartContainer config={chartConfig} className="min-h-[300px] w-full">
+              <BarChart accessibilityLayer data={reportData.bookingsPerMonth}>
+                <CartesianGrid vertical={false} />
+                <XAxis
+                  dataKey="monthYear"
+                  tickLine={false}
+                  tickMargin={10}
+                  axisLine={false}
+                  tickFormatter={(value) => {
+                    if (typeof value !== 'string' || !value.includes('-')) {
+                      return String(value);
+                    }
+                    try {
+                      const [year, month] = value.split('-');
+                      const date = new Date(Date.UTC(parseInt(year), parseInt(month) - 1, 1));
+                      if (isNaN(date.getTime())) return value;
+                      return date.toLocaleDateString('en-US', { month: 'short', year: '2-digit', timeZone: 'UTC' });
+                    } catch {
+                      return value;
+                    }
+                  }}
+                />
+                <YAxis 
+                  tickFormatter={(value) => `₹${value.toLocaleString()}`}
+                />
+                <ChartTooltipRecharts 
+                  cursor={{ fill: 'hsl(var(--muted))' }} 
+                  content={
+                    <ChartTooltipContent 
+                      hideLabel 
+                      formatter={(value) => `₹${Number(value).toLocaleString()}`}
+                    />
+                  } 
+                />
+                <Bar dataKey="earnings" fill="var(--color-earnings)" radius={4} />
+              </BarChart>
+            </ChartContainer>
+          ) : (
+            <p className="text-muted-foreground text-center py-4">Not enough data to display monthly earnings chart.</p>
           )}
         </CardContent>
       </Card>

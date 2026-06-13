@@ -13,26 +13,25 @@ import {
   updateProfile,
   GoogleAuthProvider,
   signInWithPopup,
-  type ConfirmationResult,
-  updateEmail, 
-  sendEmailVerification, 
   verifyBeforeUpdateEmail,
 } from 'firebase/auth';
 import { auth, db } from '@/lib/firebase';
 import { initializeFCM, onForegroundMessage } from '@/lib/fcmUtils';
-import { doc, setDoc, Timestamp, getDoc, onSnapshot, collection, query, where, getDocs, limit, runTransaction, writeBatch, or } from "firebase/firestore";
+import { doc, setDoc, Timestamp, getDoc, onSnapshot, collection, query, where, getDocs, limit, runTransaction, or } from "firebase/firestore";
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useToast } from '@/hooks/use-toast';
 import type { FirestoreUser, MarketingAutomationSettings, ReferralSettings, Referral, FirestoreNotification } from '@/types/firestore';
 import { logUserActivity } from '@/lib/activityLogger';
 import { assignNewUserNumber } from '@/lib/webServerUtils';
 import { getGuestId, clearGuestId } from '@/lib/guestIdManager';
-import { sendWelcomeEmail, type WelcomeEmailInput } from '@/ai/flows/sendWelcomeEmailFlow';
+import { sendWelcomeEmail } from '@/ai/flows/sendWelcomeEmailFlow';
 import { useApplicationConfig } from '@/hooks/useApplicationConfig';
 import { nanoid } from 'nanoid';
 import { syncCartOnLogin } from '@/lib/cartManager';
 import { triggerPushNotification } from '@/lib/fcmUtils';
 import { incrementSystemStats } from '@/lib/systemStatsUtils';
+import type { AdminPermissions, AdminRole } from '@/config/rbac';
+import { SUPER_ADMIN_PERMISSIONS, getFirstAccessiblePath } from '@/config/rbac';
 // Define and export ADMIN_EMAIL here
 export const ADMIN_EMAIL = "fixbro.in@gmail.com";
 
@@ -51,7 +50,11 @@ export interface LogInData {
 interface AuthContextType {
   user: User | null;
   firestoreUser: FirestoreUser | null;
+  adminPermissions: AdminPermissions | null;
+  adminRole: AdminRole | null;
+  isSuperAdmin: boolean;
   isLoading: boolean;
+  isAdminLoading: boolean;
   authActionRedirectPath: string | null;
   triggerAuthRedirect: (intendedPath: string) => void;
   signUp: (data: SignUpData) => Promise<void>;
@@ -60,6 +63,7 @@ interface AuthContextType {
   signInWithGoogle: () => Promise<void>;
   handleSuccessfulAuth: (userCredential: UserCredential) => Promise<void>;
   isCompletingProfile: boolean;
+  isCompletingProfileAsAdmin: boolean;
   userCredentialForProfileCompletion: UserCredential | null;
   completeProfileSetup: (details: { fullName: string; email?: string; mobileNumber?: string; referralCode?: string }) => Promise<void>;
   cancelProfileCompletion: () => void;
@@ -99,7 +103,12 @@ const getSimpleDeviceId = (): string => {
 export const AuthProvider: React.FC<PropsWithChildren> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   const [firestoreUser, setFirestoreUser] = useState<FirestoreUser | null>(null);
+  const [adminPermissions, setAdminPermissions] = useState<AdminPermissions | null>(null);
+  const [adminRole, setAdminRole] = useState<AdminRole | null>(null);
+  const [isSuperAdmin, setIsSuperAdmin] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const [adminCheckCompleteFor, setAdminCheckCompleteFor] = useState<string | null>(null);
+  const isAdminLoading = user ? adminCheckCompleteFor !== user.uid : false;
   const [authActionRedirectPath, setAuthActionRedirectPath] = useState<string | null>(null);
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -107,13 +116,12 @@ export const AuthProvider: React.FC<PropsWithChildren> = ({ children }) => {
   const { config: appConfig, isLoading: isLoadingAppSettings } = useApplicationConfig();
 
   const [isCompletingProfile, setIsCompletingProfile] = useState(false);
+  const [isCompletingProfileAsAdmin, setIsCompletingProfileAsAdmin] = useState(false);
   const [userCredentialForProfileCompletion, setUserCredentialForProfileCompletion] = useState<UserCredential | null>(null);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
-      // If we are in the middle of profile completion, do NOT set the user
-      // so the app continues to see 'null' and stays on the login page/shows dialog
-      if (isCompletingProfile) {
+      if (isCompletingProfile || isCompletingProfileAsAdmin) {
         setUser(null);
       } else {
         setUser(currentUser);
@@ -121,7 +129,7 @@ export const AuthProvider: React.FC<PropsWithChildren> = ({ children }) => {
       setIsLoading(false);
     });
     return () => unsubscribe();
-  }, [isCompletingProfile]);
+  }, [isCompletingProfile, isCompletingProfileAsAdmin]);
 
   useEffect(() => {
     if (user?.uid) {
@@ -142,10 +150,70 @@ export const AuthProvider: React.FC<PropsWithChildren> = ({ children }) => {
     }
   }, [user]);
 
+  // NEW: Admin Granular Permissions Sync & Bootstrap
+  useEffect(() => {
+    if (user?.uid) {
+      const adminDocRef = doc(db, 'admins', user.uid);
+      const unsubscribe = onSnapshot(adminDocRef, async (docSnap) => {
+        if (docSnap.exists()) {
+          const data = docSnap.data();
+          if (data.status === 'active') {
+            setAdminRole(data.role || 'staff');
+            // Self-healing: If they are a super_admin but missing the permissions object, give them full access
+            if (data.role === 'super_admin') {
+              setAdminPermissions(SUPER_ADMIN_PERMISSIONS);
+              setIsSuperAdmin(true);
+            } else {
+              setAdminPermissions(data.permissions || null);
+              setIsSuperAdmin(false);
+            }
+          } else {
+            setAdminRole(null);
+            setAdminPermissions(null);
+            setIsSuperAdmin(false);
+          }
+        } else if (user.email?.toLowerCase() === ADMIN_EMAIL.toLowerCase()) {
+          // BOOTSTRAP SUPER ADMIN with full permissions
+          console.log("AuthContext: Bootstrapping granular super_admin for", user.email);
+          const bootstrapData = {
+            email: user.email,
+            name: user.displayName || 'Super Admin',
+            role: 'super_admin',
+            permissions: SUPER_ADMIN_PERMISSIONS,
+            status: 'active',
+            createdAt: Timestamp.now(),
+          };
+          await setDoc(adminDocRef, bootstrapData);
+          setAdminRole('super_admin');
+          setAdminPermissions(SUPER_ADMIN_PERMISSIONS);
+          setIsSuperAdmin(true);
+        } else {
+          setAdminRole(null);
+          setAdminPermissions(null);
+          setIsSuperAdmin(false);
+        }
+        setAdminCheckCompleteFor(user.uid);
+      }, (error) => {
+        console.error("AuthContext: Error fetching admin data:", error);
+        setAdminPermissions(null);
+        setIsSuperAdmin(false);
+        setAdminCheckCompleteFor(user.uid);
+      });
+      return () => unsubscribe();
+    } else {
+      setAdminPermissions(null);
+      setIsSuperAdmin(false);
+      setAdminCheckCompleteFor(null);
+    }
+  }, [user]);
 
   const internalTriggerAuthRedirect = useCallback((intendedPath: string) => {
     setAuthActionRedirectPath(intendedPath);
-    router.push(`/auth/login?redirect=${encodeURIComponent(intendedPath)}`);
+    if (intendedPath.startsWith('/admin')) {
+      router.push(`/admin/login?redirect=${encodeURIComponent(intendedPath)}`);
+    } else {
+      router.push(`/auth/login?redirect=${encodeURIComponent(intendedPath)}`);
+    }
   }, [router, setAuthActionRedirectPath]);
 
   const handleSuccessfulAuth = useCallback(async (userCredential: UserCredential) => {
@@ -154,23 +222,28 @@ export const AuthProvider: React.FC<PropsWithChildren> = ({ children }) => {
     const { user } = userCredential;
 
     try {
+      // 1. Check if user is an authorized admin
+      const adminDocRef = doc(db, 'admins', user.uid);
+      const adminDocSnap = await getDoc(adminDocRef);
+      const isAdmin = adminDocSnap.exists() && adminDocSnap.data()?.status === 'active';
+
+      // 2. Fetch or check users collection for profile completion
       const userDocRef = doc(db, "users", user.uid);
       const docSnap = await getDoc(userDocRef);
-
       const userData = docSnap.data();
 
-if (
-  !docSnap.exists() ||
-  !userData?.displayName ||
-  !userData?.mobileNumber ||
-  !userData?.email
-) {
-  // NEW USER OR INCOMPLETE PROFILE FLOW
-  setUserCredentialForProfileCompletion(userCredential);
-  setIsCompletingProfile(true);
-  setIsLoading(false);
-  return;
-}
+      const isProfileIncomplete = !docSnap.exists() || !userData?.displayName || !userData?.mobileNumber || !userData?.email;
+
+      if (isProfileIncomplete) {
+          setUserCredentialForProfileCompletion(userCredential);
+          if (isAdmin) {
+              setIsCompletingProfileAsAdmin(true);
+          } else {
+              setIsCompletingProfile(true);
+          }
+          setIsLoading(false);
+          return;
+      }
 
       // EXISTING USER FLOW
       await setDoc(userDocRef, { lastLoginAt: Timestamp.now() }, { merge: true });
@@ -190,13 +263,23 @@ if (
 
       const redirectPathFromQuery = searchParams.get('redirect');
       let finalRedirectPath = '/';
-      if (user.email?.toLowerCase() === ADMIN_EMAIL.toLowerCase()) {
-        finalRedirectPath = '/admin';
+      
+      if (isAdmin) {
+          // Find the best admin route based on their permissions
+          const adminData = adminDocSnap.data();
+          let permissionsToUse = adminData?.permissions;
+          if (adminData?.role === 'super_admin') {
+              permissionsToUse = SUPER_ADMIN_PERMISSIONS;
+          }
+          finalRedirectPath = getFirstAccessiblePath(permissionsToUse);
+      } else if (user.email?.toLowerCase() === ADMIN_EMAIL.toLowerCase()) {
+        finalRedirectPath = '/admin'; // Fallback for grandfathered master before db sync
       } else if (redirectPathFromQuery && !redirectPathFromQuery.startsWith('/auth/')) {
         finalRedirectPath = redirectPathFromQuery;
       } else if (authActionRedirectPath && !authActionRedirectPath.startsWith('/auth/')) {
         finalRedirectPath = authActionRedirectPath;
       }
+      
       router.push(finalRedirectPath);
       if (authActionRedirectPath) setAuthActionRedirectPath(null);
 
@@ -237,9 +320,9 @@ if (
       duration: 3000,
     });
 
-  } catch (error: any) {
+  } catch (error: unknown) {
 
-    if (error.code === "auth/requires-recent-login") {
+    if (error && typeof error === 'object' && 'code' in error && error.code === "auth/requires-recent-login") {
 
       toast({
         title: "Please login again",
@@ -410,6 +493,7 @@ if (
       
       setUser(user);
       setIsCompletingProfile(false);
+      setIsCompletingProfileAsAdmin(false);
       setUserCredentialForProfileCompletion(null);
 
       // --- SEND SIGNUP NOTIFICATIONS (Push + In-App) ---
@@ -584,7 +668,11 @@ if (
     return {
       user,
       firestoreUser,
+      adminPermissions,
+      adminRole,
+      isSuperAdmin,
       isLoading,
+      isAdminLoading,
       authActionRedirectPath,
       triggerAuthRedirect: internalTriggerAuthRedirect,
       signUp,
@@ -593,12 +681,13 @@ if (
       signInWithGoogle,
       handleSuccessfulAuth,
       isCompletingProfile,
+      isCompletingProfileAsAdmin,
       userCredentialForProfileCompletion,
       completeProfileSetup,
       cancelProfileCompletion,
       setUser,
     };
-  }, [user, firestoreUser, isLoading, authActionRedirectPath, internalTriggerAuthRedirect, signUp, logIn, logOut, signInWithGoogle, handleSuccessfulAuth, isCompletingProfile, userCredentialForProfileCompletion, completeProfileSetup, cancelProfileCompletion, setUser]);
+  }, [user, firestoreUser, adminPermissions, adminRole, isSuperAdmin, isLoading, isAdminLoading, authActionRedirectPath, internalTriggerAuthRedirect, signUp, logIn, logOut, signInWithGoogle, handleSuccessfulAuth, isCompletingProfile, isCompletingProfileAsAdmin, userCredentialForProfileCompletion, completeProfileSetup, cancelProfileCompletion, setUser]);
 
   return <AuthContext.Provider value={contextValue}>{children}</AuthContext.Provider>;
 };

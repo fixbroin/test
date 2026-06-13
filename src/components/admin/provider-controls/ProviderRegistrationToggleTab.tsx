@@ -9,6 +9,7 @@ import { Loader2, Save, Power } from "lucide-react";
 import { useToast } from '@/hooks/use-toast';
 import { db } from '@/lib/firebase';
 import { doc, setDoc, Timestamp } from "firebase/firestore";
+import { triggerRefresh } from '@/lib/revalidateUtils';
 import type { AppSettings } from '@/types/firestore';
 import { useApplicationConfig } from '@/hooks/useApplicationConfig';
 
@@ -40,6 +41,7 @@ export default function ProviderRegistrationToggleTab() {
         updatedAt: Timestamp.now(),
       };
       await setDoc(settingsDocRef, dataToSave, { merge: true });
+      await triggerRefresh('global-cache');
       toast({ title: "Success", description: "Provider registration access updated." });
     } catch (error) {
       console.error("Error saving registration access setting:", error);

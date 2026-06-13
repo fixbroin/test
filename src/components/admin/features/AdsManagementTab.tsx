@@ -13,6 +13,7 @@ import { db } from '@/lib/firebase';
 import { doc, getDoc, setDoc, Timestamp } from "firebase/firestore";
 import type { FeaturesConfiguration, HomepageAd, FirestoreCategory, FirestoreService, AdPlacement, AdActionType } from '@/types/firestore';
 import AdForm, { type AdFormData } from './AdForm';
+import { triggerRefresh } from '@/lib/revalidateUtils';
 import { nanoid } from 'nanoid';
 import AppImage from '@/components/ui/AppImage'; // For displaying ad image in table
 import { Badge } from '@/components/ui/badge';
@@ -78,6 +79,8 @@ export default function AdsManagementTab({ allCategories, allServices, isLoading
         updatedAt: Timestamp.now(),
       };
       await setDoc(configDocRef, newConfig, { merge: true });
+      await triggerRefresh('web-settings');
+      await triggerRefresh('global-cache');
       setFeaturesConfig(prev => ({ ...prev, ads: updatedAds })); // Update local state
       toast({ title: "Success", description: "Ad configuration saved." });
       return true;

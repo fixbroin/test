@@ -17,6 +17,9 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import AppImage from '@/components/ui/AppImage';
 import { Separator } from "@/components/ui/separator";
 import { getTimestampMillis } from '@/lib/utils';
+import { useAuth } from '@/hooks/useAuth';
+import { hasActionPermission } from '@/config/rbac';
+import PermissionGuard from '@/components/admin/PermissionGuard';
 
 const formatDate = (timestamp?: any): string => {
   const millis = getTimestampMillis(timestamp);
@@ -107,6 +110,7 @@ export default function CustomServiceAdminPage() {
   const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false);
   const [isUpdating, setIsUpdating] = useState<string | null>(null);
   const { toast } = useToast();
+  const { adminPermissions } = useAuth();
 
   useEffect(() => {
     setIsLoading(true);
@@ -206,37 +210,45 @@ export default function CustomServiceAdminPage() {
           <Eye className="h-3.5 w-3.5 mr-1" /> Details
         </Button>
         {req.status !== 'reviewed' && (
-          <Button variant="outline" size="sm" onClick={() => handleUpdateStatus(req.id!, 'reviewed')} disabled={isUpdating === req.id} className="h-8 text-xs text-blue-600 border-blue-200 hover:bg-blue-50">
-            <Check className="h-3.5 w-3.5 mr-1" /> Reviewed
-          </Button>
+          <PermissionGuard moduleId="custom_service" action="write">
+            <Button variant="outline" size="sm" onClick={() => handleUpdateStatus(req.id!, 'reviewed')} disabled={isUpdating === req.id} className="h-8 text-xs text-blue-600 border-blue-200 hover:bg-blue-50">
+              <Check className="h-3.5 w-3.5 mr-1" /> Reviewed
+            </Button>
+          </PermissionGuard>
         )}
         {req.status !== 'contacted' && (
-          <Button variant="outline" size="sm" onClick={() => handleUpdateStatus(req.id!, 'contacted')} disabled={isUpdating === req.id} className="h-8 text-xs text-green-600 border-green-200 hover:bg-green-50">
-            <Phone className="h-3.5 w-3.5 mr-1" /> Contacted
-          </Button>
+          <PermissionGuard moduleId="custom_service" action="write">
+            <Button variant="outline" size="sm" onClick={() => handleUpdateStatus(req.id!, 'contacted')} disabled={isUpdating === req.id} className="h-8 text-xs text-green-600 border-green-200 hover:bg-green-50">
+              <Phone className="h-3.5 w-3.5 mr-1" /> Contacted
+            </Button>
+          </PermissionGuard>
         )}
         {req.status !== 'closed' && (
-          <Button variant="outline" size="sm" onClick={() => handleUpdateStatus(req.id!, 'closed')} disabled={isUpdating === req.id} className="h-8 text-xs text-gray-600 border-gray-200 hover:bg-gray-50">
-            <CheckCircle2 className="h-3.5 w-3.5 mr-1" /> Close
-          </Button>
-        )}
-        <AlertDialog>
-          <AlertDialogTrigger asChild>
-            <Button variant="destructive" size="icon" className="h-8 w-8" disabled={isUpdating === req.id}>
-              {isUpdating === req.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Trash2 className="h-3.5 w-3.5" />}
+          <PermissionGuard moduleId="custom_service" action="write">
+            <Button variant="outline" size="sm" onClick={() => handleUpdateStatus(req.id!, 'closed')} disabled={isUpdating === req.id} className="h-8 text-xs text-gray-600 border-gray-200 hover:bg-gray-50">
+              <CheckCircle2 className="h-3.5 w-3.5 mr-1" /> Close
             </Button>
-          </AlertDialogTrigger>
-          <AlertDialogContent>
-            <AlertDialogHeader>
-              <AlertDialogTitleComponent>Confirm Deletion</AlertDialogTitleComponent>
-              <AlertDialogDescriptionComponent>This will permanently delete the request "{req.serviceTitle}".</AlertDialogDescriptionComponent>
-            </AlertDialogHeader>
-            <AlertDialogFooterComponent>
-              <AlertDialogCancel>Cancel</AlertDialogCancel>
-              <AlertDialogAction onClick={() => handleDeleteRequest(req.id!)} className="bg-destructive hover:bg-destructive/90">Delete</AlertDialogAction>
-            </AlertDialogFooterComponent>
-          </AlertDialogContent>
-        </AlertDialog>
+          </PermissionGuard>
+        )}
+        <PermissionGuard moduleId="custom_service" action="delete">
+          <AlertDialog>
+            <AlertDialogTrigger asChild>
+              <Button variant="destructive" size="icon" className="h-8 w-8" disabled={isUpdating === req.id}>
+                {isUpdating === req.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Trash2 className="h-3.5 w-3.5" />}
+              </Button>
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitleComponent>Confirm Deletion</AlertDialogTitleComponent>
+                <AlertDialogDescriptionComponent>This will permanently delete the request "{req.serviceTitle}".</AlertDialogDescriptionComponent>
+              </AlertDialogHeader>
+              <AlertDialogFooterComponent>
+                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                <AlertDialogAction onClick={() => handleDeleteRequest(req.id!)} className="bg-destructive hover:bg-destructive/90">Delete</AlertDialogAction>
+              </AlertDialogFooterComponent>
+            </AlertDialogContent>
+          </AlertDialog>
+        </PermissionGuard>
       </CardFooter>
     </Card>
   );
@@ -311,17 +323,17 @@ export default function CustomServiceAdminPage() {
                               
                               <Separator orientation="vertical" className="h-6 mx-1" />
 
-                              {req.status !== 'reviewed' && (
+                              {req.status !== 'reviewed' && hasActionPermission(adminPermissions, 'custom_service', 'write') && (
                                 <Button variant="outline" size="sm" onClick={() => handleUpdateStatus(req.id!, 'reviewed')} disabled={isUpdating === req.id} className="h-8 text-xs text-blue-600 border-blue-200 hover:bg-blue-50">
                                   <Check className="h-3.5 w-3.5 mr-1.5" /> Mark as Reviewed
                                 </Button>
                               )}
-                              {req.status !== 'contacted' && (
+                              {req.status !== 'contacted' && hasActionPermission(adminPermissions, 'custom_service', 'write') && (
                                 <Button variant="outline" size="sm" onClick={() => handleUpdateStatus(req.id!, 'contacted')} disabled={isUpdating === req.id} className="h-8 text-xs text-green-600 border-green-200 hover:bg-green-50">
                                   <Phone className="h-3.5 w-3.5 mr-1.5" /> Mark as Contacted
                                 </Button>
                               )}
-                              {req.status !== 'closed' && (
+                              {req.status !== 'closed' && hasActionPermission(adminPermissions, 'custom_service', 'write') && (
                                 <Button variant="outline" size="sm" onClick={() => handleUpdateStatus(req.id!, 'closed')} disabled={isUpdating === req.id} className="h-8 text-xs text-gray-600 border-gray-200 hover:bg-gray-50">
                                   <CheckCircle2 className="h-3.5 w-3.5 mr-1.5" /> Mark as Closed
                                 </Button>
@@ -329,6 +341,7 @@ export default function CustomServiceAdminPage() {
 
                               <Separator orientation="vertical" className="h-6 mx-1" />
 
+                              {hasActionPermission(adminPermissions, 'custom_service', 'delete') && (
                               <AlertDialog>
                                 <AlertDialogTrigger asChild>
                                   <Button variant="destructive" size="sm" className="h-8 text-xs" disabled={isUpdating === req.id}>
@@ -347,6 +360,7 @@ export default function CustomServiceAdminPage() {
                                   </AlertDialogFooterComponent>
                                 </AlertDialogContent>
                               </AlertDialog>
+                              )}
                             </div>
                           </TableCell>
                         </TableRow>

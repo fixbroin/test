@@ -14,9 +14,13 @@ import BulkReviewGeneratorDialog from '@/components/admin/BulkReviewGeneratorDia
 import { db } from '@/lib/firebase';
 import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc, orderBy, query, Timestamp, onSnapshot, limit, startAfter, type DocumentSnapshot } from "firebase/firestore";
 import { useToast } from "@/hooks/use-toast";
+import { Badge } from "@/components/ui/badge";
+import PermissionGuard from '@/components/admin/PermissionGuard';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { getTimestampMillis } from '@/lib/utils';
 import { formatDistanceToNow } from 'date-fns';
+import { useAuth } from '@/hooks/useAuth';
+import { hasActionPermission } from '@/config/rbac';
 
 const reviewStatusOptions: ReviewStatus[] = ["Pending", "Approved", "Rejected", "Flagged"];
 
@@ -42,6 +46,7 @@ export default function AdminReviewsPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [filterStatus, setFilterStatus] = useState<ReviewStatus | "All">("All");
   const { toast } = useToast();
+  const { adminPermissions } = useAuth();
 
   const [isPrerequisitesLoading, setIsPrerequisitesLoading] = useState(false);
 
@@ -223,12 +228,16 @@ export default function AdminReviewsPage() {
                     </SelectContent>
                 </Select>
             </div>
-            <Button onClick={handleOpenBulkGenerate} variant="outline" className="w-full sm:w-auto h-9" disabled={isPrerequisitesLoading}>
-                {isPrerequisitesLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Wand2 className="mr-2 h-4 w-4" />} AI Bulk Generate
-            </Button>
-            <Button onClick={handleAddReview} disabled={isSubmitting || isLoading || isPrerequisitesLoading} className="w-full sm:w-auto h-9">
-                {isPrerequisitesLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <PlusCircle className="mr-2 h-4 w-4" />} Add New Review
-            </Button>
+            <PermissionGuard moduleId="reviews" action="write">
+              <Button onClick={handleOpenBulkGenerate} variant="outline" className="w-full sm:w-auto h-9" disabled={isPrerequisitesLoading}>
+                  {isPrerequisitesLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Wand2 className="mr-2 h-4 w-4" />} AI Bulk Generate
+              </Button>
+            </PermissionGuard>
+            <PermissionGuard moduleId="reviews" action="create">
+              <Button onClick={handleAddReview} disabled={isSubmitting || isLoading || isPrerequisitesLoading} className="w-full sm:w-auto h-9">
+                  {isPrerequisitesLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <PlusCircle className="mr-2 h-4 w-4" />} Add New Review
+              </Button>
+            </PermissionGuard>
           </div>
         </CardHeader>
         <CardContent className="pt-6">
@@ -274,20 +283,27 @@ export default function AdminReviewsPage() {
                         {formatReviewTimestamp(review.createdAt)}
                       </TableCell>
                       <TableCell>
-                           <Select value={review.status} onValueChange={(newStatus) => handleChangeStatus(review.id, newStatus as ReviewStatus)}>
-                              <SelectTrigger className="h-8 text-xs min-w-[100px] sm:min-w-[120px]">
-                                  <SelectValue placeholder="Set Status"/>
-                              </SelectTrigger>
-                              <SelectContent>
-                                  {reviewStatusOptions.map(s => <SelectItem key={s} value={s} className="text-xs">{s}</SelectItem>)}
-                              </SelectContent>
-                          </Select>
+                           {hasActionPermission(adminPermissions, 'reviews', 'write') ? (
+                             <Select value={review.status} onValueChange={(newStatus) => handleChangeStatus(review.id, newStatus as ReviewStatus)}>
+                                <SelectTrigger className="h-8 text-xs min-w-[100px] sm:min-w-[120px]">
+                                    <SelectValue placeholder="Set Status"/>
+                                </SelectTrigger>
+                                <SelectContent>
+                                    {reviewStatusOptions.map(s => <SelectItem key={s} value={s} className="text-xs">{s}</SelectItem>)}
+                                </SelectContent>
+                            </Select>
+                           ) : (
+                             <Badge variant="outline" className="text-[10px]">{review.status}</Badge>
+                           )}
                       </TableCell>
                       <TableCell>
                         <div className="flex flex-col items-end gap-2 sm:flex-row sm:items-center sm:gap-2 sm:justify-end">
-                          <Button variant="outline" size="icon" onClick={() => handleEditReview(review)} disabled={isSubmitting}>
-                            <Edit className="h-4 w-4" /> <span className="sr-only">Edit</span>
-                          </Button>
+                          {hasActionPermission(adminPermissions, 'reviews', 'write') && (
+                            <Button variant="outline" size="icon" onClick={() => handleEditReview(review)} disabled={isSubmitting}>
+                              <Edit className="h-4 w-4" /> <span className="sr-only">Edit</span>
+                            </Button>
+                          )}
+                          {hasActionPermission(adminPermissions, 'reviews', 'delete') && (
                           <AlertDialog>
                             <AlertDialogTrigger asChild>
                               <Button variant="destructive" size="icon" disabled={isSubmitting}>
@@ -312,6 +328,7 @@ export default function AdminReviewsPage() {
                               </AlertDialogFooter>
                             </AlertDialogContent>
                           </AlertDialog>
+                          )}
                         </div>
                       </TableCell>
                     </TableRow>

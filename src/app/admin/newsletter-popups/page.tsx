@@ -16,10 +16,14 @@ import { ref as storageRef, deleteObject } from "firebase/storage";
 import { useToast } from "@/hooks/use-toast";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Badge } from '@/components/ui/badge';
+import PermissionGuard from '@/components/admin/PermissionGuard';
+import { useAuth } from '@/hooks/useAuth';
+import { hasActionPermission } from '@/config/rbac';
 
 const isFirebaseStorageUrl = (url: string | null | undefined): boolean => !!url && typeof url === 'string' && url.includes("firebasestorage.googleapis.com");
 
 export default function AdminNewsletterPopupsPage() {
+  const { adminPermissions } = useAuth();
   const [popups, setPopups] = useState<FirestorePopup[]>([]);
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingPopup, setEditingPopup] = useState<FirestorePopup | null>(null);
@@ -154,9 +158,11 @@ export default function AdminNewsletterPopupsPage() {
             <CardTitle className="text-2xl flex items-center"><Megaphone className="mr-2 h-6 w-6 text-primary" />Newsletter & Marketing Popups</CardTitle>
             <CardDescription>Manage various popups for your website to engage users and promote offers.</CardDescription>
           </div>
-          <Button onClick={handleAddPopup} disabled={isSubmitting || isLoading} className="w-full sm:w-auto">
-            <PlusCircle className="mr-2 h-4 w-4" /> Add New Popup
-          </Button>
+          <PermissionGuard moduleId="newsletter_popups" action="create">
+            <Button onClick={handleAddPopup} disabled={isSubmitting || isLoading} className="w-full sm:w-auto">
+              <PlusCircle className="mr-2 h-4 w-4" /> Add New Popup
+            </Button>
+          </PermissionGuard>
         </CardHeader>
         <CardContent className="pt-6">
           {isLoading ? (
@@ -182,18 +188,22 @@ export default function AdminNewsletterPopupsPage() {
                       <TableCell><Badge variant="secondary">{popup.popupType.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}</Badge></TableCell>
                       <TableCell className="max-w-xs truncate" title={popup.title}>{popup.title || "N/A"}</TableCell>
                       <TableCell className="text-center">
-                        <Switch checked={popup.isActive} onCheckedChange={() => handleToggleActive(popup)} disabled={isSubmitting} aria-label={`Toggle active status for ${popup.name}`} />
+                        <Switch checked={popup.isActive} onCheckedChange={() => handleToggleActive(popup)} disabled={isSubmitting || !hasActionPermission(adminPermissions, 'newsletter_popups', 'write')} aria-label={`Toggle active status for ${popup.name}`} />
                       </TableCell>
                       <TableCell>
                         <div className="flex flex-col items-end gap-2 sm:flex-row sm:items-center sm:gap-2 sm:justify-end">
-                          <Button variant="outline" size="icon" onClick={() => handleEditPopup(popup)} disabled={isSubmitting}><Edit className="h-4 w-4" /></Button>
-                          <AlertDialog>
-                            <AlertDialogTrigger asChild><Button variant="destructive" size="icon" disabled={isSubmitting}><Trash2 className="h-4 w-4" /></Button></AlertDialogTrigger>
-                            <AlertDialogContent>
-                              <AlertDialogHeader><AlertDialogTitle>Are you sure?</AlertDialogTitle><AlertDialogDescription>This will permanently delete the popup "{popup.name}".</AlertDialogDescription></AlertDialogHeader>
-                              <AlertDialogFooter><AlertDialogCancel disabled={isSubmitting}>Cancel</AlertDialogCancel><AlertDialogAction onClick={() => handleDeletePopup(popup.id)} disabled={isSubmitting} className="bg-destructive hover:bg-destructive/90">{isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null} Delete</AlertDialogAction></AlertDialogFooter>
-                            </AlertDialogContent>
-                          </AlertDialog>
+                          <PermissionGuard moduleId="newsletter_popups" action="write">
+                            <Button variant="outline" size="icon" onClick={() => handleEditPopup(popup)} disabled={isSubmitting}><Edit className="h-4 w-4" /></Button>
+                          </PermissionGuard>
+                          <PermissionGuard moduleId="newsletter_popups" action="delete">
+                            <AlertDialog>
+                              <AlertDialogTrigger asChild><Button variant="destructive" size="icon" disabled={isSubmitting}><Trash2 className="h-4 w-4" /></Button></AlertDialogTrigger>
+                              <AlertDialogContent>
+                                <AlertDialogHeader><AlertDialogTitle>Are you sure?</AlertDialogTitle><AlertDialogDescription>This will permanently delete the popup "{popup.name}".</AlertDialogDescription></AlertDialogHeader>
+                                <AlertDialogFooter><AlertDialogCancel disabled={isSubmitting}>Cancel</AlertDialogCancel><AlertDialogAction onClick={() => handleDeletePopup(popup.id)} disabled={isSubmitting} className="bg-destructive hover:bg-destructive/90">{isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null} Delete</AlertDialogAction></AlertDialogFooter>
+                              </AlertDialogContent>
+                            </AlertDialog>
+                          </PermissionGuard>
                         </div>
                       </TableCell>
                     </TableRow>

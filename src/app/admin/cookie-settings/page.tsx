@@ -9,9 +9,11 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Cookie, Save, Loader2 } from "lucide-react";
 import { useToast } from '@/hooks/use-toast';
+import PermissionGuard from '@/components/admin/PermissionGuard';
 import { db } from '@/lib/firebase';
 import { doc, getDoc, setDoc, Timestamp } from "firebase/firestore";
 import type { GlobalWebSettings } from '@/types/firestore';
+import { triggerRefresh } from '@/lib/revalidateUtils';
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import * as z from "zod";
@@ -64,6 +66,8 @@ export default function CookieSettingsPage() {
         updatedAt: Timestamp.now(),
       };
       await setDoc(settingsDocRef, dataToSave, { merge: true });
+      await triggerRefresh('web-settings');
+      await triggerRefresh('global-cache');
       toast({ title: "Success", description: "Cookie settings saved successfully." });
     } catch (error) {
       console.error("Error saving cookie settings:", error);
@@ -183,10 +187,12 @@ export default function CookieSettingsPage() {
           </Card>
 
           <CardFooter className="mt-6 border-t pt-6 flex justify-end">
-            <Button type="submit" disabled={isSaving}>
-              {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
-              Save Cookie Settings
-            </Button>
+            <PermissionGuard moduleId="cookie_settings" action="write">
+              <Button type="submit" disabled={isSaving}>
+                {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
+                Save Cookie Settings
+              </Button>
+            </PermissionGuard>
           </CardFooter>
         </form>
       </Form>

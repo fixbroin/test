@@ -5,17 +5,16 @@ import type { PropsWithChildren } from 'react';
 import { useEffect, useState } from 'react'; // Added useState
 import { useRouter, usePathname } from 'next/navigation';
 import { useAuth } from '@/hooks/useAuth';
-import { ADMIN_EMAIL } from '@/contexts/AuthContext';
 import { Loader2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { db } from '@/lib/firebase'; // Import db
 import { doc, getDoc } from 'firebase/firestore'; // Import Firestore functions
-import type { ProviderApplication } from '@/types/firestore'; // Import ProviderApplication type
+import { hasPathAccess, getFirstAccessiblePath } from '@/config/rbac';
 
 const PROVIDER_APPLICATION_COLLECTION = "providerApplications";
 
 const ProtectedRoute: React.FC<PropsWithChildren> = ({ children }) => {
-  const { user, isLoading: authIsLoading, triggerAuthRedirect } = useAuth();
+  const { user, adminPermissions, isLoading: authIsLoading, isAdminLoading, triggerAuthRedirect } = useAuth();
   const router = useRouter();
   const pathname = usePathname();
   const { toast } = useToast();
@@ -23,7 +22,7 @@ const ProtectedRoute: React.FC<PropsWithChildren> = ({ children }) => {
   const [isCheckingProviderStatus, setIsCheckingProviderStatus] = useState(false);
 
   useEffect(() => {
-    if (authIsLoading) return;
+    if (authIsLoading || isAdminLoading) return;
 
     const isAdminRoute = pathname.startsWith('/admin');
     const isProviderRoute = pathname.startsWith('/provider');
@@ -64,7 +63,7 @@ const ProtectedRoute: React.FC<PropsWithChildren> = ({ children }) => {
 
     if (!user) { // User is not logged in
       if (isAdminRoute && !isAdminLoginPage) {
-        triggerAuthRedirect('/admin/login');
+        triggerAuthRedirect(pathname);
       } else if (isProviderRoute && pathname !== '/provider-registration') { // Provider registration is a public-ish page (needs login for steps > 0)
         triggerAuthRedirect(pathname); // Redirect to login, then back to provider page
       } else if (isExplicitlyProtectedClientRoute) {
@@ -72,15 +71,20 @@ const ProtectedRoute: React.FC<PropsWithChildren> = ({ children }) => {
       }
     } else { // User is logged in
       if (isAdminRoute) {
-        if (user.email !== ADMIN_EMAIL) {
+        if (!adminPermissions && !isAdminLoginPage) {
           toast({ title: "Access Denied", description: "You are not authorized for the admin panel.", variant: "destructive" });
           router.push('/');
+        } else if (adminPermissions && !hasPathAccess(adminPermissions, pathname) && !isAdminLoginPage) {
+          toast({ title: "Unauthorized", description: "You don't have permission to access this module.", variant: "destructive" });
+          const safePath = getFirstAccessiblePath(adminPermissions);
+          if (pathname !== safePath) {
+             router.push(safePath);
+          } else {
+             router.push('/admin/profile'); // Ultimate fallback to prevent infinite loops
+          }
         }
-      } else if (isAdminLoginPage && user.email === ADMIN_EMAIL) {
+      } else if (isAdminLoginPage && adminPermissions) {
         router.push('/admin');
-      } else if (isAdminLoginPage && user.email !== ADMIN_EMAIL) {
-        toast({ title: "Access Denied", description: "Admin login is for administrators only.", variant: "destructive"});
-        router.push('/');
       } else if (isProviderRoute) {
         // If it's a provider route, check their application status
         if (isProviderApproved === null && !isCheckingProviderStatus) { // Check only if not already checked or checking
@@ -88,9 +92,9 @@ const ProtectedRoute: React.FC<PropsWithChildren> = ({ children }) => {
         }
       }
     }
-  }, [user, authIsLoading, router, pathname, toast, triggerAuthRedirect, isProviderApproved, isCheckingProviderStatus]);
+  }, [user, adminPermissions, authIsLoading, isAdminLoading, router, pathname, toast, triggerAuthRedirect, isProviderApproved, isCheckingProviderStatus]);
 
-  if (authIsLoading || (pathname.startsWith('/provider') && isCheckingProviderStatus && isProviderApproved === null)) {
+  if (authIsLoading || isAdminLoading || (pathname.startsWith('/provider') && isCheckingProviderStatus && isProviderApproved === null)) {
     return (
       <div className="flex justify-center items-center min-h-[calc(100vh-200px)]">
         <Loader2 className="h-12 w-12 animate-spin text-primary" />
@@ -114,8 +118,10 @@ const ProtectedRoute: React.FC<PropsWithChildren> = ({ children }) => {
       // it might briefly show children before redirect. The primary redirect logic is in useEffect.
       // For very sensitive pages, you might return a loader here too if `triggerAuthRedirect` is not instant.
     }
-  } else if (user.email !== ADMIN_EMAIL && pathname.startsWith('/admin') && pathname !== '/admin/login') {
+  } else if (!adminPermissions && pathname.startsWith('/admin') && pathname !== '/admin/login') {
       return <div className="flex justify-center items-center min-h-screen"><Loader2 className="h-12 w-12 animate-spin text-primary" /><p className="ml-2">Unauthorized. Redirecting...</p></div>;
+  } else if (adminPermissions && pathname.startsWith('/admin') && !hasPathAccess(adminPermissions, pathname) && pathname !== '/admin/login') {
+      return <div className="flex justify-center items-center min-h-screen"><Loader2 className="h-12 w-12 animate-spin text-primary" /><p className="ml-2">Access Denied. Redirecting...</p></div>;
   } else if (pathname.startsWith('/provider') && pathname !== '/provider-registration' && !isProviderApproved) {
       // If on a provider route (not registration) and not approved (and done checking)
       // This also serves as a fallback if the useEffect redirect hasn't completed

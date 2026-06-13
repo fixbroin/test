@@ -36,6 +36,9 @@ import CompleteBookingDialog from '@/components/shared/CompleteBookingDialog';
 import RescheduleBookingDialog from '@/components/shared/RescheduleBookingDialog';
 import { useAdminStats } from '@/hooks/useAdminStats';
 import { initializeBookingNumbers, resequenceBookingNumbers } from '@/lib/systemStatsUtils';
+import { hasActionPermission } from '@/config/rbac';
+import { useAuth } from '@/hooks/useAuth';
+import PermissionGuard from '@/components/admin/PermissionGuard';
 
 const statusOptions: BookingStatus[] = [
   "Pending Payment", "Confirmed", "AssignedToProvider", "ProviderAccepted", 
@@ -100,6 +103,7 @@ const PAGE_SIZE = 10;
 
 export default function AdminBookingsPage() {
   const { stats } = useAdminStats();
+  const { adminPermissions } = useAuth();
   const [bookings, setBookings] = useState<FirestoreBooking[]>([]);
   const [lastDoc, setLastDoc] = useState<QueryDocumentSnapshot | null>(null);
   const [hasMore, setHasMore] = useState(true);
@@ -513,13 +517,33 @@ export default function AdminBookingsPage() {
           </div>
         )}
         <div className="pt-1">
-          <Select value={booking.status} onValueChange={(s) => handleStatusChange(booking, s as BookingStatus)} disabled={isUpdatingStatus === booking.id}>
-              <SelectTrigger className="w-full h-10 font-bold shadow-sm bg-background border-muted"><div className="flex-1 flex justify-center"><Badge className={cn("capitalize px-4 py-0.5 font-bold", getStatusBadgeClass(booking.status))}>{isUpdatingStatus === booking.id ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-2" /> : booking.status}</Badge></div></SelectTrigger>
-              <SelectContent>{statusOptions.map(opt => <SelectItem key={opt} value={opt} className="font-medium">{opt}</SelectItem>)}</SelectContent>
-          </Select>
+          <PermissionGuard moduleId="bookings" action="write" fallback={
+            <div className="w-full h-10 flex items-center justify-center bg-muted/30 rounded-lg">
+              <Badge className={cn("capitalize px-4 py-0.5 font-bold", getStatusBadgeClass(booking.status))}>{booking.status}</Badge>
+            </div>
+          }>
+            <Select value={booking.status} onValueChange={(s) => handleStatusChange(booking, s as BookingStatus)} disabled={isUpdatingStatus === booking.id}>
+                <SelectTrigger className="w-full h-10 font-bold shadow-sm bg-background border-muted"><div className="flex-1 flex justify-center"><Badge className={cn("capitalize px-4 py-0.5 font-bold", getStatusBadgeClass(booking.status))}>{isUpdatingStatus === booking.id ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-2" /> : booking.status}</Badge></div></SelectTrigger>
+                <SelectContent>{statusOptions.map(opt => <SelectItem key={opt} value={opt} className="font-medium">{opt}</SelectItem>)}</SelectContent>
+            </Select>
+          </PermissionGuard>
         </div>
       </CardContent>
-      <CardFooter className="p-4 pt-0 gap-2 flex flex-wrap"><Button variant="outline" size="sm" className="flex-1 font-bold h-9" onClick={() => { setSelectedBooking(booking); setIsDetailsModalOpen(true); }}>Details</Button><Button variant="outline" size="sm" className="flex-1 font-bold h-9" onClick={() => router.push(`/admin/bookings/edit/${booking.id}`)}>Edit</Button><Button variant="default" size="sm" className="flex-1 font-bold h-9" onClick={() => { setBookingToAssign(booking); setIsAssignModalOpen(true); }} disabled={["Completed", "Cancelled"].includes(booking.status)}>Assign</Button><AlertDialog><AlertDialogTrigger asChild><Button variant="destructive" size="sm" className="h-9 px-3 bg-red-600 hover:bg-red-700 text-white shadow-sm transition-colors" disabled={isDeleting === booking.id}><Trash2 className="h-4 w-4" /></Button></AlertDialogTrigger><AlertDialogContent className="w-[90vw] rounded-2xl"><AlertDialogHeader><AlertDialogTitle className="font-bold">Delete Booking?</AlertDialogTitle><AlertDialogDescription>Remove #{booking.bookingId} from system?</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel className="rounded-xl">Cancel</AlertDialogCancel><AlertDialogAction onClick={() => handleDeleteBooking(booking)} className="bg-destructive hover:bg-destructive/90 rounded-xl">Delete</AlertDialogAction></AlertDialogFooter></AlertDialogContent></AlertDialog></CardFooter>
+      <CardFooter className="p-4 pt-0 gap-2 flex flex-wrap">
+        <Button variant="outline" size="sm" className="flex-1 font-bold h-9" onClick={() => { setSelectedBooking(booking); setIsDetailsModalOpen(true); }}>Details</Button>
+        <PermissionGuard moduleId="bookings" action="write">
+          <Button variant="outline" size="sm" className="flex-1 font-bold h-9" onClick={() => router.push(`/admin/bookings/edit/${booking.id}`)}>Edit</Button>
+        </PermissionGuard>
+        <PermissionGuard moduleId="bookings" action="write">
+          <Button variant="default" size="sm" className="flex-1 font-bold h-9" onClick={() => { setBookingToAssign(booking); setIsAssignModalOpen(true); }} disabled={["Completed", "Cancelled"].includes(booking.status)}>Assign</Button>
+        </PermissionGuard>
+        <PermissionGuard moduleId="bookings" action="delete">
+          <AlertDialog>
+            <AlertDialogTrigger asChild><Button variant="destructive" size="sm" className="h-9 px-3 bg-red-600 hover:bg-red-700 text-white shadow-sm transition-colors" disabled={isDeleting === booking.id}><Trash2 className="h-4 w-4" /></Button></AlertDialogTrigger>
+            <AlertDialogContent className="w-[90vw] rounded-2xl"><AlertDialogHeader><AlertDialogTitle className="font-bold">Delete Booking?</AlertDialogTitle><AlertDialogDescription>Remove #{booking.bookingId} from system?</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel className="rounded-xl">Cancel</AlertDialogCancel><AlertDialogAction onClick={() => handleDeleteBooking(booking)} className="bg-destructive hover:bg-destructive/90 rounded-xl">Delete</AlertDialogAction></AlertDialogFooter></AlertDialogContent>
+          </AlertDialog>
+        </PermissionGuard>
+      </CardFooter>
     </Card>
   );
 
@@ -537,9 +561,11 @@ export default function AdminBookingsPage() {
             {isSyncing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <ShieldCheck className="mr-2 h-4 w-4" />}
             Sync Booking IDs
           </Button>
-          <Button onClick={() => router.push('/admin/bookings/create')} className="bg-primary h-10 font-bold">
-            <PlusCircle className="mr-2 h-4 w-4" /> Create Booking
-          </Button>
+          <PermissionGuard moduleId="bookings" action="create">
+            <Button onClick={() => router.push('/admin/bookings/create')} className="bg-primary h-10 font-bold">
+              <PlusCircle className="mr-2 h-4 w-4" /> Create Booking
+            </Button>
+          </PermissionGuard>
           <div className="relative w-full sm:w-64 group">
             <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground group-focus-within:text-primary transition-colors" />
             <Input 
@@ -616,31 +642,43 @@ export default function AdminBookingsPage() {
                         <TableRow className="bg-muted/5 border-b-2">
                           <TableCell colSpan={7} className="py-3 px-4">
                             <div className="flex flex-wrap items-center gap-3">
-                              <Select value={b.status} onValueChange={(s) => handleStatusChange(b, s as BookingStatus)} disabled={isUpdatingStatus === b.id}>
-                                <SelectTrigger className="h-9 w-44 bg-background font-bold text-xs shadow-sm">
+                              <PermissionGuard moduleId="bookings" action="write" fallback={
+                                <div className="h-9 px-4 flex items-center bg-muted/30 rounded-md">
                                   <Badge className={cn("capitalize px-3 py-0.5", getStatusBadgeClass(b.status))}>{b.status}</Badge>
-                                </SelectTrigger>
-                                <SelectContent>{statusOptions.map(s => (<SelectItem key={s} value={s}>{s}</SelectItem>))}</SelectContent>
-                              </Select>
-                              <Button variant="default" size="sm" className="h-9 px-4 font-bold shadow-sm" onClick={() => { setBookingToAssign(b); setIsAssignModalOpen(true); }} disabled={["Completed", "Cancelled"].includes(b.status)}>
-                                <Users className="mr-1.5 h-4 w-4" /> {b.providerId ? "Reassign" : "Assign Provider"}
-                              </Button>
+                                </div>
+                              }>
+                                <Select value={b.status} onValueChange={(s) => handleStatusChange(b, s as BookingStatus)} disabled={isUpdatingStatus === b.id}>
+                                  <SelectTrigger className="h-9 w-44 bg-background font-bold text-xs shadow-sm">
+                                    <Badge className={cn("capitalize px-3 py-0.5", getStatusBadgeClass(b.status))}>{b.status}</Badge>
+                                  </SelectTrigger>
+                                  <SelectContent>{statusOptions.map(s => (<SelectItem key={s} value={s}>{s}</SelectItem>))}</SelectContent>
+                                </Select>
+                              </PermissionGuard>
+                              <PermissionGuard moduleId="bookings" action="write">
+                                <Button variant="default" size="sm" className="h-9 px-4 font-bold shadow-sm" onClick={() => { setBookingToAssign(b); setIsAssignModalOpen(true); }} disabled={["Completed", "Cancelled"].includes(b.status)}>
+                                  <Users className="mr-1.5 h-4 w-4" /> {b.providerId ? "Reassign" : "Assign Provider"}
+                                </Button>
+                              </PermissionGuard>
                               <Button variant="outline" size="sm" className="h-9 px-4 font-bold" onClick={() => { setSelectedBooking(b); setIsDetailsModalOpen(true); }}>Details</Button>
-                              <Button variant="outline" size="sm" className="h-9 px-4 font-bold" onClick={() => router.push(`/admin/bookings/edit/${b.id}`)}>Edit</Button>
-                              <AlertDialog>
-                                <AlertDialogTrigger asChild>
-                                  <Button variant="destructive" size="sm" className="h-9 px-3 bg-red-600 hover:bg-red-700 text-white shadow-sm transition-colors" disabled={isDeleting === b.id}>
-                                    <Trash2 className="h-4 w-4" />
-                                  </Button>
-                                </AlertDialogTrigger>
-                                <AlertDialogContent>
-                                  <AlertDialogHeader><AlertDialogTitle>Delete?</AlertDialogTitle><AlertDialogDescription>Remove #{b.bookingId}?</AlertDialogDescription></AlertDialogHeader>
-                                  <AlertDialogFooter>
-                                    <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                    <AlertDialogAction onClick={() => handleDeleteBooking(b)} className="bg-destructive">Delete</AlertDialogAction>
-                                  </AlertDialogFooter>
-                                </AlertDialogContent>
-                              </AlertDialog>
+                              <PermissionGuard moduleId="bookings" action="write">
+                                <Button variant="outline" size="sm" className="h-9 px-4 font-bold" onClick={() => router.push(`/admin/bookings/edit/${b.id}`)}>Edit</Button>
+                              </PermissionGuard>
+                              <PermissionGuard moduleId="bookings" action="delete">
+                                <AlertDialog>
+                                  <AlertDialogTrigger asChild>
+                                    <Button variant="destructive" size="sm" className="h-9 px-3 bg-red-600 hover:bg-red-700 text-white shadow-sm transition-colors" disabled={isDeleting === b.id}>
+                                      <Trash2 className="h-4 w-4" />
+                                    </Button>
+                                  </AlertDialogTrigger>
+                                  <AlertDialogContent>
+                                    <AlertDialogHeader><AlertDialogTitle>Delete?</AlertDialogTitle><AlertDialogDescription>Remove #{b.bookingId}?</AlertDialogDescription></AlertDialogHeader>
+                                    <AlertDialogFooter>
+                                      <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                      <AlertDialogAction onClick={() => handleDeleteBooking(b)} className="bg-destructive">Delete</AlertDialogAction>
+                                    </AlertDialogFooter>
+                                  </AlertDialogContent>
+                                </AlertDialog>
+                              </PermissionGuard>
                             </div>
                           </TableCell>
                         </TableRow>

@@ -17,6 +17,7 @@ import { useToast } from '@/hooks/use-toast';
 import { db } from '@/lib/firebase';
 import { doc, getDoc, setDoc, Timestamp } from "firebase/firestore";
 import type { ReferralSettings } from '@/types/firestore';
+import { triggerRefresh } from '@/lib/revalidateUtils';
 
 const REFERRAL_CONFIG_COLLECTION = "appConfiguration";
 const REFERRAL_CONFIG_DOC_ID = "referral";
@@ -81,6 +82,7 @@ export default function ReferralSettingsTab() {
     try {
       const settingsDocRef = doc(db, REFERRAL_CONFIG_COLLECTION, REFERRAL_CONFIG_DOC_ID);
       await setDoc(settingsDocRef, { ...data, updatedAt: Timestamp.now() }, { merge: true });
+      await triggerRefresh('global-cache');
       toast({ title: "Success", description: "Referral settings saved." });
     } catch (error) {
       toast({ title: "Error", description: "Could not save referral settings.", variant: "destructive" });

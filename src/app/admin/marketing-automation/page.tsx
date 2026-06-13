@@ -17,6 +17,7 @@ import { useToast } from '@/hooks/use-toast';
 import { db } from '@/lib/firebase';
 import { doc, getDoc, setDoc, Timestamp, collection, query, where, orderBy, limit, getDocs } from "firebase/firestore";
 import type { MarketingAutomationSettings, AutomationDelay as AutomationDelayType, FirestoreService, FirestoreCategory } from '@/types/firestore';
+import { triggerRefresh } from '@/lib/revalidateUtils';
 import { sendMarketingEmail } from '@/ai/flows/sendMarketingEmailFlow';
 import { useApplicationConfig } from '@/hooks/useApplicationConfig';
 import { useAuth } from '@/hooks/useAuth';
@@ -24,6 +25,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import SendManualEmailForm from '@/components/admin/marketing/SendManualEmailForm';
 import { useGlobalSettings } from '@/hooks/useGlobalSettings';
 import { getBaseUrl } from '@/lib/config';
+import PermissionGuard from '@/components/admin/PermissionGuard';
 
 const MARKETING_AUTOMATION_COLLECTION = "webSettings";
 const MARKETING_AUTOMATION_DOC_ID = "marketingAutomation";
@@ -141,6 +143,8 @@ export default function MarketingAutomationPage() {
         updatedAt: Timestamp.now(),
       };
       await setDoc(settingsDocRef, dataToSave, { merge: true });
+      await triggerRefresh('marketing-settings');
+      await triggerRefresh('global-cache');
       toast({ title: "Success", description: "Marketing automation settings have been saved." });
     } catch (error) {
       toast({ title: "Error", description: "Could not save settings.", variant: "destructive" });
@@ -280,13 +284,21 @@ export default function MarketingAutomationPage() {
           </TabsList>
         </div>
 
-        <TabsContent value="send_email" className="mt-0 focus-visible:outline-none"><SendManualEmailForm /></TabsContent>
+        <TabsContent value="send_email" className="mt-0 focus-visible:outline-none">
+          <PermissionGuard moduleId="marketing_automation" action="write" fallback={<div className="p-8 text-center text-muted-foreground bg-muted/10 rounded-2xl border border-dashed">You do not have permission to send manual marketing emails.</div>}>
+            <SendManualEmailForm />
+          </PermissionGuard>
+        </TabsContent>
         <TabsContent value="email_automations" className="mt-0 focus-visible:outline-none">          <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
               {renderAutomationCard('noBookingReminder', 'No Booking Reminder', "Follow-up with users who sign up but don't book a service.", <Users className="mr-2 h-5 w-5 text-primary"/>, "A friendly reminder from " + (globalSettings.websiteName || "FixBro"), "noBookingReminderCategoryId")}
               {renderAutomationCard('abandonedCart', 'Abandoned Cart Reminder', "Remind users who add items to cart but don't check out.", <ShoppingCart className="mr-2 h-5 w-5 text-primary"/>, "You left something in your cart!", "abandonedCartCategoryId")}
               {renderAutomationCard('recurringEngagement', 'Recurring Engagement', "Send regular emails to all registered users to keep them engaged.", <Repeat className="mr-2 h-5 w-5 text-primary"/>, "Here's what's new at " + (globalSettings.websiteName || "FixBro"), "recurringEngagementCategoryId")}
-              <CardFooter className="flex justify-end"><Button type="submit" disabled={isSaving || isTestSending}>{isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}Save Automation Settings</Button></CardFooter>
+              <CardFooter className="flex justify-end">
+                <PermissionGuard moduleId="marketing_automation" action="write">
+                  <Button type="submit" disabled={isSaving || isTestSending}>{isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}Save Automation Settings</Button>
+                </PermissionGuard>
+              </CardFooter>
             </form>
           </Form>
         </TabsContent>

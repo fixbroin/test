@@ -8,7 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle, CardFooter, CardDescription } from '@/components/ui/card';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
-import { ArrowRight, ArrowLeft, CreditCard, Landmark, IndianRupee, Wallet, Info, Clock, Loader2, Tag, CheckCircle, XCircle, ListFilter, HandCoins, Ban } from 'lucide-react';
+import { ArrowRight, ArrowLeft, CreditCard, Landmark, IndianRupee, Wallet, Info, Clock, Loader2, Tag, CheckCircle, XCircle, ListFilter, HandCoins, Ban, ChevronRight, Gift, TicketPercent } from 'lucide-react';
 import CheckoutStepper from '@/components/checkout/CheckoutStepper';
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { getActiveCheckoutEntries, type CartEntry } from '@/lib/cartManager';
@@ -134,6 +134,7 @@ export default function PaymentPage() {
   const [allFetchedPromoCodes, setAllFetchedPromoCodes] = useState<FirestorePromoCode[]>([]);
   const [availablePromoCodesToDisplay, setAvailablePromoCodesToDisplay] = useState<FirestorePromoCode[]>([]);
   const [isLoadingPromos, setIsLoadingPromos] = useState(true);
+  const [isCouponsDialogOpen, setIsCouponsDialogOpen] = useState(false);
   const [effectiveTaxRateDisplay, setEffectiveTaxRateDisplay] = useState<string>("Est. Tax");
   const [isTaxBreakdownOpen, setIsTaxBreakdownOpen] = useState(false);
   const [taxBreakdownItems, setTaxBreakdownItems] = useState<Parameters<typeof TaxBreakdownDisplay>[0]['items']>([]);
@@ -356,11 +357,12 @@ export default function PaymentPage() {
     }
   }, [isLoadingCartDetails, isLoadingAppSettings, onlinePaymentEnabled, payAfterServiceEnabled, isCancellationFeeMode]);
 
-  const handleApplyPromoCode = async () => {
-    if (!promoCodeInput.trim()) { toast({ title: "Info", description: "Please enter a promo code.", variant: "default" }); return; }
+  const handleApplyPromoCode = async (codeOverride?: string) => {
+    const codeToApply = codeOverride || promoCodeInput;
+    if (!codeToApply.trim()) { toast({ title: "Info", description: "Please enter a promo code.", variant: "default" }); return; }
     setIsApplyingPromo(true); setAppliedPromoCode(null); setDiscountAmount(0);
     try {
-      const promoCodeRef = collection(db, "adminPromoCodes"); const q = query(promoCodeRef, where("code", "==", promoCodeInput.toUpperCase())); const querySnapshot = await getDocs(q);
+      const promoCodeRef = collection(db, "adminPromoCodes"); const q = query(promoCodeRef, where("code", "==", codeToApply.toUpperCase())); const querySnapshot = await getDocs(q);
       if (querySnapshot.empty) { toast({ title: "Invalid Code", description: "This promo code does not exist.", variant: "destructive" }); setIsApplyingPromo(false); return; }
       const promoDoc = querySnapshot.docs[0]; const promoData = { id: promoDoc.id, ...promoDoc.data() } as FirestorePromoCode; const currentDate = new Date();
       if (!promoData.isActive) { toast({ title: "Inactive Code", description: "This promo code is currently not active.", variant: "destructive" }); setIsApplyingPromo(false); return; }
@@ -399,14 +401,17 @@ export default function PaymentPage() {
       let calculatedDiscount = 0; if (promoData.discountType === 'percentage') calculatedDiscount = (sumOfDisplayedItemPrices * promoData.discountValue) / 100; else calculatedDiscount = promoData.discountValue;
       calculatedDiscount = Math.min(calculatedDiscount, sumOfDisplayedItemPrices);
       const appliedInfo: AppliedPromoCodeInfo = { id: promoData.id, code: promoData.code, discountType: promoData.discountType, discountValue: promoData.discountValue, calculatedDiscount: calculatedDiscount };
-      setAppliedPromoCode(appliedInfo); localStorage.setItem('fixbroAppliedPromoCode', JSON.stringify(appliedInfo));
+      setAppliedPromoCode(appliedInfo); 
+      setPromoCodeInput(promoData.code);
+      localStorage.setItem('fixbroAppliedPromoCode', JSON.stringify(appliedInfo));
+      setIsCouponsDialogOpen(false);
       toast({ title: "Promo Applied!", description: `Discount of ₹${calculatedDiscount.toFixed(2)} applied.`, className: "bg-green-100 border-green-300 text-green-700" });
     } catch (error) { console.error("[PaymentPage] Error applying promo code:", error); toast({ title: "Error", description: "Could not apply promo code.", variant: "destructive" });
     } finally { setIsApplyingPromo(false); }
   };
 
   const handleRemovePromoCode = (silent = false) => { setAppliedPromoCode(null); setPromoCodeInput(""); localStorage.removeItem('fixbroAppliedPromoCode'); if(!silent) toast({ title: "Promo Removed", description: "Discount has been removed." }); };
-  const handleSelectAvailablePromo = (code: string) => setPromoCodeInput(code);
+  const handleSelectAvailablePromo = (code: string) => handleApplyPromoCode(code);
 
   const loadRazorpayScript = () => new Promise((resolve) => { if (window.Razorpay) { resolve(true); return; } const script = document.createElement('script'); script.src = 'https://checkout.razorpay.com/v1/checkout.js'; script.onload = () => resolve(true); script.onerror = () => resolve(false); document.body.appendChild(script); });
 
@@ -584,13 +589,100 @@ export default function PaymentPage() {
                 <div className="space-y-2"><Label htmlFor="discountCode" className="text-md font-medium">Promo Code</Label>
                   <div className="flex space-x-2">
                     <Input id="discountCode" placeholder="Enter code" value={promoCodeInput} onChange={(e) => setPromoCodeInput(e.target.value.toUpperCase())} disabled={isProcessingPayment || isApplyingPromo || !!appliedPromoCode} className="h-10"/>
-                    {!appliedPromoCode ? (<Button variant="outline" onClick={handleApplyPromoCode} disabled={isProcessingPayment || isApplyingPromo || !promoCodeInput.trim()} className="h-10">{isApplyingPromo ? <Loader2 className="h-4 w-4 animate-spin" /> : "Apply"}</Button>) : (<Button variant="ghost" onClick={() => handleRemovePromoCode()} disabled={isProcessingPayment || isApplyingPromo} className="h-10 text-destructive hover:text-destructive"><XCircle className="mr-1.5 h-4 w-4"/> Remove</Button>)}
+                    {!appliedPromoCode ? (<Button variant="outline" onClick={() => handleApplyPromoCode()} disabled={isProcessingPayment || isApplyingPromo || !promoCodeInput.trim()} className="h-10">{isApplyingPromo ? <Loader2 className="h-4 w-4 animate-spin" /> : "Apply"}</Button>) : (<Button variant="ghost" onClick={() => handleRemovePromoCode()} disabled={isProcessingPayment || isApplyingPromo} className="h-10 text-destructive hover:text-destructive"><XCircle className="mr-1.5 h-4 w-4"/> Remove</Button>)}
                   </div>
                   {appliedPromoCode && (<p className="text-xs text-green-600 flex items-center mt-1.5"><CheckCircle className="h-3.5 w-3.5 mr-1" />Code "{appliedPromoCode.code}" applied! Discount: ₹{appliedPromoCode.calculatedDiscount.toFixed(2)}</p>)}
                 </div>
-                <div className="mt-3 pt-3 border-t"><Label className="text-sm font-medium block mb-2 flex items-center"><ListFilter className="h-4 w-4 mr-1.5 text-muted-foreground"/>Available Offers:</Label>
-                  {isLoadingPromos ? (<div className="flex items-center text-xs text-muted-foreground"><Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" /><span>Checking for offers...</span></div>) : availablePromoCodesToDisplay.length > 0 ? (<div className="flex flex-wrap gap-2">{availablePromoCodesToDisplay.map(promo => (<Badge key={promo.id} variant="outline" className="cursor-pointer hover:bg-accent/20" onClick={() => handleSelectAvailablePromo(promo.code)} title={`Min. booking: ₹${promo.minBookingAmount || 0}. Uses: ${promo.usesCount}/${promo.maxUses || '∞'}`}>{promo.code} - {promo.discountType === 'percentage' ? `${promo.discountValue}% OFF` : `₹${promo.discountValue} OFF`}</Badge>))}</div>) : (<p className="text-xs text-muted-foreground">{allFetchedPromoCodes.length > 0 ? "No offers currently applicable." : "No active promo codes."}</p>)}
-                </div>
+
+                <Dialog open={isCouponsDialogOpen} onOpenChange={setIsCouponsDialogOpen}>
+                  <DialogTrigger asChild>
+                    <div className="mt-3 p-4 border-2 border-dashed rounded-xl bg-primary/5 border-primary/20 flex items-center justify-between cursor-pointer hover:bg-primary/10 transition-all group shadow-sm active:scale-[0.98]">
+                      <div className="flex items-center gap-4">
+                        <div className="p-2.5 rounded-full bg-primary/10 text-primary group-hover:bg-primary group-hover:text-white transition-colors shadow-inner">
+                          <TicketPercent className="h-6 w-6" />
+                        </div>
+                        <div className="flex flex-col">
+                          <p className="text-base font-black text-foreground  text-center sm:text-left">Coupons and Offers</p>
+                          <p className="text-[10px] text-muted-foreground uppercase tracking-widest font-bold ">View available deals & save more</p>
+                          {availablePromoCodesToDisplay.length > 0 && (
+                            <span className="mt-1 mx-auto flex items-center text-[10px] font-black text-primary bg-primary/10 px-2 py-0.5 rounded-full border border-primary/20 w-fit sm:hidden">
+                              {availablePromoCodesToDisplay.length} OFFERS
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        {availablePromoCodesToDisplay.length > 0 && (
+                          <span className="hidden sm:flex items-center text-primary font-black text-xs bg-primary/10 px-3 py-1 rounded-full border border-primary/20">
+                            {availablePromoCodesToDisplay.length} OFFERS <ChevronRight className="h-4 w-4 ml-1" />
+                          </span>
+                        )}
+                        <ChevronRight className="h-5 w-5 text-primary sm:hidden" />
+                      </div>
+                    </div>
+                  </DialogTrigger>
+                  <DialogContent className="w-[95vw] sm:max-w-md max-h-[80vh] flex flex-col p-0 overflow-hidden">
+                    <DialogHeader className="p-6 pb-4 border-b bg-muted/30">
+                      <DialogTitle className="flex items-center gap-2">
+                        <Gift className="h-5 w-5 text-primary" /> Available Coupons
+                      </DialogTitle>
+                    </DialogHeader>
+                    <div className="flex-grow overflow-y-auto p-4 space-y-4">
+                      {isLoadingPromos ? (
+                        <div className="flex flex-col items-center justify-center py-10 text-muted-foreground">
+                          <Loader2 className="h-8 w-8 animate-spin mb-2" />
+                          <p className="text-sm">Finding best offers for you...</p>
+                        </div>
+                      ) : availablePromoCodesToDisplay.length > 0 ? (
+                        availablePromoCodesToDisplay.map((promo) => (
+                          <div key={promo.id} className="border-2 border-dashed border-primary/30 rounded-xl p-4 bg-white hover:border-primary transition-colors relative overflow-hidden">
+                            <div className="flex justify-between items-start relative z-10">
+                              <div className="space-y-1">
+                                <Badge variant="secondary" className="font-black text-sm tracking-widest px-3 py-1 bg-primary/10 text-primary border-none uppercase">
+                                  {promo.code}
+                                </Badge>
+                                <p className="text-sm font-bold mt-2">
+                                  Save {promo.discountType === 'percentage' ? `${promo.discountValue}%` : `₹${promo.discountValue}`} on this booking
+                                </p>
+                                {promo.description && (
+                                  <p className="text-xs text-muted-foreground line-clamp-2">{promo.description}</p>
+                                )}
+                                {promo.minBookingAmount && (
+                                  <p className="text-[10px] font-medium text-muted-foreground mt-1">
+                                    Min. booking amount: ₹{promo.minBookingAmount}
+                                  </p>
+                                )}
+                              </div>
+                              <Button 
+                                size="sm" 
+                                className={`font-bold h-8 px-4 ${appliedPromoCode?.code === promo.code ? 'bg-green-600 text-white opacity-100' : ''}`}
+                                onClick={() => handleSelectAvailablePromo(promo.code)}
+                                disabled={isApplyingPromo || appliedPromoCode?.code === promo.code}
+                              >
+                                {appliedPromoCode?.code === promo.code ? 'APPLIED' : 'APPLY'}
+                              </Button>
+                            </div>
+                            {/* Visual semi-circles for ticket effect */}
+                            <div className="absolute -left-3 top-1/2 -translate-y-1/2 w-6 h-6 rounded-full bg-muted border-r-2 border-dashed border-primary/30 z-0"></div>
+                            <div className="absolute -right-3 top-1/2 -translate-y-1/2 w-6 h-6 rounded-full bg-muted border-l-2 border-dashed border-primary/30 z-0"></div>
+                          </div>
+                        ))
+                      ) : (
+                        <div className="text-center py-10">
+                          <TicketPercent className="h-12 w-12 text-muted-foreground/30 mx-auto mb-3" />
+                          <p className="text-sm text-muted-foreground font-medium">No offers available for this booking.</p>
+                        </div>
+                      )}
+                    </div>
+                    <div className="p-4 bg-muted/30 border-t">
+                      <DialogClose asChild>
+                        <Button variant="ghost" className="w-full text-xs font-bold text-muted-foreground uppercase tracking-widest">
+                          CLOSE
+                        </Button>
+                      </DialogClose>
+                    </div>
+                  </DialogContent>
+                </Dialog>
               </>)}
               {currentAvailablePaymentOptions.length > 0 ? (
                 <div className="mt-4"><h3 className="text-lg font-semibold mb-3">Select Payment Method</h3>

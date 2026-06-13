@@ -10,6 +10,7 @@ import CreateInvoiceForm from "@/components/admin/quotation-invoice/CreateInvoic
 import ManageQuotationsTab from '@/components/admin/quotation-invoice/ManageQuotationsTab';
 import ManageInvoicesTab from '@/components/admin/quotation-invoice/ManageInvoicesTab';
 import type { FirestoreQuotation, FirestoreInvoice } from '@/types/firestore';
+import PermissionGuard from '@/components/admin/PermissionGuard';
 
 export default function QuotationInvoicePage() {
   const [activeTab, setActiveTab] = useState("create_quotation");
@@ -103,11 +104,13 @@ export default function QuotationInvoicePage() {
           <ManageQuotationsTab onEditQuotation={handleEditQuotation} />
         </TabsContent>
         <TabsContent value="create_invoice">
-          <CreateInvoiceForm
-            key={editingInvoice ? `edit-i-${editingInvoice.id}` : 'create-i'}
-            initialData={editingInvoice}
-            onSaveSuccess={handleSaveOrUpdateInvoice}
-          />
+          <PermissionGuard moduleId="quotation_invoice" action={editingInvoice ? "write" : "create"} fallback={<div className="p-8 text-center text-muted-foreground bg-muted/10 rounded-2xl border border-dashed">You do not have permission to {editingInvoice ? "edit" : "create"} invoices.</div>}>
+            <CreateInvoiceForm
+              key={editingInvoice ? `edit-i-${editingInvoice.id}` : 'create-i'}
+              initialData={editingInvoice}
+              onSaveSuccess={handleSaveOrUpdateInvoice}
+            />
+          </PermissionGuard>
         </TabsContent>
         <TabsContent value="manage_invoices">
           <ManageInvoicesTab onEditInvoice={handleEditInvoice} />

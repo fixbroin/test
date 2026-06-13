@@ -12,6 +12,7 @@ import type { UserActivity, FirestoreUser } from '@/types/firestore';
 import { db } from '@/lib/firebase';
 import { collection, query, orderBy, Timestamp, limit, getDocs, writeBatch, where, documentId, startAfter, getDoc, doc, type DocumentSnapshot } from "firebase/firestore";
 import { useToast } from "@/hooks/use-toast";
+import PermissionGuard from '@/components/admin/PermissionGuard';
 import { formatDistanceToNow } from 'date-fns';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
@@ -32,6 +33,7 @@ import { useApplicationConfig } from '@/hooks/useApplicationConfig';
 import { motion, AnimatePresence } from 'framer-motion';
 import { getArchivedActivities } from '@/lib/adminDashboardUtils';
 import { triggerRefresh } from '@/lib/revalidateUtils';
+
 
 import { getTimestampMillis } from '@/lib/utils';
 
@@ -409,31 +411,33 @@ export default function AdminActivityFeedPage() {
             Sync Now
           </Button>
 
-          <AlertDialog>
-            <AlertDialogTrigger asChild>
-              <Button variant="ghost" size="sm" className="h-10 rounded-xl text-destructive hover:bg-destructive/10 hover:text-destructive font-bold text-xs" disabled={isLoading || isClearing || activities.length === 0}>
-                {isClearing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <TrashIcon className="mr-2 h-4 w-4" />}
-                Purge All
-              </Button>
-            </AlertDialogTrigger>
-            <AlertDialogContent className="rounded-3xl p-8">
-              <AlertDialogHeader>
-                <div className="bg-destructive/10 w-12 h-12 rounded-2xl flex items-center justify-center mb-4">
-                  <AlertTriangle className="h-6 w-6 text-destructive" />
-                </div>
-                <AlertDialogTitle className="text-2xl font-bold tracking-tight text-destructive uppercase">Confirm Full Purge</AlertDialogTitle>
-                <AlertDialogDescription className="text-base font-medium">
-                  This will permanently wipe ALL recorded user activities from the system. This operation cannot be reversed.
-                </AlertDialogDescription>
-              </AlertDialogHeader>
-              <AlertDialogFooter className="mt-8 gap-3">
-                <AlertDialogCancel className="rounded-xl border-none bg-muted hover:bg-muted/80">Keep Data</AlertDialogCancel>
-                <AlertDialogAction onClick={handleClearAllActivities} className="rounded-xl bg-destructive hover:bg-destructive/90 px-8">
-                  Erase Everything
-                </AlertDialogAction>
-              </AlertDialogFooter>
-            </AlertDialogContent>
-          </AlertDialog>
+          <PermissionGuard moduleId="activity_feed" action="delete">
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button variant="ghost" size="sm" className="h-10 rounded-xl text-destructive hover:bg-destructive/10 hover:text-destructive font-bold text-xs" disabled={isLoading || isClearing || activities.length === 0}>
+                  {isClearing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <TrashIcon className="mr-2 h-4 w-4" />}
+                  Delete All
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent className="rounded-3xl p-8">
+                <AlertDialogHeader>
+                  <div className="bg-destructive/10 w-12 h-12 rounded-2xl flex items-center justify-center mb-4">
+                    <AlertTriangle className="h-6 w-6 text-destructive" />
+                  </div>
+                  <AlertDialogTitle className="text-2xl font-bold tracking-tight text-destructive uppercase">Confirm Full Purge</AlertDialogTitle>
+                  <AlertDialogDescription className="text-base font-medium">
+                    This will permanently wipe ALL recorded user activities from the system. This operation cannot be reversed.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter className="mt-8 gap-3">
+                  <AlertDialogCancel className="rounded-xl border-none bg-muted hover:bg-muted/80">Keep Data</AlertDialogCancel>
+                  <AlertDialogAction onClick={handleClearAllActivities} className="rounded-xl bg-destructive hover:bg-destructive/90 px-8">
+                    Erase Everything
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+          </PermissionGuard>
         </div>
       </header>
 

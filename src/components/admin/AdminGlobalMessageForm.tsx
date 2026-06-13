@@ -14,6 +14,7 @@ import { Loader2, SendHorizonal, AlertTriangle, XCircle, Megaphone, Clock, Info 
 import { useToast } from '@/hooks/use-toast';
 import { db } from '@/lib/firebase';
 import { doc, setDoc, Timestamp } from "firebase/firestore";
+import { triggerRefresh } from '@/lib/revalidateUtils';
 import type { GlobalAdminPopup } from '@/types/firestore';
 import { useGlobalSettings } from '@/hooks/useGlobalSettings';
 import {
@@ -72,6 +73,7 @@ export default function AdminGlobalMessageForm() {
         sentAt: Timestamp.now(),
       };
       await setDoc(doc(db, "webSettings", "global"), { globalAdminPopup: popupDataToSave, updatedAt: Timestamp.now() }, { merge: true });
+      await triggerRefresh('global-cache');
       toast({ title: "Broadcast Sent", description: "All active users will now see your message." });
       form.setValue("isActive", true);
     } catch (error) {
@@ -89,6 +91,7 @@ export default function AdminGlobalMessageForm() {
             globalAdminPopup: { ...currentPopupSettings, isActive: false, sentAt: Timestamp.now() },
             updatedAt: Timestamp.now() 
         }, { merge: true });
+        await triggerRefresh('global-cache');
         toast({ title: "Broadcast Stopped" });
         form.setValue("isActive", false);
     } catch (error) {

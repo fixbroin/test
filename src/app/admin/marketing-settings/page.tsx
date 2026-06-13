@@ -22,6 +22,7 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDes
 import { useMarketingSettings } from '@/hooks/useMarketingSettings'; // Use the dedicated hook
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"; // Import Tabs
 import { defaultMarketingValues } from '@/hooks/useMarketingSettings'; // Import defaults
+import PermissionGuard from '@/components/admin/PermissionGuard';
 
 const marketingSettingsSchema = z.object({
   // Google
@@ -331,10 +332,12 @@ export default function MarketingSettingsPage() {
             
         </Tabs>
         <CardFooter className="mt-6 border-t pt-6 flex justify-end">
-            <Button type="submit" disabled={isSaving}>
-            {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
-            Save All Marketing Settings
-            </Button>
+            <PermissionGuard moduleId="marketing_settings" action="write">
+                <Button type="submit" disabled={isSaving}>
+                {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
+                Save All Marketing Settings
+                </Button>
+            </PermissionGuard>
         </CardFooter>
         </form>
       </Form>

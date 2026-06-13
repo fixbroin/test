@@ -80,6 +80,7 @@ export default function WithdrawalSettingsTab() {
       const settingsDocRef = doc(db, WITHDRAWAL_CONFIG_COLLECTION, WITHDRAWAL_CONFIG_DOC_ID);
       await setDoc(settingsDocRef, { ...data, updatedAt: Timestamp.now() }, { merge: true });
       await triggerRefresh('withdrawal-provider-config');
+      await triggerRefresh('global-cache');
       toast({ title: "Success", description: "Provider withdrawal settings saved." });
     } catch (error) {
       toast({ title: "Error", description: "Could not save withdrawal settings.", variant: "destructive" });

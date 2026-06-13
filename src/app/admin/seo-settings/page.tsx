@@ -9,6 +9,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Target, Globe, FileText, Type, Pilcrow, BarChart, Save, Loader2, Settings2, Map, Layers, RefreshCw, Sparkles, MessageSquareQuote, Building, MapPin } from "lucide-react";
 import { useToast } from '@/hooks/use-toast';
+import PermissionGuard from '@/components/admin/PermissionGuard';
 import { db } from '@/lib/firebase';
 import { doc, getDoc, setDoc, Timestamp } from "firebase/firestore";
 import type { FirestoreSEOSettings, StructuredDataSocialProfiles } from '@/types/firestore';
@@ -404,32 +405,36 @@ export default function SEOSettingsPage() {
           </Tabs>
 
           <CardFooter className="flex flex-col sm:flex-row justify-between items-center gap-4 border-t pt-6 mt-6">
-            <AlertDialog>
-              <AlertDialogTrigger asChild>
-                <Button variant="destructive" disabled={isSaving}>
-                  <RefreshCw className="mr-2 h-4 w-4" /> Reset All to Default
-                </Button>
-              </AlertDialogTrigger>
-              <AlertDialogContent>
-                <AlertDialogHeader>
-                  <AlertDialogTitle>Are you sure?</AlertDialogTitle>
-                  <AlertDialogDescription>
-                    This will reset ALL global SEO settings, patterns, and structured data to their original defaults. This action cannot be undone.
-                  </AlertDialogDescription>
-                </AlertDialogHeader>
-                <AlertDialogFooter>
-                  <AlertDialogCancel disabled={isSaving}>Cancel</AlertDialogCancel>
-                  <AlertDialogAction onClick={handleResetToDefault} disabled={isSaving} className="bg-destructive hover:bg-destructive/90">
-                    {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                    Yes, Reset All
-                  </AlertDialogAction>
-                </AlertDialogFooter>
-              </AlertDialogContent>
-            </AlertDialog>
-            <Button type="submit" disabled={isSaving} size="lg">
-              {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
-              Save All SEO Settings
-            </Button>
+            <PermissionGuard moduleId="seo_settings" action="write">
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <Button variant="destructive" disabled={isSaving}>
+                    <RefreshCw className="mr-2 h-4 w-4" /> Reset All to Default
+                  </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      This will reset ALL global SEO settings, patterns, and structured data to their original defaults. This action cannot be undone.
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel disabled={isSaving}>Cancel</AlertDialogCancel>
+                    <AlertDialogAction onClick={handleResetToDefault} disabled={isSaving} className="bg-destructive hover:bg-destructive/90">
+                      {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                      Yes, Reset All
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
+            </PermissionGuard>
+            <PermissionGuard moduleId="seo_settings" action="write">
+              <Button type="submit" disabled={isSaving} size="lg">
+                {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
+                Save All SEO Settings
+              </Button>
+            </PermissionGuard>
           </CardFooter>
         </form>
       </Form>

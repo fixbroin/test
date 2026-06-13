@@ -12,15 +12,19 @@ import AreaForm from '@/components/admin/AreaForm';
 import { db } from '@/lib/firebase';
 import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc, getDoc, orderBy, query, Timestamp, where, limit } from "firebase/firestore";
 import { useToast } from "@/hooks/use-toast";
+import PermissionGuard from '@/components/admin/PermissionGuard';
 import { triggerRefresh } from '@/lib/revalidateUtils';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Skeleton } from '@/components/ui/skeleton';
+import { useAuth } from '@/hooks/useAuth';
+import { hasActionPermission } from '@/config/rbac';
 
 const generateSlug = (name: string) => {
   return name.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
 };
 
 export default function AdminAreasPage() {
+  const { adminPermissions } = useAuth();
   const [areas, setAreas] = useState<FirestoreArea[]>([]);
   const [cities, setCities] = useState<FirestoreCity[]>([]);
   const [isFormOpen, setIsFormOpen] = useState(false);
@@ -197,33 +201,37 @@ export default function AdminAreasPage() {
                     </TableCell>
                     <TableCell>
                       <div className="flex flex-col items-end gap-2 sm:flex-row sm:items-center sm:gap-2 sm:justify-end">
-                        <Button variant="outline" size="icon" onClick={() => handleEditArea(area)} disabled={isSubmitting}>
-                          <Edit className="h-4 w-4" /> <span className="sr-only">Edit</span>
-                        </Button>
-                        <AlertDialog>
-                          <AlertDialogTrigger asChild>
-                            <Button variant="destructive" size="icon" disabled={isSubmitting}>
-                              <Trash2 className="h-4 w-4" /> <span className="sr-only">Delete</span>
-                            </Button>
-                          </AlertDialogTrigger>
-                          <AlertDialogContent>
-                            <AlertDialogHeader>
-                              <AlertDialogTitle>Are you sure?</AlertDialogTitle>
-                              <AlertDialogDescription>
-                                This will permanently delete the area "{area.name}". Services under this area might be affected.
-                              </AlertDialogDescription>
-                            </AlertDialogHeader>
-                            <AlertDialogFooter>
-                              <AlertDialogCancel disabled={isSubmitting}>Cancel</AlertDialogCancel>
-                              <AlertDialogAction
-                                onClick={() => handleDeleteArea(area.id)}
-                                disabled={isSubmitting}
-                                className="bg-destructive hover:bg-destructive/90">
-                                {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null} Delete
-                              </AlertDialogAction>
-                            </AlertDialogFooter>
-                          </AlertDialogContent>
-                        </AlertDialog>
+                        <PermissionGuard moduleId="areas" action="write">
+                          <Button variant="outline" size="icon" onClick={() => handleEditArea(area)} disabled={isSubmitting}>
+                            <Edit className="h-4 w-4" /> <span className="sr-only">Edit</span>
+                          </Button>
+                        </PermissionGuard>
+                        <PermissionGuard moduleId="areas" action="delete">
+                          <AlertDialog>
+                            <AlertDialogTrigger asChild>
+                              <Button variant="destructive" size="icon" disabled={isSubmitting}>
+                                <Trash2 className="h-4 w-4" /> <span className="sr-only">Delete</span>
+                              </Button>
+                            </AlertDialogTrigger>
+                            <AlertDialogContent>
+                              <AlertDialogHeader>
+                                <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+                                <AlertDialogDescription>
+                                  This will permanently delete the area "{area.name}". Services under this area might be affected.
+                                </AlertDialogDescription>
+                              </AlertDialogHeader>
+                              <AlertDialogFooter>
+                                <AlertDialogCancel disabled={isSubmitting}>Cancel</AlertDialogCancel>
+                                <AlertDialogAction
+                                  onClick={() => handleDeleteArea(area.id)}
+                                  disabled={isSubmitting}
+                                  className="bg-destructive hover:bg-destructive/90">
+                                  {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null} Delete
+                                </AlertDialogAction>
+                              </AlertDialogFooter>
+                            </AlertDialogContent>
+                          </AlertDialog>
+                        </PermissionGuard>
                       </div>
                     </TableCell>
                   </TableRow>

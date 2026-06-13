@@ -16,6 +16,7 @@ import type { AdditionalDocumentTypeOption } from '@/types/firestore';
 import { db } from '@/lib/firebase';
 import { doc, getDoc, setDoc, Timestamp } from "firebase/firestore";
 import { useToast } from "@/hooks/use-toast";
+import { triggerRefresh } from '@/lib/revalidateUtils';
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import * as z from "zod";
@@ -105,6 +106,7 @@ export default function AdditionalDocTypeManager() {
       const currentOptions = options.filter(opt => opt.id !== optionId);
       const docRef = doc(db, COLLECTION_NAME, DOCUMENT_ID);
       await setDoc(docRef, { [ARRAY_FIELD_NAME]: currentOptions, updatedAt: Timestamp.now() }, { merge: true });
+      await triggerRefresh('global-cache');
       setOptions(currentOptions.sort((a,b) => a.order - b.order));
       toast({ title: "Success", description: "Document type deleted." });
     } catch (error) {
@@ -144,6 +146,7 @@ export default function AdditionalDocTypeManager() {
     try {
       const docRef = doc(db, COLLECTION_NAME, DOCUMENT_ID);
       await setDoc(docRef, { [ARRAY_FIELD_NAME]: updatedOptionsArray, updatedAt: Timestamp.now() }, { merge: true });
+      await triggerRefresh('global-cache');
       setOptions(updatedOptionsArray.sort((a,b) => a.order - b.order));
       toast({ title: "Success", description: `Document type ${editingOption ? 'updated' : 'added'}.` });
       setIsFormOpen(false);

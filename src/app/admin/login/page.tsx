@@ -13,7 +13,6 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '
 import Logo from '@/components/shared/Logo';
 import { Mail, KeyRound, Loader2 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
-import { ADMIN_EMAIL } from '@/contexts/AuthContext'; // Correct import for ADMIN_EMAIL
 import type { LogInData } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 
@@ -26,58 +25,45 @@ type LoginFormValues = z.infer<typeof loginSchema>;
 
 export default function AdminLoginPage() {
   const router = useRouter();
-  const { user, logIn, isLoading } = useAuth();
+  const { user, adminPermissions, isAdminLoading, logIn, isLoading } = useAuth();
   const { toast } = useToast();
 
   const form = useForm<LoginFormValues>({
     resolver: zodResolver(loginSchema),
     defaultValues: {
-      email: "", // Changed from ADMIN_EMAIL to empty string
+      email: "",
       password: "",
     },
   });
 
   useEffect(() => {
-    if (user) {
-      if (user.email === ADMIN_EMAIL) {
+    if (user && !isAdminLoading) {
+      if (adminPermissions) {
         router.push('/admin'); 
       } else {
-        toast({ title: "Access Denied", description: "You are not authorized to access the admin login.", variant: "destructive"});
+        toast({ title: "Access Denied", description: "You are not authorized to access the admin panel.", variant: "destructive"});
         router.push('/');
       }
     }
-  }, [user, router, toast]);
+  }, [user, adminPermissions, isAdminLoading, router, toast]);
 
   const onSubmit = async (data: LoginFormValues) => {
-    if (data.email.toLowerCase() !== ADMIN_EMAIL.toLowerCase()) {
-        form.setError("email", { type: "manual", message: "This login is for admin use only."});
-        toast({ title: "Access Denied", description: "Invalid email for admin login.", variant: "destructive" });
-        return;
-    }
     try {
       await logIn(data as LogInData);
-      // router.push('/admin'); // Redirection is handled within logIn or useEffect
+      // Redirection is handled within logIn or useEffect
     } catch (error) {
       console.error("Admin login page error:", error);
       // Error is handled by toast in AuthContext
     }
   };
 
-  if (user && user.email === ADMIN_EMAIL) {
+  if (user && isAdminLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-secondary/30 p-4">
          <Loader2 className="h-12 w-12 animate-spin text-primary" />
       </div>
     );
   }
-   if (user && user.email !== ADMIN_EMAIL) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-secondary/30 p-4 text-center">
-        <p>Redirecting...</p>
-      </div>
-    );
-  }
-
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-secondary/30 p-4">
@@ -85,7 +71,7 @@ export default function AdminLoginPage() {
         <CardHeader className="text-center">
           <Logo className="mx-auto mb-4" size="large" />
           <CardTitle className="text-2xl font-headline">Admin Panel Login</CardTitle>
-          <CardDescription>Restricted access for administrators.</CardDescription>
+          <CardDescription>Restricted access for staff and administrators.</CardDescription>
         </CardHeader>
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)}>
@@ -95,10 +81,9 @@ export default function AdminLoginPage() {
                 name="email"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel htmlFor="email" className="flex items-center"><Mail className="mr-2 h-4 w-4 text-muted-foreground" />Admin Email</FormLabel>
+                    <FormLabel htmlFor="email" className="flex items-center"><Mail className="mr-2 h-4 w-4 text-muted-foreground" />Staff Email</FormLabel>
                     <FormControl>
-                      {/* Removed readOnly and disabled, default value is now empty */}
-                      <Input id="email" type="email" placeholder="Enter admin email" {...field} />
+                      <Input id="email" type="email" placeholder="Enter staff email" {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>

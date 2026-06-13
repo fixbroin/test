@@ -62,7 +62,7 @@ const promoCodeFormSchema = promoCodeFormSchemaBase.refine(data => {
 export type PromoCodeFormData = z.infer<typeof promoCodeFormSchema>;
 
 interface PromoCodeFormProps {
-  onSubmit: (data: PromoCodeFormData & { id?: string }) => Promise<void>;
+  onSubmit: (data: PromoCodeFormData & { id?: string; minBookingAmount?: number | null }) => Promise<void>;
   initialData?: FirestorePromoCode | null;
   onCancel: () => void;
   isSubmitting?: boolean;
