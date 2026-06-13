@@ -64,6 +64,11 @@ service cloud.firestore {
     match /chats/{chatId} {
       allow read, update: if isAdmin() || (isAuthenticated() && request.auth.uid in resource.data.participants);
       allow create: if isAuthenticated();
+      
+      match /messages/{messageId} {
+        allow read, write: if isAdmin() || (isAuthenticated() && request.auth.uid in get(/databases/$(database)/documents/chats/$(chatId)).data.participants);
+      }
+      
       match /{allSubcollections=**} {
         allow read, write: if isAdmin() || (isAuthenticated() && request.auth.uid in get(/databases/$(database)/documents/chats/$(chatId)).data.participants);
       }

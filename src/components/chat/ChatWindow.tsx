@@ -185,9 +185,6 @@ export default function ChatWindow({ onClose }: ChatWindowProps) {
     setNewMessage('');
     
     try {
-      const messagesRef = collection(db, 'chats', chatSessionId, 'messages');
-      await addDoc(messagesRef, messageData);
-
       const sessionDocRef = doc(db, 'chats', chatSessionId);
       const sessionSnap = await getDoc(sessionDocRef);
       const currentSessionData = sessionSnap.exists() ? sessionSnap.data() as ChatSession : undefined;
@@ -195,6 +192,7 @@ export default function ChatWindow({ onClose }: ChatWindowProps) {
       
       const isGlobalAiEnabled = globalSettings?.isAiChatBotEnabled ?? false;
 
+      // 1. Create/Update the Session Document FIRST so rules can find the participants
       await setDoc(sessionDocRef, {
         userId: currentUser.uid,
         userName: currentUser.displayName || null,
@@ -211,6 +209,10 @@ export default function ChatWindow({ onClose }: ChatWindowProps) {
         updatedAt: messageData.timestamp,
         ...(currentSessionData ? {} : { createdAt: messageData.timestamp })
       }, { merge: true });
+
+      // 2. Now add the message to the subcollection
+      const messagesRef = collection(db, 'chats', chatSessionId, 'messages');
+      await addDoc(messagesRef, messageData);
       
       if (adminProfile.uid && adminProfile.uid !== 'fallback_admin_uid' && adminProfile.uid !== 'admin_master_id') {
         const adminNotificationData: FirestoreNotification = {

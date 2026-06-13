@@ -9,18 +9,8 @@
 
 import { ai } from '@/ai/genkit';
 import { z } from 'genkit';
-import { db } from '@/lib/firebase';
+import { adminDb } from '@/lib/firebaseAdmin';
 import { getBaseUrl } from '@/lib/config';
-import {
-  doc,
-  getDoc,
-  collection,
-  getDocs,
-  query,
-  where,
-  limit,
-  orderBy,
-} from 'firebase/firestore';
 import type {
   FirestoreUser,
   FirestoreBooking,
@@ -164,12 +154,12 @@ function findCategoryIntent(message: string, categories: FirestoreCategory[]): F
 }
 
 /* -------------------------
-   Firestore Fetchers
+   Firestore Fetchers (Using adminDb)
    ------------------------- */
 async function getLocations(): Promise<LocationData> {
     const baseUrl = getBaseUrl().replace(/\/$/, '');
-    const citiesSnap = await getDocs(query(collection(db, 'cities'), where('isActive', '==', true)));
-    const areasSnap = await getDocs(query(collection(db, 'areas'), where('isActive', '==', true)));
+    const citiesSnap = await adminDb.collection('cities').where('isActive', '==', true).get();
+    const areasSnap = await adminDb.collection('areas').where('isActive', '==', true).get();
 
     const cities = citiesSnap.docs.map(d => {
         const data = d.data() as FirestoreCity;
@@ -192,9 +182,9 @@ async function getFullData(): Promise<{
   const baseUrl = getBaseUrl().replace(/\/$/, '');
 
   const [cats, subs, servs] = await Promise.all([
-    getDocs(query(collection(db, 'adminCategories'), where('isActive', '!=', false))),
-    getDocs(query(collection(db, 'adminSubCategories'), where('isActive', '!=', false))),
-    getDocs(query(collection(db, 'adminServices'), where('isActive', '==', true)))
+    adminDb.collection('adminCategories').where('isActive', '!=', false).get(),
+    adminDb.collection('adminSubCategories').where('isActive', '!=', false).get(),
+    adminDb.collection('adminServices').where('isActive', '==', true).get()
   ]);
 
   const categoriesArr = cats.docs.map(d => ({ id: d.id, ...d.data() } as FirestoreCategory));
@@ -226,15 +216,14 @@ async function getWebsiteContent(): Promise<string> {
     const contentParts: string[] = [];
     
     for (const slug of pages) {
-        const q = query(collection(db, 'contentPages'), where('slug', '==', slug), limit(1));
-        const snap = await getDocs(q);
+        const snap = await adminDb.collection('contentPages').where('slug', '==', slug).limit(1).get();
         if (!snap.empty) {
             const data = snap.docs[0].data() as ContentPage;
             contentParts.push(`${data.title}: ${data.content.substring(0, 500)}...`);
         }
     }
 
-    const faqSnap = await getDocs(query(collection(db, 'adminFAQs'), where('isActive', '==', true), limit(5)));
+    const faqSnap = await adminDb.collection('adminFAQs').where('isActive', '==', true).limit(5).get();
     if (!faqSnap.empty) {
         contentParts.push("\nCommon FAQs:\n" + faqSnap.docs.map(d => {
             const f = d.data() as FirestoreFAQ;
@@ -252,32 +241,35 @@ async function getUserAndBookings(userId?: string): Promise<{ name: string; emai
   let adminId: string | null = null;
   const bookings: FirestoreBooking[] = [];
 
-  const userSnap = await getDoc(doc(db, 'users', userId));
-  if (userSnap.exists()) {
+  const userSnap = await adminDb.collection('users').doc(userId).get();
+  if (userSnap.exists) {
     const u = userSnap.data() as Partial<FirestoreUser>;
     name = (u.displayName || (u as any).fullName || 'Valued Customer') as string;
     email = u.email || '';
   }
 
-  const bookingSnap = await getDocs(query(collection(db, 'bookings'), where('userId', '==', userId), orderBy('createdAt', 'desc'), limit(5)));
+  const bookingSnap = await adminDb.collection('bookings')
+    .where('userId', '==', userId)
+    .orderBy('createdAt', 'desc')
+    .limit(5)
+    .get();
+
   bookingSnap.forEach((bDoc) => {
     bookings.push({ id: bDoc.id, ...bDoc.data() } as FirestoreBooking);
   });
   
   // Find the primary admin UID for chat session lookup
-  const adminQuery = query(collection(db, "users"), where("email", "==", "fixbro.in@gmail.com"), limit(1));
-  const adminSnapshot = await getDocs(adminQuery);
-  if (!adminSnapshot.empty) {
-    adminId = adminSnapshot.docs[0].id;
+  const adminQuery = await adminDb.collection("users").where("email", "==", "fixbro.in@gmail.com").limit(1).get();
+  if (!adminQuery.empty) {
+    adminId = adminQuery.docs[0].id;
   }
 
   return { name, email, bookings, adminId };
 }
 
 async function getAppConfig(): Promise<AppSettings | null> {
-    const docRef = doc(db, 'webSettings', 'applicationConfig');
-    const docSnap = await getDoc(docRef);
-    return docSnap.exists() ? docSnap.data() as AppSettings : null;
+    const docSnap = await adminDb.collection('webSettings').doc('applicationConfig').get();
+    return docSnap.exists ? docSnap.data() as AppSettings : null;
 }
 
 /* -------------------------
@@ -368,8 +360,8 @@ const chatAgentFlow = ai.defineFlow(
     // Check if AI Agent should be silent (Admin takeover)
     if (userId && adminId) {
         const sessionId = [userId, adminId].sort().join('_');
-        const sessionSnap = await getDoc(doc(db, 'chats', sessionId));
-        if (sessionSnap.exists()) {
+        const sessionSnap = await adminDb.collection('chats').doc(sessionId).get();
+        if (sessionSnap.exists) {
             const sessionData = sessionSnap.data() as ChatSession;
             if (sessionData.aiAgentActive === false) {
                 console.log(`AI Agent is silent for session ${sessionId} due to admin takeover.`);
@@ -529,3 +521,4 @@ const chatAgentFlow = ai.defineFlow(
 );
 
 export { chatAgentFlow };
+
