@@ -261,7 +261,7 @@ export const getArchivedActivities = unstable_cache(
     }
   },
   ['archived-activities'],
-  { revalidate: false, tags: ['global-cache'] }
+  { revalidate: false, tags: ['activities', 'global-cache'] }
 );
 
 export interface PromoCodeUsageRecord {

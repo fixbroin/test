@@ -78,6 +78,7 @@ service cloud.firestore {
     match /userActivities/{id} { allow create: if true; allow read, write: if isAdmin(); }
     match /visitorInfoLogs/{id} { allow create: if true; allow read, write: if isAdmin(); }
     match /searchHotspots/{id} { allow create: if true; allow read, write: if isAdmin(); }
+    match /searchAnalytics/{id} { allow create: if true; allow read, write: if isAdmin(); }
     match /popupSubmissions/{id} { allow create: if true; allow read, write: if isAdmin(); }
     match /contactUsSubmissions/{id} { allow create: if true; allow read, write: if isAdmin(); }
     match /emailLogs/{id} { allow read, write: if isAdmin(); }

@@ -234,7 +234,10 @@ export default function AdminActivityFeedPage() {
       }
       
       // SmartSync: Clear the server-side cache
-      await triggerRefresh('users');
+      await triggerRefresh('activities');
+      await triggerRefresh('global-cache');
+      
+      // Clear local state immediately
       
       setLiveActivities([]);
       setCachedActivities([]);
