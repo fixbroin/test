@@ -15,7 +15,7 @@ import { doc, getDoc, collection, query, where, getDocs } from "firebase/firesto
 import type { FirestoreService, AppliedPlatformFeeItem } from '@/types/firestore';
 import { getActiveCheckoutEntries, type CartEntry } from '@/lib/cartManager';
 import TaxBreakdownDisplay from '@/components/shared/TaxBreakdownDisplay';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Alert, AlertDescription } from "@/components/ui/alert";
 
 declare global {
@@ -379,7 +379,12 @@ export default function PaymentSummary({ paymentMethod, canBook, appliedPromo, o
 
       <Dialog open={isTaxBreakdownOpen} onOpenChange={setIsTaxBreakdownOpen}>
         <DialogContent>
-          <DialogHeader><DialogTitle>Tax Breakdown</DialogTitle></DialogHeader>
+          <DialogHeader>
+            <DialogTitle>Tax Breakdown</DialogTitle>
+            <DialogDescription>
+              A detailed view of the taxes applied to your items and platform fees.
+            </DialogDescription>
+          </DialogHeader>
           <TaxBreakdownDisplay 
             items={taxBreakdownItems}
             visitingCharge={visitingChargeBreakdown}

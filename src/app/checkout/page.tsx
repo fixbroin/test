@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardFooter, CardDescription } from '@/components/ui/card';
 import { CalendarDays, MapPin, CreditCard, ChevronRight, Loader2, Info, CheckCircle2, Clock, AlertTriangle } from 'lucide-react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
 import { useLoading } from '@/contexts/LoadingContext';
 import { useApplicationConfig } from '@/hooks/useApplicationConfig';
@@ -140,12 +140,12 @@ export default function CheckoutPage() {
   ];
 
   return (
-    <div className="max-w-4xl mx-auto px-2 pb-20">
+    <div className="max-w-6xl mx-auto px-2 pb-20">
       <Breadcrumbs items={breadcrumbItems} className="mb-6" />
       <CheckoutStepper currentStepId="checkout" /> {/* We show checkout as the active step */}
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        <div className="lg:col-span-2 space-y-6">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+        <div className="lg:col-span-8 space-y-6">
           {/* Schedule Section */}
           <Card className="overflow-hidden border-none shadow-md">
             <CardHeader className="bg-muted/30 py-4 flex flex-row items-center justify-between">
@@ -235,7 +235,7 @@ export default function CheckoutPage() {
         </div>
 
         {/* Order Summary Column */}
-        <div className="lg:col-span-1">
+        <div className="lg:col-span-4">
           <div className="sticky top-6">
             <PaymentSummary 
               paymentMethod={paymentMethod}
@@ -252,6 +252,9 @@ export default function CheckoutPage() {
         <DialogContent className="max-w-4xl w-[95vw] overflow-y-auto max-h-[90vh]">
           <DialogHeader>
             <DialogTitle>Select Date & Time</DialogTitle>
+            <DialogDescription>
+              Choose a convenient date and time slot for your service.
+            </DialogDescription>
           </DialogHeader>
           <ScheduleSelection 
             onSelect={handleScheduleSelect}
@@ -266,6 +269,9 @@ export default function CheckoutPage() {
         <DialogContent className="max-w-2xl w-[95vw] overflow-y-auto max-h-[90vh]">
           <DialogHeader>
             <DialogTitle>Select Service Address</DialogTitle>
+            <DialogDescription>
+              Provide the location where the service should be performed.
+            </DialogDescription>
           </DialogHeader>
           <AddressSelection 
             onSelect={handleAddressSelect}

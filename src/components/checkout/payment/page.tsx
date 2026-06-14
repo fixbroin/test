@@ -531,7 +531,7 @@ export default function PaymentPage() {
      return (
       <div className="max-w-2xl mx-auto">
         <Breadcrumbs items={breadcrumbItems} className="mb-4 sm:mb-6" />
-        {!isCancellationFeeMode && <CheckoutStepper currentStepId="payment" />}
+        {!isCancellationFeeMode && <CheckoutStepper currentStepId="checkout" />}
         <Card className="shadow-lg">
           <CardHeader><CardTitle className="text-2xl font-headline text-center">Complete Your Booking</CardTitle><CardDescription className="text-center">Loading payment details...</CardDescription></CardHeader>
           <CardContent className="space-y-6 flex justify-center items-center min-h-[300px]"><Loader2 className="h-12 w-12 animate-spin text-primary" /></CardContent>
@@ -553,7 +553,7 @@ export default function PaymentPage() {
   return (
     <div className="max-w-2xl mx-auto">
       <Breadcrumbs items={breadcrumbItems} className="mb-4 sm:mb-6" />
-      {!isCancellationFeeMode && <CheckoutStepper currentStepId="payment" />}
+      {!isCancellationFeeMode && <CheckoutStepper currentStepId="checkout" />}
       <Card className="shadow-lg">
         <CardHeader>
             <CardTitle className="text-2xl font-headline text-center">

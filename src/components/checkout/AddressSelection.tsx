@@ -274,7 +274,7 @@ export default function AddressSelection({ onSelect, initialAddressId }: Address
       </div>
 
       <Dialog open={isFormOpen} onOpenChange={setIsFormOpen}>
-        <DialogContent className="max-w-3xl w-[95vw] sm:w-[90vw] max-h-[90vh] p-0 flex flex-col">
+        <DialogContent className="max-w-3xl w-[95vw] sm:w-[90vw] max-h-[90vh] p-0 flex flex-col" aria-describedby={undefined}>
           <DialogHeader className="p-6 border-b"><DialogTitle>Confirm Address Details</DialogTitle></DialogHeader>
           <div className="flex-grow overflow-y-auto p-6">
             <AddressForm
@@ -290,7 +290,7 @@ export default function AddressSelection({ onSelect, initialAddressId }: Address
       </Dialog>
 
       <Dialog open={isMapModalOpen} onOpenChange={setIsMapModalOpen}>
-        <DialogContent className="max-w-3xl w-[95vw] sm:w-[90vw] h-[80vh] p-0 flex flex-col">
+        <DialogContent className="max-w-3xl w-[95vw] sm:w-[90vw] h-[80vh] p-0 flex flex-col" aria-describedby={undefined}>
           <DialogHeader className="p-4 border-b">
             <DialogTitle>Select Service Location</DialogTitle>
             <DialogDescription>{isLocating ? "Getting location..." : "Select location on map."}</DialogDescription>

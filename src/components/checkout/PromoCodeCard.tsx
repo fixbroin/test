@@ -13,7 +13,7 @@ import { collection, query, where, getDocs } from "firebase/firestore";
 import type { FirestorePromoCode } from '@/types/firestore';
 import { Badge } from '@/components/ui/badge';
 import { getTimestampMillis } from '@/lib/utils';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from '@/components/ui/dialog';
 
 interface AppliedPromoCodeInfo {
   id: string;
@@ -172,6 +172,9 @@ export default function PromoCodeCard({ sumOfItemPrices, onApply, appliedPromo }
               <Gift className="h-5 w-5 text-primary" />
               Apply Coupon
             </DialogTitle>
+            <DialogDescription>
+              Enter a promo code or select from available offers to get a discount.
+            </DialogDescription>
           </DialogHeader>
           
           <div className="p-6 space-y-6 flex-grow overflow-y-auto">
