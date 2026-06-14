@@ -2,7 +2,7 @@
 "use client";
 
 import Link from "next/link";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { BellRing, BellOff, CheckCircle2, Info, AlertTriangle, Tag, Loader2, History, Trash2 as TrashIcon } from "lucide-react";
@@ -15,6 +15,8 @@ import { formatDistanceToNow } from 'date-fns';
 import { useLoading } from "@/contexts/LoadingContext";
 import { ADMIN_EMAIL } from "@/contexts/AuthContext";
 import { getTimestampMillis } from '@/lib/utils';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Separator } from "@/components/ui/separator";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -161,13 +163,86 @@ export default function AdminNotificationsPage() {
         await batch.commit();
       }
 
-      toast({ title: "Notifications Cleared", description: "All admin notifications have been cleared." });
+      toast({ title: "Notifications Cleared", description: "All notifications have been cleared." });
     } catch (error) {
       console.error("Error clearing admin notifications: ", error);
-      toast({ title: "Error Clearing", description: (error as Error).message || "Could not clear admin notifications.", variant: "destructive" });
+      toast({ title: "Error Clearing", description: (error as Error).message || "Could not clear notifications.", variant: "destructive" });
     } finally {
       setIsClearing(false);
     }
+  };
+
+  const { adminAlerts, userAlerts } = useMemo(() => {
+    const adminTypes: FirestoreNotification['type'][] = ['admin_alert', 'booking_update', 'provider_app_status', 'error', 'warning'];
+    const admin = notifications.filter(n => adminTypes.includes(n.type));
+    const users = notifications.filter(n => !adminTypes.includes(n.type));
+    return { adminAlerts: admin, userAlerts: users };
+  }, [notifications]);
+
+  const unreadAdminCount = adminAlerts.filter(n => !n.read).length;
+  const unreadUserCount = userAlerts.filter(n => !n.read).length;
+
+  const renderNotificationList = (items: FirestoreNotification[], emptyMessage: string) => {
+    if (items.length === 0) {
+      return (
+        <div className="text-center py-12">
+          <BellOff className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
+          <p className="text-muted-foreground text-sm">{emptyMessage}</p>
+        </div>
+      );
+    }
+
+    return (
+      <div className="space-y-3">
+        {items.map((notification) => (
+          <Card
+            key={notification.id}
+            className={`shadow-sm transition-all hover:shadow-md ${!notification.read ? "border-primary/50 border-l-4" : "border"}`}
+            onClick={() => !notification.read && notification.id && handleMarkAsRead(notification.id)}
+          >
+            <CardContent className="p-3 flex items-start space-x-3">
+              <div className="pt-1">
+                <NotificationIcon type={notification.type} />
+              </div>
+              <div className="flex-grow">
+                <div className="flex items-center gap-2 mb-1">
+                  {notification.href ? (
+                    <Link href={notification.href} className="hover:underline" onClick={(e) => {
+                        e.stopPropagation(); 
+                        showLoading();
+                         if (!notification.read && notification.id) handleMarkAsRead(notification.id);
+                    }}>
+                        <h3 className={`text-sm font-semibold ${!notification.read ? "text-primary" : ""}`}>
+                          {notification.title}
+                        </h3>
+                    </Link>
+                  ) : (
+                    <h3 className={`text-sm font-semibold ${!notification.read ? "text-primary" : ""}`}>
+                      {notification.title}
+                    </h3>
+                  )}
+                  {isSuperAdmin && notification.userId !== user?.uid && (
+                    <span className="text-[8px] font-black uppercase tracking-tighter bg-muted text-muted-foreground px-1.5 py-0.5 rounded">
+                      ID: {notification.userId.slice(0, 6)}
+                    </span>
+                  )}
+                </div>
+                <p className="text-xs text-muted-foreground mt-0.5">{notification.message}</p>
+                <p className="text-[10px] text-muted-foreground mt-1.5">
+                  {(() => {
+                      const millis = getTimestampMillis(notification.createdAt);
+                      return millis ? formatDistanceToNow(new Date(millis), { addSuffix: true }) : 'just now';
+                  })()}
+                </p>
+              </div>
+              {!notification.read && (
+                  <div className="h-2.5 w-2.5 bg-primary rounded-full shrink-0 mt-1.5" aria-label="Unread"></div>
+              )}
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+    );
   };
 
   const unreadCount = notifications.filter(n => !n.read).length;
@@ -238,59 +313,42 @@ export default function AdminNotificationsPage() {
           {notifications.length === 0 && !isLoadingNotifications ? (
             <div className="text-center py-12">
               <BellOff className="mx-auto h-16 w-16 text-muted-foreground mb-4" />
-              <h2 className="text-xl font-semibold mb-2">No Admin Notifications</h2>
+              <h2 className="text-xl font-semibold mb-2">No Notifications</h2>
               <p className="text-muted-foreground text-sm">You're all caught up!</p>
             </div>
+          ) : isSuperAdmin ? (
+            <Tabs defaultValue="admin" className="w-full">
+                <TabsList className="grid w-full grid-cols-3 mb-6">
+                    <TabsTrigger value="admin" className="relative">
+                        Admin Alerts
+                        {unreadAdminCount > 0 && (
+                            <span className="absolute -top-1 -right-1 bg-primary text-[10px] text-white rounded-full h-4 min-w-4 flex items-center justify-center px-1 border-2 border-background shadow-sm">
+                                {unreadAdminCount}
+                            </span>
+                        )}
+                    </TabsTrigger>
+                    <TabsTrigger value="user" className="relative">
+                        User Feed
+                        {unreadUserCount > 0 && (
+                            <span className="absolute -top-1 -right-1 bg-muted-foreground text-[10px] text-white rounded-full h-4 min-w-4 flex items-center justify-center px-1 border-2 border-background shadow-sm">
+                                {unreadUserCount}
+                            </span>
+                        )}
+                    </TabsTrigger>
+                    <TabsTrigger value="all">All</TabsTrigger>
+                </TabsList>
+                <TabsContent value="admin" className="mt-0">
+                    {renderNotificationList(adminAlerts, "No critical system alerts found.")}
+                </TabsContent>
+                <TabsContent value="user" className="mt-0">
+                    {renderNotificationList(userAlerts, "No customer activity found.")}
+                </TabsContent>
+                <TabsContent value="all" className="mt-0">
+                    {renderNotificationList(notifications, "No notifications found.")}
+                </TabsContent>
+            </Tabs>
           ) : (
-            <div className="space-y-3">
-              {notifications.map((notification) => (
-                <Card
-                  key={notification.id}
-                  className={`shadow-sm transition-all hover:shadow-md ${!notification.read ? "border-primary/50 border-l-4" : "border"}`}
-                  onClick={() => !notification.read && notification.id && handleMarkAsRead(notification.id)}
-                >
-                  <CardContent className="p-3 flex items-start space-x-3">
-                    <div className="pt-1">
-                      <NotificationIcon type={notification.type} />
-                    </div>
-                    <div className="flex-grow">
-                      <div className="flex items-center gap-2 mb-1">
-                        {notification.href ? (
-                          <Link href={notification.href} className="hover:underline" onClick={(e) => {
-                              e.stopPropagation(); 
-                              showLoading();
-                               if (!notification.read && notification.id) handleMarkAsRead(notification.id);
-                          }}>
-                              <h3 className={`text-sm font-semibold ${!notification.read ? "text-primary" : ""}`}>
-                                {notification.title}
-                              </h3>
-                          </Link>
-                        ) : (
-                          <h3 className={`text-sm font-semibold ${!notification.read ? "text-primary" : ""}`}>
-                            {notification.title}
-                          </h3>
-                        )}
-                        {isSuperAdmin && notification.userId !== user?.uid && (
-                          <span className="text-[8px] font-black uppercase tracking-tighter bg-muted text-muted-foreground px-1.5 py-0.5 rounded">
-                            Recipient: {notification.userId.slice(0, 6)}...
-                          </span>
-                        )}
-                      </div>
-                      <p className="text-xs text-muted-foreground mt-0.5">{notification.message}</p>
-                      <p className="text-[10px] text-muted-foreground mt-1.5">
-                        {(() => {
-                            const millis = getTimestampMillis(notification.createdAt);
-                            return millis ? formatDistanceToNow(new Date(millis), { addSuffix: true }) : 'just now';
-                        })()}
-                      </p>
-                    </div>
-                    {!notification.read && (
-                        <div className="h-2.5 w-2.5 bg-primary rounded-full shrink-0 mt-1.5" aria-label="Unread"></div>
-                    )}
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
+            renderNotificationList(notifications, "No personal notifications found.")
           )}
         </CardContent>
     </Card>

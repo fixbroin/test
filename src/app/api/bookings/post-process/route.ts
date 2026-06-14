@@ -326,29 +326,53 @@ export async function POST(request: Request) {
         }));
     }
 
-    // C. Admin Dashboard Notification
-    const adminQuery = await adminDb.collection('users').where('email', '==', ADMIN_EMAIL).limit(1).get();
-    if (!adminQuery.empty) {
-        const adminUid = adminQuery.docs[0].id;
-        let adminTitle = isCompleted ? "Job Completed!" : "Booking Update";
-        let adminMessage = isCompleted 
-            ? `Booking ${booking.bookingId} for ${booking.customerName} is now complete. Total: ₹${booking.totalAmount.toFixed(2)}.`
-            : `ID: ${booking.bookingId} by ${booking.customerName} is ${booking.status}.`;
+    // C. Admin Dashboard Notification (Notify all active admins)
+    try {
+        const adminsSnapshot = await adminDb.collection('admins').where('status', '==', 'active').get();
+        if (!adminsSnapshot.empty) {
+            let adminTitle = "Booking Update";
+            let adminMessage = `ID: ${booking.bookingId} by ${booking.customerName} is ${booking.status}.`;
+            let notificationType: 'info' | 'admin_alert' = 'info';
 
-        if (isRescheduled) {
-            adminTitle = "Booking Rescheduled";
-            adminMessage = `Booking ${booking.bookingId} has been rescheduled to ${booking.scheduledDate} at ${booking.scheduledTimeSlot}.`;
+            if (isCompleted) {
+                adminTitle = "Job Completed!";
+                adminMessage = `Booking ${booking.bookingId} for ${booking.customerName} is now complete. Total: ₹${booking.totalAmount.toFixed(2)}.`;
+            } else if (isCancelled) {
+                adminTitle = "Booking Cancelled";
+                adminMessage = `Booking ${booking.bookingId} by ${booking.customerName} has been cancelled.`;
+                notificationType = 'admin_alert';
+            } else if (isRescheduled) {
+                adminTitle = "Booking Rescheduled";
+                adminMessage = `Booking ${booking.bookingId} has been rescheduled to ${booking.scheduledDate} at ${booking.scheduledTimeSlot}.`;
+            } else if (emailType === 'booking_confirmation') {
+                adminTitle = "New Booking Received!";
+                adminMessage = `A new booking ${booking.bookingId} has been placed by ${booking.customerName}.`;
+                notificationType = 'admin_alert';
+            }
+
+            adminsSnapshot.forEach(adminDoc => {
+                const adminUid = adminDoc.id;
+                tasks.push(adminDb.collection('userNotifications').add({
+                    userId: adminUid,
+                    title: adminTitle,
+                    message: adminMessage,
+                    type: notificationType,
+                    href: `/admin/bookings`,
+                    read: false,
+                    createdAt: Timestamp.now()
+                }));
+
+                // Trigger Push for each admin
+                tasks.push(triggerPush(
+                    adminUid, 
+                    emailType === 'booking_confirmation' ? "New Booking" : adminTitle, 
+                    adminMessage, 
+                    `/admin/bookings`
+                ));
+            });
         }
-
-        tasks.push(adminDb.collection('userNotifications').add({
-            userId: adminUid,
-            title: adminTitle,
-            message: adminMessage,
-            type: isCompleted ? 'info' : (isRescheduled ? 'info' : 'admin_alert'),
-            href: `/admin/bookings`,
-            read: false,
-            createdAt: Timestamp.now()
-        }));
+    } catch (adminNotifyErr) {
+        console.error("Error notifying admins:", adminNotifyErr);
     }
 
     // D. Trigger Actual Push Notifications
@@ -372,16 +396,6 @@ export async function POST(request: Request) {
                 ? `Your service ${booking.bookingId} is now complete.`
                 : `Your booking ${booking.bookingId} is confirmed.`, 
             "/my-bookings"
-        ));
-    }
-
-    if (!adminQuery.empty) {
-        const adminUid = adminQuery.docs[0].id;
-        tasks.push(triggerPush(
-            adminUid, 
-            isCompleted ? "Booking Complete" : "New Booking", 
-            `ID: ${booking.bookingId} for ${booking.customerName} is ${booking.status}.`, 
-            `/admin/bookings`
         ));
     }
 

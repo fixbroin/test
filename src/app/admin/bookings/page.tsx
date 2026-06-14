@@ -95,7 +95,7 @@ const getPaymentBadgeClass = (method: string | undefined, status: string) => {
 const getPaymentLabel = (method: string | undefined, status: string) => {
     const label = method || "Cash";
     if (status !== 'Completed') return label;
-    if (label.toLowerCase().includes('after') || label.toLowerCase().includes('cash')) return "Pay After Paid";
+    if (label.toLowerCase().includes('after') || label.toLowerCase().includes('cash')) return "Service After Paid";
     return `Paid (${label})`;
 };
 

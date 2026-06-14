@@ -208,7 +208,7 @@ export default function BookingDetailsModalContent({ booking }: BookingDetailsMo
                         : "bg-green-50 text-green-700 border-green-200"
                 }>
                     {booking.status === 'Completed' 
-                        ? ((booking.paymentMethod || 'Cash').toLowerCase().includes('after') || (booking.paymentMethod || 'Cash').toLowerCase().includes('cash') ? "Pay After Paid" : `Paid (${booking.paymentMethod})`)
+                        ? ((booking.paymentMethod || 'Cash').toLowerCase().includes('after') || (booking.paymentMethod || 'Cash').toLowerCase().includes('cash') ? "Service After Paid" : `Paid (${booking.paymentMethod})`)
                         : (booking.paymentMethod || "Cash")
                     }
                 </Badge>
