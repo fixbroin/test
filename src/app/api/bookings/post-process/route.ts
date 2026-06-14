@@ -9,6 +9,7 @@ import { getBaseUrl } from '@/lib/config';
 import { generateInvoicePdf } from '@/lib/invoiceGenerator';
 import { triggerRefresh } from '@/lib/revalidateUtils';
 import { getZonedDate } from '@/lib/utils';
+import { getHaversineDistance } from '@/lib/locationUtils';
 
 // Define ADMIN_EMAIL - should match your AuthContext
 const ADMIN_EMAIL = "fixbro.in@gmail.com"; 
@@ -34,7 +35,7 @@ export async function POST(request: Request) {
     const isCancelled = currentStatus === 'Cancelled';
     const isRescheduled = currentStatus === 'Rescheduled';
 
-    // 2. Fetch App Settings for Email/WhatsApp
+    // 2. Fetch App Settings for Email/WhatsApp/Dispatch
     const [appConfigDoc, marketingConfigDoc, seoSettingsDoc] = await Promise.all([
         adminDb.collection('webSettings').doc('applicationConfig').get(),
         adminDb.collection('webSettings').doc('marketingAutomation').get(),
@@ -45,7 +46,82 @@ export async function POST(request: Request) {
     const marketingConfig = marketingConfigDoc.data() as any;
     const seoSettings = seoSettingsDoc.data() as any;
 
-    // --- EXECUTE ALL TASKS IN PARALLEL ON SERVER ---
+    // --- SERVER-SIDE SMART TAGGING & AUTO-DISPATCH ---
+    let updatedBooking = { ...booking };
+    if (!booking.providerId && booking.workCategoryId && booking.latitude && booking.longitude && currentStatus !== 'Cancelled') {
+        try {
+            const providersSnapshot = await adminDb.collection('providerApplications')
+                .where('status', '==', 'approved')
+                .where('workCategoryId', '==', booking.workCategoryId)
+                .get();
+
+            const providersWithDistance = providersSnapshot.docs.map(doc => {
+                const pData = doc.data() as any;
+                let distance = Infinity;
+                if (pData.workAreaCenter && pData.workAreaRadiusKm) {
+                    distance = getHaversineDistance(
+                        booking.latitude,
+                        booking.longitude,
+                        pData.workAreaCenter.latitude,
+                        pData.workAreaCenter.longitude
+                    );
+                }
+                return { id: doc.id, ...pData, distance };
+            }).filter(p => p.distance <= (p.workAreaRadiusKm || 0));
+
+            if (providersWithDistance.length > 0) {
+                // Sort by distance
+                providersWithDistance.sort((a, b) => a.distance - b.distance);
+                const dispatchRadius = appConfig?.autoDispatchRadiusKm || 5;
+
+                let autoAssignedProviderId = null;
+                for (const closestProvider of providersWithDistance) {
+                    if (closestProvider.distance <= dispatchRadius) {
+                        // Check Overlaps
+                        const overlapSnapshot = await adminDb.collection('bookings')
+                            .where('providerId', '==', closestProvider.id)
+                            .where('scheduledDate', '==', booking.scheduledDate)
+                            .where('status', 'in', ['Confirmed', 'AssignedToProvider', 'ProviderAccepted', 'InProgressByProvider'])
+                            .get();
+
+                        const hasOverlap = overlapSnapshot.docs.some(doc => doc.data().scheduledTimeSlot === booking.scheduledTimeSlot);
+                        if (!hasOverlap) {
+                            autoAssignedProviderId = closestProvider.id;
+                            break;
+                        }
+                    } else {
+                        break;
+                    }
+                }
+
+                const updates: any = {
+                    coverageType: 'provider_match',
+                    suggestedProviderIds: providersWithDistance.map(p => p.id),
+                    updatedAt: Timestamp.now()
+                };
+
+                if (autoAssignedProviderId) {
+                    updates.providerId = autoAssignedProviderId;
+                    updates.autoAssigned = true;
+                    updates.status = "AssignedToProvider";
+                    // Update local object for subsequent tasks in this request
+                    updatedBooking.providerId = autoAssignedProviderId;
+                    updatedBooking.status = "AssignedToProvider";
+                }
+
+                await adminDb.collection('bookings').doc(bookingDocId).update(updates);
+            } else {
+                await adminDb.collection('bookings').doc(bookingDocId).update({
+                    coverageType: 'admin_only',
+                    updatedAt: Timestamp.now()
+                });
+            }
+        } catch (dispatchErr) {
+            console.error("Server-side auto-dispatch error:", dispatchErr);
+        }
+    }
+    // --- END SMART TAGGING & AUTO-DISPATCH ---
+
     const tasks: Promise<any>[] = [];
 
     // --- Determine Email Type ---

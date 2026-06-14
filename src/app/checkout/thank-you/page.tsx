@@ -313,72 +313,6 @@ export default function ThankYouPage() {
         // Assign Sequential Booking Number
         const nextBookingNumber = await assignNewBookingNumber();
 
-        if (latitude && longitude && currentCategoryId) {
-          try {
-            const providersQuery = query(
-              collection(db, 'providerApplications'), 
-              where('status', '==', 'approved'),
-              where('workCategoryId', '==', currentCategoryId)
-            );
-            const providersSnapshot = await getDocs(providersQuery);
-            
-            const providersWithDistance = providersSnapshot.docs.map(doc => {
-              const pData = doc.data() as ProviderApplication;
-              let distance = Infinity;
-              if (pData.workAreaCenter && pData.workAreaRadiusKm) {
-                distance = getHaversineDistance(
-                  latitude!,
-                  longitude!,
-                  pData.workAreaCenter.latitude,
-                  pData.workAreaCenter.longitude
-                );
-              }
-              return { id: doc.id, ...pData, distance };
-            }).filter(p => p.distance <= (p.workAreaRadiusKm || 0));
-
-            if (providersWithDistance.length > 0) {
-              coverageType = 'provider_match';
-              suggestedProviderIds = providersWithDistance.map(p => p.id);
-
-              // Sort by distance to find the closest
-              providersWithDistance.sort((a, b) => a.distance - b.distance);
-
-              const dispatchRadius = appConfig.autoDispatchRadiusKm || 5;
-
-              // AUTO-DISPATCH LOGIC: Try to find the closest AVAILABLE provider within configured radius
-              for (const closestProvider of providersWithDistance) {
-                if (closestProvider.distance <= dispatchRadius) {
-                   // Check if this specific provider has any overlapping bookings
-                   const overlapQuery = query(
-                     collection(db, 'bookings'),
-                     where('providerId', '==', closestProvider.id),
-                     where('scheduledDate', '==', scheduledDateStored),
-                     where('status', 'in', ['Confirmed', 'AssignedToProvider', 'ProviderAccepted', 'InProgressByProvider'])
-                   );
-                   const overlapSnapshot = await getDocs(overlapQuery);
-                   
-                   // Basic overlap check
-                   const hasOverlap = overlapSnapshot.docs.some(doc => {
-                      const bData = doc.data() as FirestoreBooking;
-                      return bData.scheduledTimeSlot === scheduledTimeSlot;
-                   });
-
-                   if (!hasOverlap) {
-                     autoAssignedProviderId = closestProvider.id;
-                     bookingStatus = "AssignedToProvider";
-                     break; 
-                   }
-                } else {
-                  break; 
-                }
-              }
-            }
-          } catch (e) {
-            console.error("Error calculating smart tagging & auto-dispatch:", e);
-          }
-        }
-        // --- END SMART TAGGING & AUTO-DISPATCH ---
-
         const newBookingData: Omit<FirestoreBooking, 'id'> = {
           bookingId: newBookingId, 
           bookingNumber: nextBookingNumber,
@@ -396,16 +330,14 @@ export default function ThankYouPage() {
           ...(bookingDiscountAmount !== undefined && { discountAmount: bookingDiscountAmount }),
           ...(storedAppliedPlatformFees.length > 0 && { appliedPlatformFees: storedAppliedPlatformFees }),
           paymentMethod: paymentMethod || "Unknown",
-          status: bookingStatus,
+          status: (paymentMethod === 'later' || paymentMethod === 'Pay After Service') ? "Pending Payment" : "Confirmed",
           ...(razorpayPaymentId && { razorpayPaymentId }),
           ...(razorpayOrderId && { razorpayOrderId }),
           ...(razorpaySignature && { razorpaySignature }),
           createdAt: Timestamp.now(), isReviewedByCustomer: false,
           
-          // Add Smart Tagging & Auto-Dispatch Fields
-          coverageType,
-          suggestedProviderIds,
-          ...(autoAssignedProviderId && { providerId: autoAssignedProviderId, autoAssigned: true }),
+          // Pass category info for server-side auto-dispatch
+          workCategoryId: currentCategoryId || undefined,
         };
 
         const docRef = await addDoc(collection(db, "bookings"), newBookingData);
@@ -414,7 +346,7 @@ export default function ThankYouPage() {
         
         // --- SEND BOOKING NOTIFICATIONS (Push + In-App) ---
         try {
-           // 1. Notify User
+           // Notify User (Safe to do client-side if logged in)
            if (currentUser?.uid) {
               const userNotification: Omit<FirestoreNotification, 'id'> = {
                 userId: currentUser.uid,
@@ -434,28 +366,7 @@ export default function ThankYouPage() {
               }).catch(err => console.error("Error sending user booking push:", err));
            }
 
-           // 2. Notify Admin
-           const adminQuery = query(collection(db, "users"), where("email", "==", ADMIN_EMAIL), limit(1));
-           const adminSnapshot = await getDocs(adminQuery);
-           if (!adminSnapshot.empty) {
-              const adminId = adminSnapshot.docs[0].id;
-              const adminNotification: Omit<FirestoreNotification, 'id'> = {
-                userId: adminId,
-                title: "New Booking Received!",
-                message: `A new booking ${newBookingId} has been placed by ${customerName}.`,
-                type: 'info',
-                href: `/admin/bookings`,
-                read: false,
-                createdAt: Timestamp.now(),
-              };
-              await addDoc(collection(db, "userNotifications"), adminNotification);
-              triggerPushNotification({
-                userId: adminId,
-                title: adminNotification.title,
-                body: adminNotification.message,
-                href: adminNotification.href
-              }).catch(err => console.error("Error sending admin booking push:", err));
-           }
+           // Note: Admin notification is now handled exclusively by the server in /api/bookings/post-process
         } catch (notifyError) {
           console.error("Error sending booking notifications:", notifyError);
         }

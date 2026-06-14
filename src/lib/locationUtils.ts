@@ -1,5 +1,3 @@
-'use client';
-
 /**
  * Calculates the distance between two points on Earth using the Haversine formula.
  * @param lat1 Latitude of the first point.

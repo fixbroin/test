@@ -232,6 +232,7 @@ export interface FirestoreBooking {
   suggestedProviderIds?: string[];
   autoAssigned?: boolean;
   isProviderNotified?: boolean;
+  workCategoryId?: string;
 }
 
 export interface Address {
