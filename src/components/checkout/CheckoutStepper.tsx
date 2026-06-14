@@ -2,17 +2,16 @@
 
 import { usePathname } from 'next/navigation';
 import { cn } from '@/lib/utils';
-import { CalendarDays, MapPin, CreditCard, CheckCircle2 } from 'lucide-react';
+import { ShoppingCart, CreditCard, CheckCircle2 } from 'lucide-react';
 
 const steps = [
-  { id: 'schedule', label: 'Schedule', href: '/checkout/schedule', icon: CalendarDays },
-  { id: 'address', label: 'Address', href: '/checkout/address', icon: MapPin },
-  { id: 'payment', label: 'Payment', href: '/checkout/payment', icon: CreditCard },
+  { id: 'cart', label: 'Cart', href: '/cart', icon: ShoppingCart },
+  { id: 'checkout', label: 'Checkout', href: '/checkout', icon: CreditCard },
   { id: 'confirmation', label: 'Confirmation', href: '/checkout/thank-you', icon: CheckCircle2 },
 ];
 
 interface CheckoutStepperProps {
-  currentStepId: 'schedule' | 'address' | 'payment' | 'confirmation';
+  currentStepId: 'cart' | 'checkout' | 'confirmation';
 }
 
 const CheckoutStepper: React.FC<CheckoutStepperProps> = ({ currentStepId }) => {

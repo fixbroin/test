@@ -489,6 +489,7 @@ function CartPageContent() {
     localStorage.removeItem('fixbroScheduledDate');
     localStorage.removeItem('fixbroScheduledTimeSlot');
     localStorage.removeItem('fixbroEstimatedEndTime');
+    localStorage.removeItem('fixbroCustomerAddress');
     localStorage.removeItem('fixbroAppliedPromoCode');
     localStorage.removeItem('fixbroBookingDiscountCode');
     localStorage.removeItem('fixbroBookingDiscountAmount');
@@ -500,7 +501,7 @@ function CartPageContent() {
         user?.uid,
         !user ? getGuestId() : null
       );
-    router.push('/checkout/schedule');
+    router.push('/checkout');
   };
 
   const breadcrumbItems: BreadcrumbItem[] = [
