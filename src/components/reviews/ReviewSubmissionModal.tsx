@@ -12,9 +12,15 @@ import { Star, Loader2 } from 'lucide-react';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import type { FirestoreBooking, FirestoreReview, FirestoreService } from '@/types/firestore';
 import { db } from '@/lib/firebase';
-import { collection, addDoc, doc, updateDoc, Timestamp, getDoc } from 'firebase/firestore';
+import { collection, addDoc, doc, updateDoc, Timestamp, getDoc, query, where, getDocs, limit } from 'firebase/firestore';
 import { useAuth } from '@/hooks/useAuth';
+import { ADMIN_EMAIL } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
+import { triggerPushNotification } from '@/lib/fcmUtils';
+import { useApplicationConfig } from '@/hooks/useApplicationConfig';
+import { getBaseUrl } from '@/lib/config';
+import { sendNewReviewAdminNotificationEmail } from '@/ai/flows/sendNewReviewAdminNotificationFlow';
+import type { FirestoreNotification } from '@/types/firestore';
 
 const reviewSchema = z.object({
   rating: z.number().min(1, "Rating is required.").max(5, "Rating cannot exceed 5."),
@@ -32,6 +38,7 @@ interface ReviewSubmissionModalProps {
 export default function ReviewSubmissionModal({ booking, isOpen, onReviewSubmitted }: ReviewSubmissionModalProps) {
   const { user } = useAuth();
   const { toast } = useToast();
+  const { config } = useApplicationConfig();
   const [isSubmittingReview, setIsSubmittingReview] = useState(false);
   const [serviceToReview, setServiceToReview] = useState<FirestoreService | null>(null);
   const [isLoadingService, setIsLoadingService] = useState(true);
@@ -103,10 +110,61 @@ export default function ReviewSubmissionModal({ booking, isOpen, onReviewSubmitt
         reviewData.userAvatarUrl = user.photoURL;
       }
 
-      await addDoc(collection(db, "adminReviews"), reviewData as Omit<FirestoreReview, 'id'>); // Cast back to expected type for addDoc
+      const reviewDocRef = await addDoc(collection(db, "adminReviews"), reviewData as Omit<FirestoreReview, 'id'>); // Cast back to expected type for addDoc
       
       const bookingDocRef = doc(db, "bookings", booking.id); // Use Firestore document ID of booking
       await updateDoc(bookingDocRef, { isReviewedByCustomer: true, updatedAt: Timestamp.now() });
+
+      // --- Admin Notification & Email ---
+      try {
+        const usersRef = collection(db, "users");
+        const adminQuery = query(usersRef, where("email", "==", ADMIN_EMAIL), limit(1));
+        const adminSnapshot = await getDocs(adminQuery);
+
+        if (!adminSnapshot.empty) {
+            const adminUid = adminSnapshot.docs[0].id;
+            const adminNotification: FirestoreNotification = {
+                userId: adminUid,
+                title: "New Service Review",
+                message: `${user.displayName || 'A user'} rated ${serviceToReview.name} with ${data.rating} stars.`,
+                type: "admin_alert",
+                href: `/admin/reviews`, // Link to reviews management
+                read: false,
+                createdAt: Timestamp.now(),
+            };
+            await addDoc(collection(db, "userNotifications"), adminNotification);
+
+            // Trigger Push Notification for admin
+            triggerPushNotification({
+                userId: adminUid,
+                title: adminNotification.title,
+                body: adminNotification.message,
+                href: adminNotification.href
+            });
+
+            // Send Email Notification
+            if (config.smtpHost && config.senderEmail) {
+                await sendNewReviewAdminNotificationEmail({
+                    reviewId: reviewDocRef.id,
+                    bookingId: booking.bookingId,
+                    serviceName: serviceToReview.name,
+                    userName: user.displayName || "Anonymous User",
+                    rating: data.rating,
+                    comment: data.comment,
+                    adminUrl: `${getBaseUrl()}/admin/reviews`,
+                    smtpHost: config.smtpHost,
+                    smtpPort: config.smtpPort,
+                    smtpUser: config.smtpUser,
+                    smtpPass: config.smtpPass,
+                    senderEmail: config.senderEmail,
+                    siteName: "FixBro", // Or from webSettings if available
+                });
+            }
+        }
+      } catch (adminNotifyError) {
+        console.error("Error sending admin notification for review:", adminNotifyError);
+        // Don't fail the user's review submission if admin notification fails
+      }
 
       toast({ title: "Review Submitted", description: "Thank you for your feedback!" });
       onReviewSubmitted(); 

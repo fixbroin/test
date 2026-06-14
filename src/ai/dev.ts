@@ -20,4 +20,5 @@ import './flows/sendBulkMarketingEmailFlow';
 import './flows/sendWhatsAppFlow';
 import './flows/chatWithAgentFlow'; // New AI chat agent flow
 import './flows/sendUserCancellationEmailFlow'; // New User Cancellation Email flow
+import './flows/sendNewReviewAdminNotificationFlow'; // New Review Admin Notification flow
 // Future provider notification flows will be added here
