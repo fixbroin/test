@@ -66,7 +66,7 @@ export default function AdminLayout({ children }: PropsWithChildren) {
     return "Staff";
   }, [adminRole]);
 
-  const { count: unreadAdminNotificationsCount, isLoading: isLoadingAdminNotifications } = useUnreadNotificationsCount(adminUser?.uid);
+  const { count: unreadAdminNotificationsCount, isLoading: isLoadingAdminNotifications } = useUnreadNotificationsCount();
 
   const { isLoading: isLoadingTotalUnread } = useTotalAdminUnreadChatCount(adminUser?.uid);
   const { settings: globalSettings, isLoading: isLoadingGlobalSettings } = useGlobalSettings();
