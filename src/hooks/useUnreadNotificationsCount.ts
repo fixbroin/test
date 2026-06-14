@@ -4,7 +4,7 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from './useAuth'; // Assuming useAuth is in the same hooks directory or adjust path
 import { db } from '@/lib/firebase';
-import { collection, query, where, onSnapshot, limit, or } from "firebase/firestore";
+import { collection, query, where, onSnapshot, limit, or, and } from "firebase/firestore";
 import type { FirestoreNotification } from '@/types/firestore';
 
 interface UseUnreadNotificationsCountReturn {
@@ -45,18 +45,20 @@ export function useUnreadNotificationsCount(userIdOverride?: string): UseUnreadN
         limit(20)
       );
     } else if (isAdmin) {
-      // Other admins see their own OR any admin alerts
+      // Other admins see their own OR any admin alerts, but only unread ones
       newQuery = query(
         notificationsCollectionRef,
-        or(
-          where("userId", "==", effectiveUserId),
-          where("type", "==", "admin_alert")
+        and(
+          or(
+            where("userId", "==", effectiveUserId),
+            where("type", "==", "admin_alert")
+          ),
+          where("read", "==", false)
         ),
-        where("read", "==", false),
         limit(20)
       );
     } else {
-      // Regular users only see their own
+      // Regular users only see their own unread
       newQuery = query(
         notificationsCollectionRef,
         where("userId", "==", effectiveUserId),
