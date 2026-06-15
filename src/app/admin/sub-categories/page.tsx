@@ -10,7 +10,7 @@ import { PlusCircle, Edit, Trash2, Loader2, Layers, Search, ChevronRight } from 
 import type { FirestoreSubCategory, FirestoreCategory } from '@/types/firestore';
 import SubCategoryForm from '@/components/admin/SubCategoryForm';
 import { db } from '@/lib/firebase';
-import { collection, getDocs, doc, deleteDoc, query, orderBy, onSnapshot, addDoc, updateDoc, serverTimestamp } from "firebase/firestore";
+import { collection, getDocs, getDoc, doc, deleteDoc, query, orderBy, onSnapshot, addDoc, updateDoc, serverTimestamp } from "firebase/firestore";
 import { useToast } from "@/hooks/use-toast";
 import { triggerRefresh } from '@/lib/revalidateUtils';
 import { Input } from "@/components/ui/input";
@@ -18,6 +18,8 @@ import { Switch } from '@/components/ui/switch';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import AppImage from '@/components/ui/AppImage';
 import PermissionGuard from '@/components/admin/PermissionGuard';
+import { getCache, setCache } from '@/lib/client-cache';
+import { getAdminSubCategories, getAdminCategories } from '@/lib/webServerUtils';
 
 export default function AdminSubCategoriesPage() {
   const [subCategories, setSubCategories] = useState<FirestoreSubCategory[]>([]);
@@ -29,47 +31,59 @@ export default function AdminSubCategoriesPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const { toast } = useToast();
 
+  const fetchData = async (forceRefresh = false) => {
+    setIsLoadingData(true);
+    try {
+      // --- SmartSync: Version Checking ---
+      let remoteVersion = 0;
+      if (!forceRefresh) {
+        try {
+          const versionDocRef = doc(db, "appConfiguration", "cacheVersions");
+          const versionSnap = await getDoc(versionDocRef);
+          if (versionSnap.exists()) {
+            remoteVersion = versionSnap.data().categories || 0;
+          }
+        } catch (e) { console.warn("Failed to fetch cache versions:", e); }
+
+        const localVersionKey = 'admin-subcategories-full-version';
+        const localVersion = parseInt(localStorage.getItem(localVersionKey) || "0");
+        const cachedSubCats = getCache<FirestoreSubCategory[]>('admin-subcategories-list-full', true);
+        const cachedCats = getCache<FirestoreCategory[]>('admin-parent-categories-list', true);
+
+        if (cachedSubCats && cachedCats && remoteVersion <= localVersion) {
+          setSubCategories(cachedSubCats);
+          setParentCategories(cachedCats);
+          setIsLoadingData(false);
+          return;
+        }
+      }
+
+      const [subData, catData] = await Promise.all([
+        getDocs(query(collection(db, "adminSubCategories"), orderBy("name", "asc"))),
+        getDocs(query(collection(db, "adminCategories"), orderBy("order", "asc")))
+      ]);
+
+      const fetchedSubCats = subData.docs.map(doc => ({ ...doc.data(), id: doc.id } as FirestoreSubCategory));
+      const fetchedCats = catData.docs.map(doc => ({ ...doc.data(), id: doc.id } as FirestoreCategory));
+
+      setSubCategories(fetchedSubCats);
+      setParentCategories(fetchedCats);
+
+      if (!forceRefresh) {
+        setCache('admin-subcategories-list-full', fetchedSubCats, true);
+        setCache('admin-parent-categories-list', fetchedCats, true);
+        localStorage.setItem('admin-subcategories-full-version', remoteVersion.toString());
+      }
+    } catch (error) {
+      console.error("Error fetching sub-categories data: ", error);
+      toast({ title: "Error", description: "Could not fetch data.", variant: "destructive" });
+    } finally {
+      setIsLoadingData(false);
+    }
+  };
+
   useEffect(() => {
-    let subLoaded = false;
-    let catLoaded = false;
-
-    const checkLoading = () => {
-      if (subLoaded && catLoaded) {
-        setIsLoadingData(false);
-      }
-    };
-
-    // Real-time listener for sub-categories
-    const qSub = query(collection(db, "adminSubCategories"), orderBy("name", "asc"));
-    const unsubscribeSub = onSnapshot(qSub, (snapshot) => {
-      setSubCategories(snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id } as FirestoreSubCategory)));
-      subLoaded = true;
-      checkLoading();
-    }, (error) => {
-      console.error("Error fetching sub-categories: ", error);
-      toast({ title: "Error", description: "Could not fetch sub-categories.", variant: "destructive" });
-      subLoaded = true;
-      checkLoading();
-    });
-
-    // Fetch parent categories for the dropdown
-    const fetchParentCategories = async () => {
-      try {
-        const q = query(collection(db, "adminCategories"), orderBy("order", "asc"));
-        const data = await getDocs(q);
-        setParentCategories(data.docs.map(doc => ({ ...doc.data(), id: doc.id } as FirestoreCategory)));
-        catLoaded = true;
-        checkLoading();
-      } catch (error) {
-        console.error("Error fetching parent categories: ", error);
-        catLoaded = true;
-        checkLoading();
-      }
-    };
-
-    fetchParentCategories();
-
-    return () => unsubscribeSub();
+    fetchData(true);
   }, [toast]);
 
   const handleAddSubCategory = () => {

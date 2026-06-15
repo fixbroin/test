@@ -8,7 +8,7 @@ import { DEFAULT_LIGHT_THEME_COLORS_HSL, DEFAULT_DARK_THEME_COLORS_HSL, THEME_PA
 import { defaultGlobalWebSettings } from '@/config/webDefaults';
 import { defaultAppSettings } from '@/config/appDefaults';
 import { defaultMarketingValues } from '@/hooks/useMarketingSettings';
-import type { ContentPage } from '@/types/firestore';
+import type { ContentPage, FirestoreCategory, FirestoreSubCategory, FirestoreService, FirestoreTax, FirestoreCity, FirestoreArea, CityCategorySeoSetting, AreaCategorySeoSetting } from '@/types/firestore';
 import { cache } from 'react';
 import { unstable_cache } from 'next/cache';
 
@@ -230,3 +230,155 @@ export async function assignNewBookingNumber() {
     return Math.floor(Date.now() / 1000);
   }
 }
+
+/**
+ * Fetches all admin categories with caching.
+ */
+export const getAdminCategories = cache(async (): Promise<FirestoreCategory[]> => {
+  return unstable_cache(
+    async () => {
+      try {
+        const snapshot = await adminDb.collection("adminCategories").orderBy("order", "asc").get();
+        return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as FirestoreCategory));
+      } catch (error) {
+        console.error("Error fetching admin categories:", error);
+        return [];
+      }
+    },
+    ['admin-categories-full'],
+    { revalidate: false, tags: ['categories', 'global-cache'] }
+  )();
+});
+
+/**
+ * Fetches all admin sub-categories with caching.
+ */
+export const getAdminSubCategories = cache(async (): Promise<FirestoreSubCategory[]> => {
+  return unstable_cache(
+    async () => {
+      try {
+        const snapshot = await adminDb.collection("adminSubCategories").orderBy("name", "asc").get();
+        return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as FirestoreSubCategory));
+      } catch (error) {
+        console.error("Error fetching admin sub-categories:", error);
+        return [];
+      }
+    },
+    ['admin-subcategories-full'],
+    { revalidate: false, tags: ['categories', 'global-cache'] }
+  )();
+});
+
+/**
+ * Fetches all admin services with caching.
+ */
+export const getAdminServices = cache(async (): Promise<FirestoreService[]> => {
+  return unstable_cache(
+    async () => {
+      try {
+        const snapshot = await adminDb.collection("adminServices").orderBy("name", "asc").get();
+        return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as FirestoreService));
+      } catch (error) {
+        console.error("Error fetching admin services:", error);
+        return [];
+      }
+    },
+    ['admin-services-full'],
+    { revalidate: false, tags: ['services', 'global-cache'] }
+  )();
+});
+
+/**
+ * Fetches all taxes with caching.
+ */
+export const getTaxes = cache(async (): Promise<FirestoreTax[]> => {
+  return unstable_cache(
+    async () => {
+      try {
+        const snapshot = await adminDb.collection("taxes").get();
+        return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as FirestoreTax));
+      } catch (error) {
+        console.error("Error fetching taxes:", error);
+        return [];
+      }
+    },
+    ['taxes-full'],
+    { revalidate: false, tags: ['taxes', 'global-cache'] }
+  )();
+});
+
+/**
+ * Fetches all cities with caching.
+ */
+export const getCities = cache(async (): Promise<FirestoreCity[]> => {
+  return unstable_cache(
+    async () => {
+      try {
+        const snapshot = await adminDb.collection("cities").orderBy("name", "asc").get();
+        return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as FirestoreCity));
+      } catch (error) {
+        console.error("Error fetching cities:", error);
+        return [];
+      }
+    },
+    ['cities-full-list'],
+    { revalidate: false, tags: ['locations', 'global-cache'] }
+  )();
+});
+
+/**
+ * Fetches all areas with caching.
+ */
+export const getAreas = cache(async (): Promise<FirestoreArea[]> => {
+  return unstable_cache(
+    async () => {
+      try {
+        const snapshot = await adminDb.collection("areas").orderBy("name", "asc").get();
+        return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as FirestoreArea));
+      } catch (error) {
+        console.error("Error fetching areas:", error);
+        return [];
+      }
+    },
+    ['areas-full-list'],
+    { revalidate: false, tags: ['locations', 'global-cache'] }
+  )();
+});
+
+/**
+ * Fetches all City-Category SEO settings with caching.
+ */
+export const getCityCategorySeoSettings = cache(async (): Promise<CityCategorySeoSetting[]> => {
+  return unstable_cache(
+    async () => {
+      try {
+        const snapshot = await adminDb.collection("cityCategorySeoSettings").orderBy("cityName").orderBy("categoryName").get();
+        return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as CityCategorySeoSetting));
+      } catch (error) {
+        console.error("Error fetching city-category SEO settings:", error);
+        return [];
+      }
+    },
+    ['city-category-seo-list'],
+    { revalidate: false, tags: ['seo-settings', 'global-cache'] }
+  )();
+});
+
+/**
+ * Fetches all Area-Category SEO settings with caching.
+ */
+export const getAreaCategorySeoSettings = cache(async (): Promise<AreaCategorySeoSetting[]> => {
+  return unstable_cache(
+    async () => {
+      try {
+        const snapshot = await adminDb.collection("areaCategorySeoSettings").orderBy("cityName").orderBy("areaName").orderBy("categoryName").get();
+        return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as AreaCategorySeoSetting));
+      } catch (error) {
+        console.error("Error fetching area-category SEO settings:", error);
+        return [];
+      }
+    },
+    ['area-category-seo-list'],
+    { revalidate: false, tags: ['seo-settings', 'global-cache'] }
+  )();
+});

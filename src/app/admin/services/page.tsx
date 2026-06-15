@@ -23,6 +23,8 @@ import { triggerRefresh } from '@/lib/revalidateUtils';
 import { Switch } from '@/components/ui/switch';
 import { Input } from "@/components/ui/input";
 import PermissionGuard from '@/components/admin/PermissionGuard';
+import { getCache, setCache } from '@/lib/client-cache';
+import { getAdminServices, getAdminCategories, getAdminSubCategories, getTaxes } from '@/lib/webServerUtils';
 
 const generateSlug = (name: string) => {
   if (!name) return "";
@@ -53,9 +55,37 @@ export default function AdminServicesPage() {
   const subCategoriesCollectionRef = collection(db, "adminSubCategories");
   const taxesCollectionRef = collection(db, "adminTaxes");
 
-  const fetchData = async () => {
+  const fetchData = async (forceRefresh = false) => {
     setIsLoadingData(true);
     try {
+      // --- SmartSync: Version Checking ---
+      let remoteVersion = 0;
+      if (!forceRefresh) {
+        try {
+          const versionDocRef = doc(db, "appConfiguration", "cacheVersions");
+          const versionSnap = await getDoc(versionDocRef);
+          if (versionSnap.exists()) {
+            remoteVersion = versionSnap.data().services || 0;
+          }
+        } catch (e) { console.warn("Failed to fetch cache versions:", e); }
+
+        const localVersionKey = 'admin-services-full-version';
+        const localVersion = parseInt(localStorage.getItem(localVersionKey) || "0");
+        const cachedServices = getCache<FirestoreService[]>('admin-services-list', true);
+        const cachedCats = getCache<FirestoreCategory[]>('admin-categories-list', true);
+        const cachedSubCats = getCache<FirestoreSubCategory[]>('admin-subcategories-list', true);
+        const cachedTaxes = getCache<FirestoreTax[]>('admin-taxes-list', true);
+
+        if (cachedServices && cachedCats && cachedSubCats && cachedTaxes && remoteVersion <= localVersion) {
+          setServices(cachedServices);
+          setParentCategories(cachedCats);
+          setSubCategories(cachedSubCats);
+          setTaxes(cachedTaxes);
+          setIsLoadingData(false);
+          return;
+        }
+      }
+
       const catQuery = query(categoriesCollectionRef, orderBy("order", "asc"));
       const subCatQuery = query(subCategoriesCollectionRef, orderBy("order", "asc"));
       const serviceQuery = query(servicesCollectionRef, orderBy("name", "asc"));
@@ -66,10 +96,24 @@ export default function AdminServicesPage() {
         getDocs(catQuery), getDocs(subCatQuery), getDocs(serviceQuery), getDocs(taxQuery)
       ]);
       
-      setParentCategories(catData.docs.map((doc) => ({ ...doc.data(), id: doc.id } as FirestoreCategory)));
-      setSubCategories(subCatData.docs.map((doc) => ({ ...doc.data(), id: doc.id } as FirestoreSubCategory)));
-      setServices(serviceData.docs.map((doc) => ({ ...doc.data(), id: doc.id } as FirestoreService)));
-      setTaxes(taxData.docs.map((doc) => ({ ...doc.data(), id: doc.id } as FirestoreTax)));
+      const fetchedCats = catData.docs.map((doc) => ({ ...doc.data(), id: doc.id } as FirestoreCategory));
+      const fetchedSubCats = subCatData.docs.map((doc) => ({ ...doc.data(), id: doc.id } as FirestoreSubCategory));
+      const fetchedServices = serviceData.docs.map((doc) => ({ ...doc.data(), id: doc.id } as FirestoreService));
+      const fetchedTaxes = taxData.docs.map((doc) => ({ ...doc.data(), id: doc.id } as FirestoreTax));
+
+      setParentCategories(fetchedCats);
+      setSubCategories(fetchedSubCats);
+      setServices(fetchedServices);
+      setTaxes(fetchedTaxes);
+
+      // Update cache
+      if (!forceRefresh) {
+        setCache('admin-services-list', fetchedServices, true);
+        setCache('admin-categories-list', fetchedCats, true);
+        setCache('admin-subcategories-list', fetchedSubCats, true);
+        setCache('admin-taxes-list', fetchedTaxes, true);
+        localStorage.setItem('admin-services-full-version', remoteVersion.toString());
+      }
 
     } catch (error) {
       console.error("Error fetching prerequisite data: ", error);
@@ -85,7 +129,7 @@ export default function AdminServicesPage() {
 
   useEffect(() => {
     setIsMounted(true);
-    fetchData();
+    fetchData(true);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -227,7 +271,7 @@ export default function AdminServicesPage() {
       }
       await triggerRefresh('sitemap');
       // Removed global-cache trigger to save reads
-      setIsFormOpen(false); setEditingService(null); await fetchData();
+      setIsFormOpen(false); setEditingService(null); await fetchData(true);
     } catch (_error) {
       console.error("Error saving service: ", _error);
       toast({ title: "Error", description: (_error as Error).message || "Could not save service.", variant: "destructive" });

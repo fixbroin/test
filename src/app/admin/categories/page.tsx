@@ -23,6 +23,8 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { useAuth } from '@/hooks/useAuth';
 import { hasActionPermission } from '@/config/rbac';
 import PermissionGuard from '@/components/admin/PermissionGuard';
+import { getCache, setCache } from '@/lib/client-cache';
+import { getAdminCategories } from '@/lib/webServerUtils';
 
 const generateSlug = (name: string) => {
   if (!name) return "";
@@ -47,13 +49,40 @@ export default function AdminCategoriesPage() {
 
   const categoriesCollectionRef = collection(db, "adminCategories");
 
-  const fetchCategories = async () => {
+  const fetchCategories = async (forceRefresh = false) => {
     setIsLoading(true);
     try {
-      const q = query(categoriesCollectionRef, orderBy("order", "asc"));
-      const data = await getDocs(q);
-      const fetchedCategories = data.docs.map((doc) => ({ ...doc.data(), id: doc.id } as FirestoreCategory));
+      // --- SmartSync: Version Checking ---
+      let remoteVersion = 0;
+      if (!forceRefresh) {
+        try {
+          const versionDocRef = doc(db, "appConfiguration", "cacheVersions");
+          const versionSnap = await getDoc(versionDocRef);
+          if (versionSnap.exists()) {
+            remoteVersion = versionSnap.data().categories || 0;
+          }
+        } catch (e) { console.warn("Failed to fetch cache versions:", e); }
+
+        const localVersionKey = 'admin-categories-version';
+        const localVersion = parseInt(localStorage.getItem(localVersionKey) || "0");
+        const cachedData = getCache<FirestoreCategory[]>('admin-categories', true);
+
+        if (cachedData && remoteVersion <= localVersion) {
+          setCategories(cachedData);
+          setIsLoading(false);
+          return;
+        }
+      }
+
+      // Use Server-Side Cache + Client-Side Cache
+      const fetchedCategories = await getAdminCategories();
       setCategories(fetchedCategories);
+
+      // Update local cache
+      if (!forceRefresh) {
+        setCache('admin-categories', fetchedCategories, true);
+        localStorage.setItem('admin-categories-version', remoteVersion.toString());
+      }
     } catch (error) {
       console.error("Error fetching categories: ", error);
       toast({

@@ -12,7 +12,7 @@ import type { CityCategorySeoSetting, AreaCategorySeoSetting, FirestoreCategory,
 import CityCategorySeoForm, { type CityCategorySeoFormData } from '@/components/admin/CityCategorySeoForm';
 import AreaCategorySeoForm, { type AreaCategorySeoFormData } from '@/components/admin/AreaCategorySeoForm';
 import { db } from '@/lib/firebase';
-import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc, orderBy, query, Timestamp, where } from "firebase/firestore";
+import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc, orderBy, query, Timestamp, where, getDoc } from "firebase/firestore";
 import { useToast } from "@/hooks/use-toast";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Skeleton } from '@/components/ui/skeleton';
@@ -20,6 +20,8 @@ import { triggerRefresh } from '@/lib/revalidateUtils';
 import { useAuth } from '@/hooks/useAuth';
 import { hasActionPermission } from '@/config/rbac';
 import PermissionGuard from '@/components/admin/PermissionGuard';
+import { getCache, setCache } from '@/lib/client-cache';
+import { getAdminCategories, getCities, getAreas, getCityCategorySeoSettings, getAreaCategorySeoSettings } from '@/lib/webServerUtils';
 
 const generateSeoSlug = (parts: (string | undefined)[]): string => {
     return parts.filter(Boolean).map(part => part!.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '')).join('/');
@@ -45,21 +47,63 @@ export default function SeoOverridesPage() {
   const cityCatSeoRef = collection(db, "cityCategorySeoSettings");
   const areaCatSeoRef = collection(db, "areaCategorySeoSettings");
 
-  const fetchData = async () => {
+  const fetchData = async (forceRefresh = false) => {
     setIsLoading(true);
     try {
-      const [catSnap, citySnap, areaSnap, cityCatSeoSnap, areaCatSeoSnap] = await Promise.all([
-        getDocs(query(collection(db, "adminCategories"), orderBy("name"))),
-        getDocs(query(collection(db, "cities"), orderBy("name"))),
-        getDocs(query(collection(db, "areas"), orderBy("name"))),
-        getDocs(query(cityCatSeoRef, orderBy("cityName"), orderBy("categoryName"))),
-        getDocs(query(areaCatSeoRef, orderBy("cityName"), orderBy("areaName"), orderBy("categoryName"))),
+      // --- SmartSync: Version Checking ---
+      let remoteVersion = 0;
+      if (!forceRefresh) {
+        try {
+          const versionDocRef = doc(db, "appConfiguration", "cacheVersions");
+          const versionSnap = await getDoc(versionDocRef);
+          if (versionSnap.exists()) {
+            remoteVersion = versionSnap.data().seoSettings || 0;
+          }
+        } catch (e) { console.warn("Failed to fetch cache versions:", e); }
+
+        const localVersionKey = 'admin-seo-overrides-full-version';
+        const localVersion = parseInt(localStorage.getItem(localVersionKey) || "0");
+        const cachedCats = getCache<FirestoreCategory[]>('admin-cats-for-seo', true);
+        const cachedCities = getCache<FirestoreCity[]>('admin-cities-for-seo', true);
+        const cachedAreas = getCache<FirestoreArea[]>('admin-areas-for-seo', true);
+        const cachedCitySeo = getCache<CityCategorySeoSetting[]>('admin-city-category-seo', true);
+        const cachedAreaSeo = getCache<AreaCategorySeoSetting[]>('admin-area-category-seo', true);
+
+        if (cachedCats && cachedCities && cachedAreas && cachedCitySeo && cachedAreaSeo && remoteVersion <= localVersion) {
+          setCategories(cachedCats);
+          setCities(cachedCities);
+          setAreas(cachedAreas);
+          setCityCategorySettings(cachedCitySeo);
+          setAreaCategorySettings(cachedAreaSeo);
+          setIsLoading(false);
+          return;
+        }
+      }
+
+      // Use Server-Side Cache + Client-Side Cache
+      const [fetchedCats, fetchedCities, fetchedAreas, fetchedCitySeo, fetchedAreaSeo] = await Promise.all([
+        getAdminCategories(),
+        getCities(),
+        getAreas(),
+        getCityCategorySeoSettings(),
+        getAreaCategorySeoSettings()
       ]);
-      setCategories(catSnap.docs.map(d => ({ ...d.data(), id: d.id } as FirestoreCategory)));
-      setCities(citySnap.docs.map(d => ({ ...d.data(), id: d.id } as FirestoreCity)));
-      setAreas(areaSnap.docs.map(d => ({ ...d.data(), id: d.id } as FirestoreArea)));
-      setCityCategorySettings(cityCatSeoSnap.docs.map(d => ({ ...d.data(), id: d.id } as CityCategorySeoSetting)));
-      setAreaCategorySettings(areaCatSeoSnap.docs.map(d => ({ ...d.data(), id: d.id } as AreaCategorySeoSetting)));
+
+      setCategories(fetchedCats);
+      setCities(fetchedCities);
+      setAreas(fetchedAreas);
+      setCityCategorySettings(fetchedCitySeo);
+      setAreaCategorySettings(fetchedAreaSeo);
+
+      // Update local cache
+      if (!forceRefresh) {
+        setCache('admin-cats-for-seo', fetchedCats, true);
+        setCache('admin-cities-for-seo', fetchedCities, true);
+        setCache('admin-areas-for-seo', fetchedAreas, true);
+        setCache('admin-city-category-seo', fetchedCitySeo, true);
+        setCache('admin-area-category-seo', fetchedAreaSeo, true);
+        localStorage.setItem('admin-seo-overrides-full-version', remoteVersion.toString());
+      }
     } catch (error) {
       console.error("Error fetching SEO override data:", error);
       toast({ title: "Error", description: "Could not load SEO override data.", variant: "destructive" });
@@ -90,8 +134,9 @@ export default function SeoOverridesPage() {
     const collectionRef = type === 'cityCategory' ? cityCatSeoRef : areaCatSeoRef;
     try {
       await deleteDoc(doc(collectionRef, id));
+      await triggerRefresh('seo-settings');
       toast({ title: "Success", description: "SEO override deleted successfully." });
-      fetchData(); // Re-fetch to update lists
+      await fetchData(true); // Force refresh
     } catch (error) {
       toast({ title: "Error", description: "Could not delete SEO override.", variant: "destructive" });
     } finally {
@@ -106,7 +151,7 @@ export default function SeoOverridesPage() {
         await updateDoc(doc(collectionRef, setting.id!), { isActive: !setting.isActive, updatedAt: Timestamp.now() });
         await triggerRefresh('seo-settings');
         toast({ title: "Success", description: "Status updated."});
-        fetchData();
+        await fetchData(true);
     } catch (error) {
         toast({ title: "Error", description: "Could not update status.", variant: "destructive" });
     } finally {
@@ -155,7 +200,8 @@ export default function SeoOverridesPage() {
       }
       await triggerRefresh('seo-settings');
       toast({ title: "Success", description: "City-Category SEO setting saved." });
-      setIsFormOpen(false); fetchData();
+      setIsFormOpen(false); 
+      await fetchData(true);
     } catch (e) {
       toast({ title: "Error", description: (e as Error).message || "Could not save setting.", variant: "destructive" });
     } finally {
@@ -199,7 +245,8 @@ export default function SeoOverridesPage() {
       }
       await triggerRefresh('seo-settings');
       toast({ title: "Success", description: "Area-Category SEO setting saved." });
-      setIsFormOpen(false); fetchData();
+      setIsFormOpen(false); 
+      await fetchData(true);
     } catch (e) {
       toast({ title: "Error", description: (e as Error).message || "Could not save setting.", variant: "destructive" });
     } finally {
