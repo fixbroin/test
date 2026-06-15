@@ -29,24 +29,40 @@ export default function AdminSubCategoriesPage() {
   const { toast } = useToast();
 
   useEffect(() => {
+    let subLoaded = false;
+    let catLoaded = false;
+
+    const checkLoading = () => {
+      if (subLoaded && catLoaded) {
+        setIsLoadingData(false);
+      }
+    };
+
     // Real-time listener for sub-categories
     const qSub = query(collection(db, "adminSubCategories"), orderBy("name", "asc"));
     const unsubscribeSub = onSnapshot(qSub, (snapshot) => {
       setSubCategories(snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id } as FirestoreSubCategory)));
-      setIsLoadingData(false);
+      subLoaded = true;
+      checkLoading();
     }, (error) => {
       console.error("Error fetching sub-categories: ", error);
       toast({ title: "Error", description: "Could not fetch sub-categories.", variant: "destructive" });
-      setIsLoadingData(false);
+      subLoaded = true;
+      checkLoading();
     });
 
     // Fetch parent categories for the dropdown
     const fetchParentCategories = async () => {
       try {
-        const data = await getDocs(collection(db, "adminCategories"));
+        const q = query(collection(db, "adminCategories"), orderBy("order", "asc"));
+        const data = await getDocs(q);
         setParentCategories(data.docs.map(doc => ({ ...doc.data(), id: doc.id } as FirestoreCategory)));
+        catLoaded = true;
+        checkLoading();
       } catch (error) {
         console.error("Error fetching parent categories: ", error);
+        catLoaded = true;
+        checkLoading();
       }
     };
 
@@ -71,6 +87,8 @@ export default function AdminSubCategoriesPage() {
       await deleteDoc(doc(db, "adminSubCategories", id));
       toast({ title: "Success", description: "Sub-category deleted successfully." });
       await triggerRefresh('categories');
+      await triggerRefresh('services');
+      await triggerRefresh('sitemap');
     } catch (error) {
       console.error("Error deleting sub-category: ", error);
       toast({ title: "Error", description: "Could not delete sub-category.", variant: "destructive" });
@@ -82,22 +100,24 @@ export default function AdminSubCategoriesPage() {
   const handleFormSubmit = async (data: any) => {
     setIsSubmitting(true);
     try {
-      if (data.id) {
-        const { id, ...updateData } = data;
+      const { id, ...cleanData } = data;
+      if (id) {
         await updateDoc(doc(db, "adminSubCategories", id), {
-          ...updateData,
+          ...cleanData,
           updatedAt: serverTimestamp(),
         });
         toast({ title: "Success", description: "Sub-category updated successfully." });
       } else {
         await addDoc(collection(db, "adminSubCategories"), {
-          ...data,
+          ...cleanData,
           createdAt: serverTimestamp(),
           updatedAt: serverTimestamp(),
         });
         toast({ title: "Success", description: "Sub-category created successfully." });
       }
       await triggerRefresh('categories');
+      await triggerRefresh('services');
+      await triggerRefresh('sitemap');
       setIsFormOpen(false);
       setEditingSubCategory(null);
     } catch (error) {
@@ -110,11 +130,12 @@ export default function AdminSubCategoriesPage() {
 
   const filteredSubCategories = subCategories.filter(sub => 
     sub.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    sub.parentCategoryName.toLowerCase().includes(searchQuery.toLowerCase())
+    (sub.parentCategoryName || "").toLowerCase().includes(searchQuery.toLowerCase())
   );
 
   const subCategoriesByCategory = parentCategories.reduce((acc, cat) => {
-    const subs = filteredSubCategories.filter(sub => sub.parentCategoryId === cat.id);
+    // Check both parentCategoryId and parentId for backward compatibility
+    const subs = filteredSubCategories.filter(sub => sub.parentCategoryId === cat.id || sub.parentId === cat.id);
     if (subs.length > 0 || !searchQuery) {
         acc.push({ category: cat, subs });
     }

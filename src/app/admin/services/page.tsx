@@ -9,7 +9,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
-import { PlusCircle, Edit, Trash2, ShoppingBag, Loader2 } from "lucide-react";
+import { PlusCircle, Edit, Trash2, ShoppingBag, Loader2, Search } from "lucide-react";
 import type { FirestoreService, FirestoreSubCategory, FirestoreTax, FirestoreCategory } from '@/types/firestore';
 import ServiceForm from '@/components/admin/ServiceForm';
 import { db, storage } from '@/lib/firebase';
@@ -21,6 +21,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Skeleton } from '@/components/ui/skeleton';
 import { triggerRefresh } from '@/lib/revalidateUtils';
 import { Switch } from '@/components/ui/switch';
+import { Input } from "@/components/ui/input";
 import PermissionGuard from '@/components/admin/PermissionGuard';
 
 const generateSlug = (name: string) => {
@@ -43,6 +44,7 @@ export default function AdminServicesPage() {
   const [isLoadingData, setIsLoadingData] = useState(true); // Combined loading state
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isMounted, setIsMounted] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
   const { toast } = useToast();
   const { adminPermissions } = useAuth();
 
@@ -241,6 +243,9 @@ export default function AdminServicesPage() {
 
   const groupedServices = useMemo(() => {
     if (!parentCategories.length) return [];
+    
+    const search = searchQuery.toLowerCase();
+
     return parentCategories
       .map(parent => {
         const relevantSubCategories = subCategories
@@ -249,14 +254,24 @@ export default function AdminServicesPage() {
 
         const subCategoriesWithTheirServices = relevantSubCategories.map(subCat => {
           const servicesForSubCat = services
-            .filter(service => service.subCategoryId === subCat.id)
+            .filter(service => {
+              if (service.subCategoryId !== subCat.id) return false;
+              if (!search) return true;
+              
+              return (
+                service.name.toLowerCase().includes(search) ||
+                (subCat.name || "").toLowerCase().includes(search) ||
+                (parent.name || "").toLowerCase().includes(search) ||
+                (service.slug || "").toLowerCase().includes(search)
+              );
+            })
             .sort((a, b) => (a.order || 0) - (b.order || 0) || a.name.localeCompare(b.name));
           return { ...subCat, services: servicesForSubCat };
         });
         return { ...parent, subCategories: subCategoriesWithTheirServices };
       })
       .sort((a,b) => a.order - b.order);
-  }, [parentCategories, subCategories, services]);
+  }, [parentCategories, subCategories, services, searchQuery]);
 
 
   if (!isMounted) {
@@ -283,6 +298,17 @@ export default function AdminServicesPage() {
             </Button>
           </PermissionGuard>
         </CardHeader>
+        <CardContent>
+           <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input 
+                    placeholder="Search by name, sub-category, or category..." 
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="pl-9"
+                />
+            </div>
+        </CardContent>
       </Card>
 
       {isLoadingData ? (

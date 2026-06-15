@@ -130,6 +130,7 @@ export default function AdminCategoriesPage() {
 
       // Refresh the cache
       await triggerRefresh('categories');
+      await triggerRefresh('services');
       await triggerRefresh('sitemap');
       // Removed global-cache trigger to save reads
     } catch (error) {
@@ -190,6 +191,7 @@ export default function AdminCategoriesPage() {
 
       // Refresh the cache
       await triggerRefresh('categories');
+      await triggerRefresh('services');
       await triggerRefresh('sitemap');
       // Removed global-cache trigger to save reads
 
