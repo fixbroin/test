@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useEffect } from 'react';
@@ -104,6 +103,27 @@ export default function ManageAdminsPage() {
   
   const { toast } = useToast();
 
+  const generateStrongPassword = () => {
+    const chars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*()_+";
+    let password = "";
+    for (let i = 0; i < 12; i++) {
+      password += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    setNewAdmin(prev => ({ ...prev, password }));
+    setShowPassword(true);
+    toast({ title: "Secure Password Generated", description: "Password has been set to a strong random string." });
+  };
+
+  const validatePassword = (pass: string) => {
+    const minLength = 8;
+    const hasUpperCase = /[A-Z]/.test(pass);
+    const hasLowerCase = /[a-z]/.test(pass);
+    const hasNumber = /[0-9]/.test(pass);
+    const hasSymbol = /[!@#$%^&*()_+]/.test(pass);
+    
+    return pass.length >= minLength && hasUpperCase && hasLowerCase && hasNumber && hasSymbol;
+  };
+
   const [editingAdmin, setEditingAdmin] = useState<AdminUser | null>(null);
   const [isUpdating, setIsUpdating] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
@@ -187,8 +207,12 @@ export default function ManageAdminsPage() {
       return;
     }
 
-    if (newAdmin.password.length < 6) {
-        toast({ title: "Weak Password", description: "Password must be at least 6 characters", variant: "destructive" });
+    if (!validatePassword(newAdmin.password)) {
+        toast({ 
+            title: "Weak Password", 
+            description: "Password must be at least 8 characters and include uppercase, numbers, and symbols.", 
+            variant: "destructive" 
+        });
         return;
     }
 
@@ -313,14 +337,22 @@ export default function ManageAdminsPage() {
                         />
                     </div>
                     <div className="space-y-2">
-                        <label className="text-xs font-black uppercase tracking-widest text-muted-foreground">Set Password</label>
+                        <div className="flex items-center justify-between">
+                            <label className="text-xs font-black uppercase tracking-widest text-muted-foreground">Set Password</label>
+                            <button 
+                                onClick={generateStrongPassword}
+                                className="text-[10px] font-black text-primary uppercase hover:underline"
+                            >
+                                Generate Strong
+                            </button>
+                        </div>
                         <div className="relative">
                             <Input 
                                 placeholder="Enter secure password" 
                                 type={showPassword ? "text" : "password"}
                                 value={newAdmin.password} 
                                 onChange={(e) => setNewAdmin({...newAdmin, password: e.target.value})}
-                                className="rounded-xl bg-muted/30 border-none h-12 pr-10"
+                                className={`rounded-xl bg-muted/30 border-none h-12 pr-10 ${newAdmin.password && !validatePassword(newAdmin.password) ? 'ring-1 ring-amber-500' : ''}`}
                             />
                             <button 
                                 onClick={() => setShowPassword(!showPassword)}
@@ -329,6 +361,22 @@ export default function ManageAdminsPage() {
                                 {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                             </button>
                         </div>
+                        {newAdmin.password && (
+                            <div className="flex flex-col gap-1 mt-1">
+                                <div className="h-1 w-full bg-muted rounded-full overflow-hidden">
+                                    <div 
+                                        className={`h-full transition-all duration-500 ${
+                                            validatePassword(newAdmin.password) ? 'w-full bg-emerald-500' : 'w-1/3 bg-amber-500'
+                                        }`} 
+                                    />
+                                </div>
+                                <p className="text-[9px] font-bold text-muted-foreground">
+                                    {validatePassword(newAdmin.password) 
+                                        ? "Strong password" 
+                                        : "Min 8 chars, including A-Z, 0-9, and @#$"}
+                                </p>
+                            </div>
+                        )}
                     </div>
                     <div className="space-y-2">
                         <label className="text-xs font-black uppercase tracking-widest text-muted-foreground">Base Role</label>

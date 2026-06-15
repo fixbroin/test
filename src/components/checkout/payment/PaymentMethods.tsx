@@ -59,7 +59,7 @@ export default function PaymentMethods({ selectedMethod, onSelect }: PaymentMeth
   const onlinePaymentEnabled = useMemo(() => appConfig.enableOnlinePayment !== false, [appConfig]);
 
   const paymentOptions = useMemo(() => [
-    { value: 'online', label: 'Pay Online (UPI, Card, Net Banking, Wallets)', icon: CreditCard, available: onlinePaymentEnabled },
+    { value: 'online', label: 'Pay Online (UPI, Card, or More)', icon: CreditCard, available: onlinePaymentEnabled },
     { value: 'later', label: 'Pay After Service', icon: HandCoins, available: canOfferPayLater },
   ].filter(opt => opt.available), [onlinePaymentEnabled, canOfferPayLater]);
 
