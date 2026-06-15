@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Calendar } from '@/components/ui/calendar';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
@@ -23,6 +23,7 @@ interface ScheduleSelectionProps {
 }
 
 export default function ScheduleSelection({ onSelect, initialDate, initialSlot }: ScheduleSelectionProps) {
+  const slotsSectionRef = useRef<HTMLDivElement>(null);
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(initialDate);
   const [displayMonth, setDisplayMonth] = useState<Date>(initialDate || new Date());
   const [availableTimeSlots, setAvailableTimeSlots] = useState<{ slot: string; remainingCapacity: number; endDateTime: string }[]>([]);
@@ -120,6 +121,13 @@ export default function ScheduleSelection({ onSelect, initialDate, initialSlot }
     setSelectedDate(date);
     setDisplayMonth(date);
     setSelectedTimeSlot(undefined);
+
+    // Scroll to slots section on mobile
+    if (window.innerWidth < 1024) {
+      setTimeout(() => {
+        slotsSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }, 100);
+    }
   };
 
   const handleConfirm = () => {
@@ -175,7 +183,7 @@ export default function ScheduleSelection({ onSelect, initialDate, initialSlot }
         </div>
 
         {/* Time Slot Selection */}
-        <div className="lg:col-span-7 space-y-4">
+        <div className="lg:col-span-7 space-y-4" ref={slotsSectionRef}>
           <div className="flex items-center justify-between gap-2">
             <div className="flex items-center gap-2">
               <div className="h-6 w-1 bg-primary rounded-full" />

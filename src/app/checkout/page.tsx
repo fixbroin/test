@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardFooter, CardDescription } from '@/components/ui/card';
@@ -36,6 +36,12 @@ export default function CheckoutPage() {
   const { showLoading, hideLoading } = useLoading();
   const router = useRouter();
   const { config: appConfig, isLoading: isLoadingAppSettings } = useApplicationConfig();
+
+  // Refs for scrolling
+  const scheduleSectionRef = useRef<HTMLDivElement>(null);
+  const addressSectionRef = useRef<HTMLDivElement>(null);
+  const paymentSectionRef = useRef<HTMLDivElement>(null);
+  const orderSummaryRef = useRef<HTMLDivElement>(null);
 
   // State for selections
   const [scheduledDate, setScheduledDate] = useState<Date | null>(null);
@@ -108,11 +114,16 @@ export default function CheckoutPage() {
     setIsScheduleModalOpen(false);
     toast({ title: "Schedule Updated", description: "Your service time has been updated." });
 
-    // Auto-open address if not selected
+    // Auto-flow logic
     if (!selectedAddress) {
       setTimeout(() => {
         setIsAddressModalOpen(true);
       }, 300); // Small delay for smooth transition
+    } else {
+      // Scroll to payment section if address already exists
+      setTimeout(() => {
+        paymentSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }, 500);
     }
   };
 
@@ -122,6 +133,21 @@ export default function CheckoutPage() {
     localStorage.setItem('fixbroCustomerEmail', address.email || "");
     setIsAddressModalOpen(false);
     toast({ title: "Address Updated", description: "Your service address has been updated." });
+
+    // Scroll to payment section
+    setTimeout(() => {
+      paymentSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }, 500);
+  };
+
+  const handlePaymentMethodSelect = (method: string) => {
+    setPaymentMethod(method);
+    // Scroll to book button in order summary
+    if (window.innerWidth < 1024) {
+      setTimeout(() => {
+        orderSummaryRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }, 300);
+    }
   };
 
   const formatDate = (date: Date | null) => {
@@ -147,68 +173,72 @@ export default function CheckoutPage() {
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
         <div className="lg:col-span-8 space-y-6">
           {/* Schedule Section */}
-          <Card className="overflow-hidden border-none shadow-md">
-            <CardHeader className="bg-muted/30 py-4 flex flex-row items-center justify-between">
-              <div className="flex items-center gap-2">
-                <CalendarDays className="h-5 w-5 text-primary" />
-                <CardTitle className="text-lg">Schedule</CardTitle>
-              </div>
-              <Button variant="ghost" size="sm" onClick={() => setIsScheduleModalOpen(true)} className="text-primary font-bold">
-                {scheduledDate ? "Change" : "Select"}
-              </Button>
-            </CardHeader>
-            <CardContent className="py-4">
-              {scheduledDate ? (
-                <div className="flex items-center gap-4">
-                  <div className="bg-primary/10 p-3 rounded-full">
-                    <Clock className="h-6 w-6 text-primary" />
-                  </div>
-                  <div>
-                    <p className="font-bold">{formatDate(scheduledDate)}</p>
-                    <p className="text-sm text-muted-foreground">{scheduledSlot}</p>
-                  </div>
+          <div ref={scheduleSectionRef}>
+            <Card className="overflow-hidden border-none shadow-md">
+              <CardHeader className="bg-muted/30 py-4 flex flex-row items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <CalendarDays className="h-5 w-5 text-primary" />
+                  <CardTitle className="text-lg">Schedule</CardTitle>
                 </div>
-              ) : (
-                <div className="flex flex-col items-center py-4 text-center cursor-pointer" onClick={() => setIsScheduleModalOpen(true)}>
-                  <AlertTriangle className="h-8 w-8 text-amber-500 mb-2" />
-                  <p className="font-medium">No schedule selected</p>
-                  <p className="text-sm text-muted-foreground">Click to pick a date and time</p>
-                </div>
-              )}
-            </CardContent>
-          </Card>
+                <Button variant="ghost" size="sm" onClick={() => setIsScheduleModalOpen(true)} className="text-primary font-bold">
+                  {scheduledDate ? "Change" : "Select"}
+                </Button>
+              </CardHeader>
+              <CardContent className="py-4">
+                {scheduledDate ? (
+                  <div className="flex items-center gap-4">
+                    <div className="bg-primary/10 p-3 rounded-full">
+                      <Clock className="h-6 w-6 text-primary" />
+                    </div>
+                    <div>
+                      <p className="font-bold">{formatDate(scheduledDate)}</p>
+                      <p className="text-sm text-muted-foreground">{scheduledSlot}</p>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="flex flex-col items-center py-4 text-center cursor-pointer" onClick={() => setIsScheduleModalOpen(true)}>
+                    <AlertTriangle className="h-8 w-8 text-amber-500 mb-2" />
+                    <p className="font-medium">No schedule selected</p>
+                    <p className="text-sm text-muted-foreground">Click to pick a date and time</p>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </div>
 
           {/* Address Section */}
-          <Card className="overflow-hidden border-none shadow-md">
-            <CardHeader className="bg-muted/30 py-4 flex flex-row items-center justify-between">
-              <div className="flex items-center gap-2">
-                <MapPin className="h-5 w-5 text-primary" />
-                <CardTitle className="text-lg">Address</CardTitle>
-              </div>
-              <Button variant="ghost" size="sm" onClick={() => setIsAddressModalOpen(true)} className="text-primary font-bold">
-                {selectedAddress ? "Change" : "Select"}
-              </Button>
-            </CardHeader>
-            <CardContent className="py-4">
-              {selectedAddress ? (
-                <div className="flex items-center gap-4">
-                  <div className="bg-primary/10 p-3 rounded-full">
-                    <MapPin className="h-6 w-6 text-primary" />
-                  </div>
-                  <div>
-                    <p className="font-bold">{selectedAddress.fullName}</p>
-                    <p className="text-sm text-muted-foreground line-clamp-1">{selectedAddress.addressLine1}, {selectedAddress.city}</p>
-                  </div>
+          <div ref={addressSectionRef}>
+            <Card className="overflow-hidden border-none shadow-md">
+              <CardHeader className="bg-muted/30 py-4 flex flex-row items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <MapPin className="h-5 w-5 text-primary" />
+                  <CardTitle className="text-lg">Address</CardTitle>
                 </div>
-              ) : (
-                <div className="flex flex-col items-center py-4 text-center cursor-pointer" onClick={() => setIsAddressModalOpen(true)}>
-                  <AlertTriangle className="h-8 w-8 text-amber-500 mb-2" />
-                  <p className="font-medium">No address selected</p>
-                  <p className="text-sm text-muted-foreground">Click to provide service location</p>
-                </div>
-              )}
-            </CardContent>
-          </Card>
+                <Button variant="ghost" size="sm" onClick={() => setIsAddressModalOpen(true)} className="text-primary font-bold">
+                  {selectedAddress ? "Change" : "Select"}
+                </Button>
+              </CardHeader>
+              <CardContent className="py-4">
+                {selectedAddress ? (
+                  <div className="flex items-center gap-4">
+                    <div className="bg-primary/10 p-3 rounded-full">
+                      <MapPin className="h-6 w-6 text-primary" />
+                    </div>
+                    <div>
+                      <p className="font-bold">{selectedAddress.fullName}</p>
+                      <p className="text-sm text-muted-foreground line-clamp-1">{selectedAddress.addressLine1}, {selectedAddress.city}</p>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="flex flex-col items-center py-4 text-center cursor-pointer" onClick={() => setIsAddressModalOpen(true)}>
+                    <AlertTriangle className="h-8 w-8 text-amber-500 mb-2" />
+                    <p className="font-medium">No address selected</p>
+                    <p className="text-sm text-muted-foreground">Click to provide service location</p>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </div>
 
           {/* Promo Code Section */}
           <PromoCodeCard 
@@ -218,24 +248,26 @@ export default function CheckoutPage() {
           />
 
           {/* Payment Section */}
-          <Card className="border-none shadow-md">
-            <CardHeader className="bg-muted/30 py-4">
-              <div className="flex items-center gap-2">
-                <CreditCard className="h-5 w-5 text-primary" />
-                <CardTitle className="text-lg">Payment Method</CardTitle>
-              </div>
-            </CardHeader>
-            <CardContent className="py-6">
-              <PaymentMethods 
-                selectedMethod={paymentMethod}
-                onSelect={setPaymentMethod}
-              />
-            </CardContent>
-          </Card>
+          <div ref={paymentSectionRef}>
+            <Card className="border-none shadow-md">
+              <CardHeader className="bg-muted/30 py-4">
+                <div className="flex items-center gap-2">
+                  <CreditCard className="h-5 w-5 text-primary" />
+                  <CardTitle className="text-lg">Payment Method</CardTitle>
+                </div>
+              </CardHeader>
+              <CardContent className="py-6">
+                <PaymentMethods 
+                  selectedMethod={paymentMethod}
+                  onSelect={handlePaymentMethodSelect}
+                />
+              </CardContent>
+            </Card>
+          </div>
         </div>
 
         {/* Order Summary Column */}
-        <div className="lg:col-span-4">
+        <div className="lg:col-span-4" ref={orderSummaryRef}>
           <div className="sticky top-6">
             <PaymentSummary 
               paymentMethod={paymentMethod}
