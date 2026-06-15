@@ -14,6 +14,7 @@ import { collection, getDocs, doc, deleteDoc, query, orderBy, onSnapshot, addDoc
 import { useToast } from "@/hooks/use-toast";
 import { triggerRefresh } from '@/lib/revalidateUtils';
 import { Input } from "@/components/ui/input";
+import { Switch } from '@/components/ui/switch';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import AppImage from '@/components/ui/AppImage';
 import PermissionGuard from '@/components/admin/PermissionGuard';
@@ -79,6 +80,28 @@ export default function AdminSubCategoriesPage() {
   const handleEditSubCategory = (subCat: FirestoreSubCategory) => {
     setEditingSubCategory(subCat);
     setIsFormOpen(true);
+  };
+
+  const handleToggleActive = async (sub: FirestoreSubCategory) => {
+    setIsSubmitting(true);
+    try {
+      const newStatus = !(sub.isActive === undefined ? true : sub.isActive);
+      await updateDoc(doc(db, "adminSubCategories", sub.id!), { 
+        isActive: newStatus,
+        updatedAt: serverTimestamp() 
+      });
+      toast({ 
+        title: "Status Updated", 
+        description: `Sub-category "${sub.name}" is now ${newStatus ? 'active' : 'inactive'}.` 
+      });
+      await triggerRefresh('categories');
+      await triggerRefresh('services');
+    } catch (error) {
+      console.error("Error toggling sub-category status: ", error);
+      toast({ title: "Error", description: "Could not update status.", variant: "destructive" });
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const handleDeleteSubCategory = async (id: string) => {
@@ -208,7 +231,8 @@ export default function AdminSubCategoriesPage() {
                     <TableRow>
                       <TableHead className="pl-6">Image</TableHead>
                       <TableHead>Sub-Category Name</TableHead>
-                      <TableHead>Visibility</TableHead>
+                      <TableHead className="text-center">Order</TableHead>
+                      <TableHead className="text-center">Active</TableHead>
                       <TableHead className="text-right pr-6 min-w-[120px]">Actions</TableHead>
                     </TableRow>
                   </TableHeader>
@@ -222,12 +246,13 @@ export default function AdminSubCategoriesPage() {
                             </div>
                           </TableCell>
                           <TableCell className="font-medium">{sub.name}</TableCell>
-                          <TableCell>
-                            {sub.isHidden ? (
-                              <span className="px-2 py-1 text-[10px] font-bold bg-muted text-muted-foreground rounded uppercase tracking-tighter">Hidden</span>
-                            ) : (
-                              <span className="px-2 py-1 text-[10px] font-bold bg-green-100 text-green-700 rounded uppercase tracking-tighter">Visible</span>
-                            )}
+                          <TableCell className="text-center">{sub.order || 0}</TableCell>
+                          <TableCell className="text-center">
+                            <Switch 
+                                checked={sub.isActive === undefined ? true : sub.isActive}
+                                onCheckedChange={() => handleToggleActive(sub)}
+                                disabled={isSubmitting}
+                            />
                           </TableCell>
                           <TableCell className="pr-6">
                             <div className="flex flex-col items-end gap-2 sm:flex-row sm:items-center sm:gap-2 sm:justify-end">
