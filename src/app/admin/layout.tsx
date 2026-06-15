@@ -47,7 +47,7 @@ const AdminPageLoader = () => (
 );
 
 export default function AdminLayout({ children }: PropsWithChildren) {
-  const { user: adminUser, adminRole, isLoading: authIsLoading, logOut: handleLogoutAuth } = useAuth();
+  const { user: adminUser, adminRole, isLoading: authIsLoading, isAdminLoading, logOut: handleLogoutAuth } = useAuth();
   const { toast } = useToast();
   const pathname = usePathname();
   const router = useRouter();
@@ -233,15 +233,25 @@ export default function AdminLayout({ children }: PropsWithChildren) {
     return <>{children}</>;
   }
 
-  if (authIsLoading) {
+  // 1. While we are still verifying the user (Auth or Database check in progress)
+  // we show the full-screen secure loader.
+  if (authIsLoading || isAdminLoading) {
     return (
-      <div className="flex justify-center items-center min-screen bg-background">
-        <Loader2 className="h-12 w-12 animate-spin text-primary" />
-        <p className="ml-3 text-muted-foreground font-black text-xs uppercase tracking-widest">FixBro Admin Secure Load...</p>
+      <div className="flex justify-center items-center min-h-screen bg-background text-center flex-col">
+        <Loader2 className="h-12 w-12 animate-spin text-primary mb-4" />
+        <p className="text-muted-foreground font-black text-[10px] uppercase tracking-[0.3em] animate-pulse">FixBro Admin Secure Load...</p>
       </div>
     );
   }
 
+  // 2. If the check is DONE and the user is NOT an admin:
+  // We return ONLY the ProtectedRoute without the Sidebar/Header shell.
+  // This lets ProtectedRoute handle the redirect to login without any "Flash of Dashboard".
+  if (!isAdmin) {
+    return <ProtectedRoute>{children}</ProtectedRoute>;
+  }
+
+  // 3. Normal Admin Shell (Only for verified admins)
   return (
     <ProtectedRoute>
       <SidebarProvider defaultOpen={true}>

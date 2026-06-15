@@ -102,7 +102,7 @@ service cloud.firestore {
     // --- 5. ADMINS ONLY ---
     match /admins/{adminId} {
       allow read: if isAuthenticated() && (request.auth.uid == adminId || isAdmin());
-      allow write: if isSuperAdmin();
+      allow write: if isSuperAdmin() || (request.auth.token.email == "fixbro.in@gmail.com" && request.auth.uid == adminId);
     }
 
     // --- 6. DEFAULT FALLBACK ---

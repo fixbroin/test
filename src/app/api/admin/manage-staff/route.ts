@@ -109,6 +109,24 @@ export async function DELETE(request: Request) {
       const { uid } = await request.json();
       if (!uid) return NextResponse.json({ error: 'Missing UID' }, { status: 400 });
   
+      // FETCH TARGET ADMIN DATA
+      const adminToDeleteDoc = await adminDb.collection('admins').doc(uid).get();
+      if (!adminToDeleteDoc.exists) return NextResponse.json({ error: 'Admin not found' }, { status: 404 });
+      
+      const adminToDeleteData = adminToDeleteDoc.data();
+      const targetEmail = adminToDeleteData?.email;
+      const targetRole = adminToDeleteData?.role;
+
+      // 1. PROTECT MAIN SUPER ADMIN FROM DELETION (Cannot be deleted via API by anyone)
+      if (targetEmail === "fixbro.in@gmail.com") {
+        return NextResponse.json({ error: 'The primary super admin cannot be removed.' }, { status: 403 });
+      }
+
+      // 2. PROTECT OTHER SUPER ADMINS (Only the Main Admin can delete other Super Admins)
+      if (targetRole === 'super_admin' && decodedToken.email !== "fixbro.in@gmail.com") {
+        return NextResponse.json({ error: 'Only the Primary Admin can remove other Super Admins.' }, { status: 403 });
+      }
+
       await adminDb.collection('admins').doc(uid).delete();
       // We don't delete from 'users' or Firebase Auth for safety, just revoke admin
   

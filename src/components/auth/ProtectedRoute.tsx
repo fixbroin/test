@@ -102,6 +102,32 @@ const ProtectedRoute: React.FC<PropsWithChildren> = ({ children }) => {
     );
   }
 
+  const isAdminRoute = pathname.startsWith('/admin');
+  const isAdminLoginPage = pathname === '/admin/login';
+  const isProviderRoute = pathname.startsWith('/provider');
+
+  // IMMEDIATE RENDER-PHASE REDIRECT CHECKS
+  // This prevents the "Flash of Content" before useEffect runs
+  if (!user) {
+    if (isAdminRoute && !isAdminLoginPage) return <div className="flex justify-center items-center min-h-screen"><Loader2 className="h-12 w-12 animate-spin text-primary" /><p className="ml-2">Redirecting to Login...</p></div>;
+    
+    const protectedClientRoutes = [
+      '/profile', '/my-bookings', '/checkout/schedule', '/checkout/address',
+      '/checkout/payment', '/checkout/thank-you', '/notifications', '/chat', '/cart', '/my-address',
+      '/custom-service'
+    ];
+    if (protectedClientRoutes.some(route => pathname.startsWith(route))) {
+        return <div className="flex justify-center items-center min-h-screen"><Loader2 className="h-12 w-12 animate-spin text-primary" /></div>;
+    }
+  } else {
+    if (isAdminRoute && !adminPermissions && !isAdminLoginPage) {
+       return <div className="flex justify-center items-center min-h-screen"><Loader2 className="h-12 w-12 animate-spin text-primary" /><p className="ml-2 text-xs font-black uppercase tracking-widest">Verifying Admin Access...</p></div>;
+    }
+    if (isAdminRoute && adminPermissions && !hasPathAccess(adminPermissions, pathname) && !isAdminLoginPage) {
+       return <div className="flex justify-center items-center min-h-screen"><Loader2 className="h-12 w-12 animate-spin text-destructive" /><p className="ml-2 text-xs font-black uppercase tracking-widest text-destructive">Access Denied.</p></div>;
+    }
+  }
+
   // Further checks after loading states are resolved
   if (!user) {
     const isAuthPage = pathname.startsWith('/auth/');

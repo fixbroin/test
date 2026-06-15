@@ -54,6 +54,7 @@ import {
   Edit
 } from "lucide-react";
 import { AdminPermissions, PERMISSION_MODULES, DEFAULT_PERMISSIONS } from '@/config/rbac';
+import { ADMIN_EMAIL } from '@/contexts/AuthContext';
 import { 
   AlertDialog, 
   AlertDialogAction, 
@@ -529,7 +530,21 @@ export default function ManageAdminsPage() {
                               </Button>
                             </PermissionGuard>
                         )}
-                        {admin.email !== currentUser?.email && (
+                        
+                        {/* 
+                          STRICT PROTECTION LOGIC:
+                          1. Cannot delete yourself (admin.id !== currentUser?.uid).
+                          2. If the target is the PRIMARY Main Admin (ADMIN_EMAIL):
+                             - Only the Main Admin themselves can delete a record with this email (to clean up ghosts/duplicates).
+                          3. If the target is ANOTHER Super Admin:
+                             - Only the PRIMARY Main Admin can delete them.
+                        */}
+                        {admin.id !== currentUser?.uid && (
+                          // Case A: I am the Primary Main Admin - I can delete anyone (except my active self)
+                          (currentUser?.email === ADMIN_EMAIL) || 
+                          // Case B: I am another admin - I can ONLY delete staff/staff_admins (not main admin, not other super admins)
+                          (admin.role !== 'super_admin' && admin.email !== ADMIN_EMAIL)
+                        ) && (
                             <PermissionGuard moduleId="manage_admins" action="delete">
                               <AlertDialog>
                                   <AlertDialogTrigger asChild>
@@ -544,7 +559,8 @@ export default function ManageAdminsPage() {
                                               Revoke Access?
                                           </AlertDialogTitle>
                                           <AlertDialogDescription className="font-medium text-slate-600 dark:text-slate-400">
-                                              This will immediately remove <span className="font-black underline text-slate-900 dark:text-slate-100">{admin.email}</span> from the admin panel. They will no longer be able to log in to the dashboard.
+                                              This will immediately remove <span className="font-black underline text-slate-900 dark:text-slate-100">{admin.email}</span> from the admin panel.
+                                              {admin.email === ADMIN_EMAIL && " (Note: You are deleting a duplicate ghost record of yourself)"}
                                           </AlertDialogDescription>
                                       </AlertDialogHeader>
                                       <AlertDialogFooter className="mt-4 gap-2">
@@ -555,9 +571,24 @@ export default function ManageAdminsPage() {
                               </AlertDialog>
                             </PermissionGuard>
                         )}
-                        {admin.email === currentUser?.email && (
-                            <div className="inline-flex items-center px-2 py-1 rounded bg-muted/50 text-[9px] font-black text-muted-foreground uppercase">
-                                <Lock className="h-3 w-3 mr-1" /> Current User
+
+                        {admin.id === currentUser?.uid && (
+                            <div className="inline-flex items-center px-2 py-1 rounded bg-primary/10 text-[9px] font-black text-primary uppercase">
+                                <Lock className="h-3 w-3 mr-1" /> My Account
+                            </div>
+                        )}
+
+                        {/* Visual indicator for protected Main Admin when viewed by others */}
+                        {admin.email === ADMIN_EMAIL && admin.id !== currentUser?.uid && currentUser?.email !== ADMIN_EMAIL && (
+                            <div className="inline-flex items-center px-2 py-1 rounded bg-amber-500/10 text-[9px] font-black text-amber-600 uppercase">
+                                <ShieldCheck className="h-3 w-3 mr-1" /> Primary Admin
+                            </div>
+                        )}
+
+                        {/* Visual indicator for protected Super Admins when viewed by regular staff admins */}
+                        {admin.role === 'super_admin' && admin.email !== ADMIN_EMAIL && admin.id !== currentUser?.uid && currentUser?.email !== ADMIN_EMAIL && (
+                            <div className="inline-flex items-center px-2 py-1 rounded bg-slate-500/10 text-[9px] font-black text-slate-600 uppercase">
+                                <Lock className="h-3 w-3 mr-1" /> Protected
                             </div>
                         )}
                       </TableCell>
