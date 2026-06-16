@@ -258,15 +258,15 @@ export default function AdminLayout({ children }: PropsWithChildren) {
         <Sidebar collapsible="icon" variant="sidebar" className="border-r bg-card text-card-foreground">
           <AdminSidebarContent />
         </Sidebar>
-        <SidebarInset className="bg-muted/30 overflow-x-hidden flex flex-col min-h-screen">
-          <header className="bg-background/95 backdrop-blur-xl sticky top-0 z-[30] border-b border-border/40 transition-all duration-300 shrink-0">
+        <SidebarInset className="bg-muted/30 overflow-x-hidden flex flex-col min-h-screen transition-all duration-200">
+          <header className="bg-background/95 backdrop-blur-xl sticky top-0 z-[30] border-b border-border/40 transition-all duration-200 shrink-0">
             <div className="flex h-16 items-center justify-between px-4 sm:px-6">
               <div className="flex items-center gap-4">
                 <div className="bg-muted/50 p-1.5 rounded-xl border border-border/40 shadow-sm hover:bg-muted transition-colors cursor-pointer group md:hidden" onClick={() => router.push('/admin')}>
                    <ShieldCheck className="h-5 w-5 text-primary group-hover:scale-110 transition-transform" />
                 </div>
                 <div className="flex items-center gap-3">
-                  <SidebarTrigger className="hidden md:inline-flex rounded-full h-10 w-10 bg-muted/50 hover:bg-primary hover:text-primary-foreground transition-all duration-300" />
+                  <SidebarTrigger className="hidden md:inline-flex rounded-full h-10 w-10 bg-muted/50 hover:bg-primary hover:text-primary-foreground transition-all duration-200" />
                   <div className="flex items-center gap-2">
                     <h1 className="text-base sm:text-lg font-black tracking-tight text-slate-800 dark:text-slate-100">Admin Panel</h1>
                     <div className="hidden sm:flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-primary/10 border border-primary/20">
