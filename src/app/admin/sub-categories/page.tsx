@@ -17,6 +17,7 @@ import { Input } from "@/components/ui/input";
 import { Switch } from '@/components/ui/switch';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import AppImage from '@/components/ui/AppImage';
+import { Skeleton } from '@/components/ui/skeleton';
 import PermissionGuard from '@/components/admin/PermissionGuard';
 import { getCache, setCache } from '@/lib/client-cache';
 import { getAdminSubCategories, getAdminCategories } from '@/lib/webServerUtils';
@@ -60,7 +61,7 @@ export default function AdminSubCategoriesPage() {
       }
 
       const [subData, catData] = await Promise.all([
-        getDocs(query(collection(db, "adminSubCategories"), orderBy("name", "asc"))),
+        getDocs(query(collection(db, "adminSubCategories"), orderBy("order", "asc"))),
         getDocs(query(collection(db, "adminCategories"), orderBy("order", "asc")))
       ]);
 
