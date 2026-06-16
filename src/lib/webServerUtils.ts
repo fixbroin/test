@@ -12,6 +12,8 @@ import type { ContentPage, FirestoreCategory, FirestoreSubCategory, FirestoreSer
 import { cache } from 'react';
 import { unstable_cache } from 'next/cache';
 
+import { serializeFirestoreData } from './serializeUtils';
+
 const WEB_SETTINGS_DOC_ID = "global";
 const APP_CONFIG_DOC_ID = "applicationConfig";
 const MARKETING_CONFIG_DOC_ID = "marketingConfiguration";
@@ -28,7 +30,7 @@ export const getContentPageData = cache(async (slug: string): Promise<ContentPag
         const docSnap = await pageDocRef.get();
         if (docSnap.exists) {
           const data = docSnap.data();
-          return { id: docSnap.id, ...data } as ContentPage;
+          return { id: docSnap.id, ...serializeFirestoreData(data) } as ContentPage;
         }
         return null;
       } catch (error) {
@@ -53,10 +55,10 @@ export const getMarketingSettings = cache(async (): Promise<any> => {
         const docSnap = await adminDb.collection(WEB_SETTINGS_COLLECTION).doc(MARKETING_CONFIG_DOC_ID).get();
         if (docSnap.exists) {
           const data = docSnap.data() || {};
-          return {
+          return serializeFirestoreData({
             ...defaultMarketingValues,
             ...data,
-          };
+          });
         }
         return defaultMarketingValues;
       } catch (error) {
@@ -84,10 +86,10 @@ export const getGlobalAppSettings = cache(async (): Promise<any> => {
         const docSnap = await adminDb.collection(WEB_SETTINGS_COLLECTION).doc(APP_CONFIG_DOC_ID).get();
         if (docSnap.exists) {
           const data = docSnap.data() || {};
-          return {
+          return serializeFirestoreData({
             ...defaultAppSettings,
             ...data,
-          };
+          });
         }
         return defaultAppSettings;
       } catch (error) {
@@ -130,7 +132,7 @@ export const getGlobalWebSettings = cache(async (): Promise<GlobalWebSettings> =
             }
           });
 
-          return {
+          return serializeFirestoreData({
             ...defaultGlobalWebSettings,
             ...data,
             themeColors: {
@@ -145,7 +147,7 @@ export const getGlobalWebSettings = cache(async (): Promise<GlobalWebSettings> =
               ...defaultGlobalWebSettings.globalAdminPopup,
               ...(data.globalAdminPopup || {}),
             },
-          } as GlobalWebSettings;
+          }) as GlobalWebSettings;
         }
         return defaultGlobalWebSettings;
       } catch (error) {
@@ -239,7 +241,7 @@ export const getAdminCategories = cache(async (): Promise<FirestoreCategory[]> =
     async () => {
       try {
         const snapshot = await adminDb.collection("adminCategories").orderBy("order", "asc").get();
-        return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as FirestoreCategory));
+        return snapshot.docs.map(doc => ({ id: doc.id, ...serializeFirestoreData(doc.data()) } as FirestoreCategory));
       } catch (error) {
         console.error("Error fetching admin categories:", error);
         return [];
@@ -258,7 +260,7 @@ export const getAdminSubCategories = cache(async (): Promise<FirestoreSubCategor
     async () => {
       try {
         const snapshot = await adminDb.collection("adminSubCategories").orderBy("name", "asc").get();
-        return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as FirestoreSubCategory));
+        return snapshot.docs.map(doc => ({ id: doc.id, ...serializeFirestoreData(doc.data()) } as FirestoreSubCategory));
       } catch (error) {
         console.error("Error fetching admin sub-categories:", error);
         return [];
@@ -277,7 +279,7 @@ export const getAdminServices = cache(async (): Promise<FirestoreService[]> => {
     async () => {
       try {
         const snapshot = await adminDb.collection("adminServices").orderBy("name", "asc").get();
-        return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as FirestoreService));
+        return snapshot.docs.map(doc => ({ id: doc.id, ...serializeFirestoreData(doc.data()) } as FirestoreService));
       } catch (error) {
         console.error("Error fetching admin services:", error);
         return [];
@@ -296,7 +298,7 @@ export const getTaxes = cache(async (): Promise<FirestoreTax[]> => {
     async () => {
       try {
         const snapshot = await adminDb.collection("taxes").get();
-        return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as FirestoreTax));
+        return snapshot.docs.map(doc => ({ id: doc.id, ...serializeFirestoreData(doc.data()) } as FirestoreTax));
       } catch (error) {
         console.error("Error fetching taxes:", error);
         return [];
@@ -315,7 +317,7 @@ export const getCities = cache(async (): Promise<FirestoreCity[]> => {
     async () => {
       try {
         const snapshot = await adminDb.collection("cities").orderBy("name", "asc").get();
-        return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as FirestoreCity));
+        return snapshot.docs.map(doc => ({ id: doc.id, ...serializeFirestoreData(doc.data()) } as FirestoreCity));
       } catch (error) {
         console.error("Error fetching cities:", error);
         return [];
@@ -334,7 +336,7 @@ export const getAreas = cache(async (): Promise<FirestoreArea[]> => {
     async () => {
       try {
         const snapshot = await adminDb.collection("areas").orderBy("name", "asc").get();
-        return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as FirestoreArea));
+        return snapshot.docs.map(doc => ({ id: doc.id, ...serializeFirestoreData(doc.data()) } as FirestoreArea));
       } catch (error) {
         console.error("Error fetching areas:", error);
         return [];
@@ -353,7 +355,7 @@ export const getCityCategorySeoSettings = cache(async (): Promise<CityCategorySe
     async () => {
       try {
         const snapshot = await adminDb.collection("cityCategorySeoSettings").orderBy("cityName").orderBy("categoryName").get();
-        return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as CityCategorySeoSetting));
+        return snapshot.docs.map(doc => ({ id: doc.id, ...serializeFirestoreData(doc.data()) } as CityCategorySeoSetting));
       } catch (error) {
         console.error("Error fetching city-category SEO settings:", error);
         return [];
@@ -372,7 +374,7 @@ export const getAreaCategorySeoSettings = cache(async (): Promise<AreaCategorySe
     async () => {
       try {
         const snapshot = await adminDb.collection("areaCategorySeoSettings").orderBy("cityName").orderBy("areaName").orderBy("categoryName").get();
-        return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as AreaCategorySeoSetting));
+        return snapshot.docs.map(doc => ({ id: doc.id, ...serializeFirestoreData(doc.data()) } as AreaCategorySeoSetting));
       } catch (error) {
         console.error("Error fetching area-category SEO settings:", error);
         return [];

@@ -41,6 +41,7 @@ export default function SeoOverridesPage() {
 
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isMounted, setIsMounted] = useState(false);
   const { toast } = useToast();
   const { adminPermissions } = useAuth();
 
@@ -113,6 +114,7 @@ export default function SeoOverridesPage() {
   };
 
   useEffect(() => {
+    setIsMounted(true);
     fetchData();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -255,7 +257,7 @@ export default function SeoOverridesPage() {
   };
 
 
-  if (isLoading) {
+  if (!isMounted || isLoading) {
     return (
       <div className="space-y-6">
         <Card><CardHeader><Skeleton className="h-8 w-1/2" /><Skeleton className="h-4 w-3/4 mt-2" /></CardHeader>
