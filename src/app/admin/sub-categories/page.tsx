@@ -28,6 +28,7 @@ export default function AdminSubCategoriesPage() {
   const [editingSubCategory, setEditingSubCategory] = useState<FirestoreSubCategory | null>(null);
   const [isLoadingData, setIsLoadingData] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isMounted, setIsMounted] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const { toast } = useToast();
 
@@ -83,8 +84,19 @@ export default function AdminSubCategoriesPage() {
   };
 
   useEffect(() => {
+    setIsMounted(true);
     fetchData(true);
   }, [toast]);
+
+  if (!isMounted) {
+    return (
+      <div className="space-y-6">
+        <Card><CardHeader><Skeleton className="h-8 w-1/2" /><Skeleton className="h-4 w-3/4 mt-2" /></CardHeader>
+          <CardContent><Skeleton className="h-64 w-full" /></CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   const handleAddSubCategory = () => {
     setEditingSubCategory(null);
