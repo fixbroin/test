@@ -4,8 +4,10 @@ import React, { useEffect, useState, useRef } from 'react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardFooter, CardDescription } from '@/components/ui/card';
-import { CheckCircle2, Home, ListOrdered, Mail, Download, Loader2, MapPin, Tag, HandCoins, Ban } from 'lucide-react';
+import { CheckCircle2, Home, ListOrdered, Mail, Download, Loader2, MapPin, Tag, HandCoins, Ban, Hash, Package, Calendar, Clock, CreditCard, Activity, IndianRupee, Wallet } from 'lucide-react';
 import CheckoutStepper from '@/components/checkout/CheckoutStepper';
+import { Separator } from '@/components/ui/separator';
+import { cn } from '@/lib/utils';
 import { db, auth } from '@/lib/firebase';
 import { collection, addDoc, Timestamp, doc, getDoc, runTransaction, query, where, getDocs, limit, updateDoc, deleteDoc, setDoc } from "firebase/firestore";
 import type { FirestoreBooking, BookingServiceItem, FirestoreService, FirestorePromoCode, AppSettings, AppliedPlatformFeeItem, FirestoreNotification, BookingStatus, MarketingAutomationSettings, MarketingSettings, ProviderApplication } from '@/types/firestore';
@@ -136,6 +138,17 @@ export default function ThankYouPage() {
   const { hideLoading } = useLoading();
   const { config: appConfig, isLoading: isLoadingAppSettings } = useApplicationConfig();
 
+  const SummaryItem = ({ icon: Icon, label, value, className, valueClassName }: { icon: any, label: string, value: React.ReactNode, className?: string, valueClassName?: string }) => (
+    <div className={cn("flex items-center justify-between py-3.5 group", className)}>
+      <div className="flex items-center gap-3">
+        <div className="p-2 rounded-xl bg-primary/5 group-hover:bg-primary/10 transition-colors">
+          <Icon className="h-4 w-4 text-primary" />
+        </div>
+        <span className="text-sm font-medium text-muted-foreground">{label}</span>
+      </div>
+      <span className={cn("text-sm font-bold text-right ml-4", valueClassName)}>{value}</span>
+    </div>
+  );
 
   useEffect(() => {
     setIsMounted(true);
@@ -424,24 +437,35 @@ export default function ThankYouPage() {
 
   if (isCancellationConfirmation) {
     return (
-      <div className="max-w-2xl mx-auto px-2 sm:px-0">
-        <Card className="shadow-lg text-center">
-          <CardHeader className="items-center px-4 sm:px-6">
-            <Ban className="h-12 w-12 sm:h-16 sm:w-16 text-destructive mb-4" />
-            <CardTitle className="text-2xl sm:text-3xl font-headline">Booking Cancelled</CardTitle>
-            <CardDescription className="text-md sm:text-lg text-muted-foreground">
-                Cancellation fee of ₹{cancellationFeePaidAmount.toFixed(2)} has been paid.
-                Booking ID: <strong>{cancelledBookingId || 'N/A'}</strong> has been successfully cancelled.
+      <div className="max-w-3xl mx-auto px-2 sm:px-0 pb-10">
+        <Card className="shadow-2xl border-none overflow-hidden rounded-3xl text-center">
+          <CardHeader className="items-center px-4 sm:px-6 pt-10 pb-6">
+            <div className="relative">
+              <div className="absolute inset-0 bg-destructive/10 blur-3xl rounded-full scale-150 animate-pulse" />
+              <Ban className="h-20 w-20 sm:h-24 sm:w-24 text-destructive relative z-10" />
+            </div>
+            <CardTitle className="text-3xl sm:text-4xl font-black mt-6 bg-gradient-to-br from-foreground to-foreground/70 bg-clip-text text-transparent">Booking Cancelled</CardTitle>
+            <CardDescription className="text-lg text-muted-foreground font-medium max-w-sm mx-auto">
+                Cancellation fee of <span className="text-foreground font-bold">₹{cancellationFeePaidAmount.toFixed(2)}</span> has been paid.
+                Booking ID: <span className="text-foreground font-bold">#{cancelledBookingId || 'N/A'}</span> has been successfully cancelled.
             </CardDescription>
           </CardHeader>
-          <CardContent className="px-4 sm:px-6 md:px-8 text-xs sm:text-sm">
-             <p className="text-muted-foreground mt-1">If applicable, any refund will be processed to your original payment method within 5-7 business days.</p>
+          <CardContent className="px-4 sm:px-6 md:px-8 pb-8 pt-2">
+             <div className="p-4 rounded-2xl bg-muted border border-border/50 text-sm text-muted-foreground">
+                If applicable, any refund will be processed to your original payment method within 5-7 business days.
+             </div>
           </CardContent>
-          <CardFooter className="flex flex-col sm:flex-row gap-3 sm:gap-4 justify-center pt-4 sm:pt-6">
-            <Link href="/" passHref className="hidden md:block">
-              <Button size="lg" variant="outline" className="w-full sm:w-auto text-sm sm:text-base"><Home className="mr-2 h-4 w-4" /> Go to Home</Button>
+          <CardFooter className="flex flex-col sm:flex-row gap-4 justify-center p-8 bg-muted/30 border-t">
+            <Link href="/" passHref className="w-full sm:w-auto">
+              <Button size="lg" variant="outline" className="w-full sm:w-auto h-12 font-bold rounded-xl border-2 hover:bg-background shadow-sm">
+                <Home className="mr-2 h-4 w-4" /> Go to Home
+              </Button>
             </Link>
-            <Link href="/my-bookings" passHref><Button size="lg" className="w-full sm:w-auto text-sm sm:text-base"><ListOrdered className="mr-2 h-4 w-4" /> View My Bookings</Button></Link>
+            <Link href="/my-bookings" passHref className="w-full sm:w-auto">
+              <Button size="lg" className="w-full sm:w-auto h-12 font-bold rounded-xl shadow-lg shadow-primary/20">
+                <ListOrdered className="mr-2 h-4 w-4" /> View My Bookings
+              </Button>
+            </Link>
           </CardFooter>
         </Card>
       </div>
@@ -450,24 +474,33 @@ export default function ThankYouPage() {
   
   if (!bookingDetailsForDisplay) {
      return (
-      <div className="max-w-2xl mx-auto px-2 sm:px-0">
+      <div className="max-w-3xl mx-auto px-2 sm:px-0 pb-10">
         <CheckoutStepper currentStepId="confirmation" />
-        <Card className="shadow-lg">
-            <CardHeader className="items-center text-center">
-                <CheckCircle2 className="h-12 w-12 sm:h-16 sm:w-16 text-accent mb-4" />
-                <CardTitle className="text-2xl sm:text-3xl font-headline">Booking Processed</CardTitle>
-                <CardDescription className="text-md sm:text-lg text-muted-foreground">
-                    Your request has been processed.
+        <Card className="shadow-2xl border-none overflow-hidden rounded-3xl text-center">
+            <CardHeader className="items-center px-4 sm:px-6 pt-10 pb-6">
+                <div className="relative">
+                  <div className="absolute inset-0 bg-accent/20 blur-3xl rounded-full scale-150 animate-pulse" />
+                  <CheckCircle2 className="h-20 w-20 sm:h-24 sm:w-24 text-accent relative z-10" />
+                </div>
+                <CardTitle className="text-3xl sm:text-4xl font-black mt-6 bg-gradient-to-br from-foreground to-foreground/70 bg-clip-text text-transparent">Booking Processed</CardTitle>
+                <CardDescription className="text-lg text-muted-foreground font-medium max-w-sm mx-auto">
+                    Your request has been successfully received and processed.
                 </CardDescription>
             </CardHeader>
-             <CardContent className="px-4 sm:px-6 md:px-8 text-xs sm:text-sm">
-                 <p className="text-center text-muted-foreground">Loading booking details or it might have been already confirmed.</p>
+             <CardContent className="px-4 sm:px-6 md:px-8 pb-8 pt-2">
+                 <p className="text-center text-muted-foreground">Loading your booking details. You can also view them in your account profile.</p>
              </CardContent>
-            <CardFooter className="flex flex-col sm:flex-row gap-3 sm:gap-4 justify-center pt-4 sm:pt-6">
-                <Link href="/" passHref className="hidden md:block">
-                  <Button size="lg" variant="outline" className="w-full sm:w-auto text-sm sm:text-base"><Home className="mr-2 h-4 w-4" /> Go to Home</Button>
+            <CardFooter className="flex flex-col sm:flex-row gap-4 justify-center p-8 bg-muted/30 border-t">
+                <Link href="/" passHref className="w-full sm:w-auto">
+                  <Button size="lg" variant="outline" className="w-full sm:w-auto h-12 font-bold rounded-xl border-2 hover:bg-background shadow-sm">
+                    <Home className="mr-2 h-4 w-4" /> Go to Home
+                  </Button>
                 </Link>
-                <Link href="/my-bookings" passHref><Button size="lg" className="w-full sm:w-auto text-sm sm:text-base"><ListOrdered className="mr-2 h-4 w-4" /> Go to My Bookings</Button></Link>
+                <Link href="/my-bookings" passHref className="w-full sm:w-auto">
+                  <Button size="lg" className="w-full sm:w-auto h-12 font-bold rounded-xl shadow-lg shadow-primary/20">
+                    <ListOrdered className="mr-2 h-4 w-4" /> View My Bookings
+                  </Button>
+                </Link>
             </CardFooter>
         </Card>
       </div>
@@ -475,55 +508,123 @@ export default function ThankYouPage() {
   }
 
   return (
-    <div className="max-w-2xl mx-auto px-2 sm:px-0">
+    <div className="max-w-3xl mx-auto px-2 sm:px-0 pb-10">
       <CheckoutStepper currentStepId="confirmation" />
-      <Card className="shadow-lg text-center">
-        <CardHeader className="items-center px-4 sm:px-6"><CheckCircle2 className="h-12 w-12 sm:h-16 sm:w-16 text-accent mb-4" /><CardTitle className="text-2xl sm:text-3xl font-headline">Thank You for Your Booking!</CardTitle><CardDescription className="text-md sm:text-lg text-muted-foreground">Your service has been successfully scheduled.</CardDescription></CardHeader>
-        <CardContent className="space-y-3 sm:space-y-4 text-left px-4 sm:px-6 md:px-8 text-xs sm:text-sm">
-          <h3 className="text-lg sm:text-xl font-semibold mb-2 sm:mb-3 text-center">Booking Summary</h3>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 sm:gap-x-6 gap-y-2 sm:gap-y-3 p-3 sm:p-4 border rounded-md bg-secondary/30">
-            <div><strong>Booking ID:</strong> {bookingDetailsForDisplay.bookingId}</div>
-            <div className="sm:col-span-2"><strong>Service(s):</strong> {bookingDetailsForDisplay.servicesSummary}</div>
-            <div><strong>Date:</strong> {bookingDetailsForDisplay.scheduledDateDisplay}</div>
-            <div><strong>Time:</strong> {bookingDetailsForDisplay.scheduledTimeSlot}</div>
-            {bookingDetailsForDisplay.estimatedEndTime && (
-              <div className="sm:col-span-2 text-green-700 font-medium">
-                <strong>Estimated Completion:</strong> {new Date(bookingDetailsForDisplay.estimatedEndTime).toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' })} at {new Date(bookingDetailsForDisplay.estimatedEndTime).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true })}
-              </div>
-            )}
-            <div className="sm:col-span-2"><strong>Address:</strong> {`${bookingDetailsForDisplay.addressLine1}${bookingDetailsForDisplay.addressLine2 ? ', ' + bookingDetailsForDisplay.addressLine2 : ''}, ${bookingDetailsForDisplay.city}, ${bookingDetailsForDisplay.state} - ${bookingDetailsForDisplay.pincode}`}</div>
-          
-            <div><strong>Items Total (Base):</strong> ₹{(bookingDetailsForDisplay.subTotal).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
-            {bookingDetailsForDisplay.discountAmount != null && bookingDetailsForDisplay.discountAmount > 0 && (<div className="text-green-600"><strong className="flex items-center"><Tag className="h-3 w-3 mr-1" />Discount ({bookingDetailsForDisplay.discountCode || 'Applied'}):</strong><span>- ₹{bookingDetailsForDisplay.discountAmount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span></div>)}
-            {bookingDetailsForDisplay.visitingChargeDisplayed != null && bookingDetailsForDisplay.visitingChargeDisplayed > 0 && (<div><strong>Visiting Charge (Base):</strong> <span className="text-primary">+ ₹{(bookingDetailsForDisplay.visitingCharge || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span></div>)}
-            {bookingDetailsForDisplay.appliedPlatformFees && bookingDetailsForDisplay.appliedPlatformFees.length > 0 && ( bookingDetailsForDisplay.appliedPlatformFees.map((fee, index) => ( <div key={index}> <strong className="flex items-center"><HandCoins className="h-3 w-3 mr-1"/>{fee.name}:</strong> <span className="text-primary"> + ₹{(fee.calculatedFeeAmount + fee.taxAmountOnFee).toFixed(2)}</span> </div> )) )}
-            <div><strong>Total Tax:</strong> + ₹{bookingDetailsForDisplay.taxAmount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
-            <div><strong>Total Amount:</strong> <span className="font-bold text-primary">₹{bookingDetailsForDisplay.totalAmount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span></div>
-            <div><strong>Payment Method:</strong> {bookingDetailsForDisplay.paymentMethod}</div>
-            <div><strong>Status:</strong> {bookingDetailsForDisplay.status}</div>
+      <Card className="shadow-2xl border-none overflow-hidden rounded-3xl">
+        <CardHeader className="items-center px-4 sm:px-6 pt-10 pb-6 text-center">
+          <div className="relative">
+            <div className="absolute inset-0 bg-accent/20 blur-3xl rounded-full scale-150 animate-pulse" />
+            <CheckCircle2 className="h-20 w-20 sm:h-24 sm:w-24 text-accent relative z-10" />
           </div>
-          <p className="text-xs sm:text-sm text-muted-foreground text-center mt-3 sm:mt-4 flex items-center justify-center"><Mail className="h-3.5 w-3.5 sm:h-4 sm:w-4 mr-2"/> An email confirmation has been sent to {bookingDetailsForDisplay.customerEmail}.</p>
-        </CardContent>
-        <CardFooter className="flex flex-col sm:flex-row gap-3 sm:gap-4 justify-center pt-4 sm:pt-6 w-full">
-  <Link href="/" passHref className="w-full sm:w-auto">
-    <Button
-      size="lg"
-      variant="outline"
-      className="w-full sm:w-auto text-sm sm:text-base hidden md:flex"
-    >
-      <Home className="mr-2 h-4 w-4" /> Go to Home
-    </Button>
-  </Link>
+          <CardTitle className="text-3xl sm:text-4xl font-black mt-6 bg-gradient-to-br from-foreground to-foreground/70 bg-clip-text text-transparent">
+            Booking Confirmed!
+          </CardTitle>
+          <CardDescription className="text-lg text-muted-foreground font-medium max-w-sm mx-auto">
+            Sit back and relax. Your service has been successfully scheduled.
+          </CardDescription>
+        </CardHeader>
 
-  <Link href="/my-bookings" passHref className="w-full sm:w-auto">
-    <Button
-      size="lg"
-      className="w-full sm:w-auto text-sm sm:text-base"
-    >
-      <ListOrdered className="mr-2 h-4 w-4" /> Go to Bookings
-    </Button>
-  </Link>
-</CardFooter>
+        <CardContent className="px-4 sm:px-8 pb-8 pt-2 text-left">
+          <div className="max-w-md mx-auto">
+            <h3 className="text-xl font-bold mb-6 text-center text-foreground flex items-center justify-center gap-2">
+              <Activity className="h-5 w-5 text-primary" /> Booking Summary
+            </h3>
+            
+            <div className="space-y-0">
+                <SummaryItem icon={Hash} label="Booking ID" value={bookingDetailsForDisplay.bookingId} />
+                <Separator className="opacity-40" />
+                
+                <SummaryItem icon={Package} label="Service(s)" value={bookingDetailsForDisplay.servicesSummary} />
+                <Separator className="opacity-40" />
+                
+                <SummaryItem icon={Calendar} label="Scheduled Date" value={bookingDetailsForDisplay.scheduledDateDisplay} />
+                <Separator className="opacity-40" />
+                
+                <SummaryItem icon={Clock} label="Time Slot" value={bookingDetailsForDisplay.scheduledTimeSlot} />
+                <Separator className="opacity-40" />
+
+                {bookingDetailsForDisplay.estimatedEndTime && (
+                  <>
+                    <SummaryItem 
+                        icon={Activity} 
+                        label="Estimated Completion" 
+                        valueClassName="text-emerald-600"
+                        value={`${new Date(bookingDetailsForDisplay.estimatedEndTime).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })} at ${new Date(bookingDetailsForDisplay.estimatedEndTime).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true })}`} 
+                    />
+                    <Separator className="opacity-40" />
+                  </>
+                )}
+
+                <SummaryItem icon={MapPin} label="Address" value={`${bookingDetailsForDisplay.addressLine1}${bookingDetailsForDisplay.addressLine2 ? ', ' + bookingDetailsForDisplay.addressLine2 : ''}, ${bookingDetailsForDisplay.city}`} />
+                <Separator className="opacity-40" />
+
+                <SummaryItem icon={IndianRupee} label="Items Total" value={`₹${bookingDetailsForDisplay.subTotal.toLocaleString(undefined, { minimumFractionDigits: 2 })}`} />
+                <Separator className="opacity-40" />
+
+                {bookingDetailsForDisplay.discountAmount != null && bookingDetailsForDisplay.discountAmount > 0 && (
+                  <>
+                    <SummaryItem 
+                        icon={Tag} 
+                        label={`Discount (${bookingDetailsForDisplay.discountCode || 'Applied'})`} 
+                        valueClassName="text-emerald-600"
+                        value={`- ₹${bookingDetailsForDisplay.discountAmount.toLocaleString(undefined, { minimumFractionDigits: 2 })}`} 
+                    />
+                    <Separator className="opacity-40" />
+                  </>
+                )}
+
+                {bookingDetailsForDisplay.visitingChargeDisplayed != null && bookingDetailsForDisplay.visitingChargeDisplayed > 0 && (
+                  <>
+                    <SummaryItem icon={IndianRupee} label="Visiting Charge" value={`+ ₹${bookingDetailsForDisplay.visitingCharge?.toLocaleString(undefined, { minimumFractionDigits: 2 })}`} />
+                    <Separator className="opacity-40" />
+                  </>
+                )}
+
+                {bookingDetailsForDisplay.appliedPlatformFees?.map((fee, index) => (
+                  <React.Fragment key={index}>
+                    <SummaryItem icon={HandCoins} label={fee.name} value={`+ ₹${(fee.calculatedFeeAmount + fee.taxAmountOnFee).toFixed(2)}`} />
+                    <Separator className="opacity-40" />
+                  </React.Fragment>
+                ))}
+
+                <SummaryItem icon={Activity} label="Total Tax" value={`+ ₹${bookingDetailsForDisplay.taxAmount.toLocaleString(undefined, { minimumFractionDigits: 2 })}`} />
+                <Separator className="opacity-40" />
+
+                <SummaryItem 
+                    icon={CreditCard} 
+                    label="Total Amount" 
+                    valueClassName="text-xl text-primary"
+                    value={`₹${bookingDetailsForDisplay.totalAmount.toLocaleString(undefined, { minimumFractionDigits: 2 })}`} 
+                />
+                <Separator className="opacity-40" />
+
+                <SummaryItem icon={Wallet} label="Payment Method" value={bookingDetailsForDisplay.paymentMethod} />
+                <Separator className="opacity-40" />
+
+                <SummaryItem icon={Activity} label="Status" value={bookingDetailsForDisplay.status} />
+            </div>
+
+            <div className="mt-8 p-4 rounded-2xl bg-primary/5 border border-primary/10 flex items-center justify-center gap-3">
+               <Mail className="h-5 w-5 text-primary shrink-0" />
+               <p className="text-sm text-muted-foreground text-center">
+                 Confirmation sent to <span className="font-bold text-foreground">{bookingDetailsForDisplay.customerEmail}</span>
+               </p>
+            </div>
+          </div>
+        </CardContent>
+
+        <CardFooter className="flex flex-col sm:flex-row gap-4 justify-center p-8 bg-muted/30 border-t">
+          <Link href="/" passHref className="w-full sm:w-auto">
+            <Button size="lg" variant="outline" className="w-full sm:w-auto h-12 font-bold rounded-xl border-2 hover:bg-background shadow-sm">
+              <Home className="mr-2 h-4 w-4" /> Go to Home
+            </Button>
+          </Link>
+          <Link href="/my-bookings" passHref className="w-full sm:w-auto">
+            <Button size="lg" className="w-full sm:w-auto h-12 font-bold rounded-xl shadow-lg shadow-primary/20">
+              <ListOrdered className="mr-2 h-4 w-4" /> View My Bookings
+            </Button>
+          </Link>
+        </CardFooter>
       </Card>
     </div>
   );

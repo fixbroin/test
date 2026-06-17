@@ -118,9 +118,12 @@ export default function AssignProviderModal({ isOpen, onClose, booking, onAssign
   return (
     <Dialog open={isOpen} onOpenChange={(open) => { if (!open) onClose(); }}>
       <DialogContent className="sm:max-w-md md:max-w-lg max-h-[85vh] flex flex-col p-0 overflow-hidden">
-        <DialogHeader className="p-6 pb-2">
-          <DialogTitle className="flex items-center">
-            <UserCheck2 className="mr-2 h-5 w-5 text-primary"/> Assign Provider <span className="text-sm text-muted-foreground ml-1">#{booking.bookingId}</span>
+        <DialogHeader className="p-4 sm:p-6 pb-2">
+          <DialogTitle className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2">
+            <div className="flex items-center">
+              <UserCheck2 className="mr-2 h-5 w-5 text-primary"/> Assign Provider
+            </div>
+            <span className="text-xs sm:text-sm text-muted-foreground font-normal">#{booking.bookingId}</span>
           </DialogTitle>
           <DialogDescription>
             Showing nearest approved providers for this service category.
@@ -155,26 +158,26 @@ export default function AssignProviderModal({ isOpen, onClose, booking, onAssign
                   >
                     <RadioGroupItem value={provider.id!} id={`provider-${provider.id}`} className="shrink-0" />
                     
-                    <Avatar className="h-12 w-12 border shadow-sm">
+                    <Avatar className="h-12 w-12 border shadow-sm shrink-0">
                       <AvatarImage src={provider.profilePhotoUrl || undefined} alt={provider.fullName} />
                       <AvatarFallback className="bg-muted text-lg">{provider.fullName ? provider.fullName[0].toUpperCase() : <UserCircle />}</AvatarFallback>
                     </Avatar>
 
                     <div className="flex-grow min-w-0 space-y-0.5">
-                      <div className="flex justify-between items-baseline gap-2">
-                        <div className="flex flex-col">
+                      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-baseline gap-1 sm:gap-2">
+                        <div className="flex flex-col min-w-0">
                           <p className="font-bold text-sm truncate">{provider.fullName}</p>
                           {booking.suggestedProviderIds?.includes(provider.id!) && (
                             <span className="text-[10px] font-bold text-emerald-600 uppercase tracking-wider">Suggested Match</span>
                           )}
                         </div>
                         {provider.distance !== Infinity && (
-                          <span className="text-[10px] font-bold text-primary whitespace-nowrap bg-primary/10 px-1.5 py-0.5 rounded flex items-center gap-1">
+                          <span className="text-[10px] font-bold text-primary whitespace-nowrap bg-primary/10 px-1.5 py-0.5 rounded flex items-center w-fit gap-1">
                             <MapPin className="h-3 w-3" /> {provider.distance.toFixed(1)} km away
                           </span>
                         )}
                       </div>
-                      <p className="text-[11px] text-muted-foreground font-medium">{provider.workCategoryName}</p>
+                      <p className="text-[11px] text-muted-foreground font-medium truncate">{provider.workCategoryName}</p>
                       <div className="flex items-center justify-between mt-1">
                         <p className="text-xs text-foreground/70 font-mono">{provider.mobileNumber}</p>
                       </div>
@@ -186,16 +189,14 @@ export default function AssignProviderModal({ isOpen, onClose, booking, onAssign
           )}
         </div>
 
-        <DialogFooter className="p-6 border-t bg-muted/30">
-          <div className="flex w-full justify-end gap-3">
-            <Button type="button" variant="outline" onClick={onClose} disabled={isAssigning}>
-              Cancel
-            </Button>
-            <Button type="button" onClick={handleConfirm} disabled={!selectedProviderId || isAssigning || isLoadingProviders}>
-              {isAssigning && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              Assign to Provider
-            </Button>
-          </div>
+        <DialogFooter className="p-4 sm:p-6 border-t bg-muted/30 gap-2 sm:gap-0">
+          <Button type="button" variant="outline" className="w-full sm:w-auto" onClick={onClose} disabled={isAssigning}>
+            Cancel
+          </Button>
+          <Button type="button" className="w-full sm:w-auto" onClick={handleConfirm} disabled={!selectedProviderId || isAssigning || isLoadingProviders}>
+            {isAssigning && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+            Assign to Provider
+          </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
