@@ -44,6 +44,12 @@ service cloud.firestore {
     match /userCarts/{userId} {
       allow read, write: if (isAuthenticated() && request.auth.uid == userId) || isAdmin();
     }
+    match /quotations/{id} {
+      allow read, write: if isAdmin() || (isAuthenticated() && (resource.data.providerId == request.auth.uid || resource.data.userId == request.auth.uid || request.resource.data.providerId == request.auth.uid));
+    }
+    match /invoices/{id} {
+      allow read, write: if isAdmin() || (isAuthenticated() && (resource.data.providerId == request.auth.uid || resource.data.userId == request.auth.uid || request.resource.data.providerId == request.auth.uid));
+    }
     match /referrals/{id} {
       allow read: if (isAuthenticated() && (resource.data.referrerId == request.auth.uid || resource.data.referredUserId == request.auth.uid)) || isAdmin();
       allow write: if isAdmin();
@@ -86,7 +92,7 @@ service cloud.firestore {
     match /popupSubmissions/{id} { allow create: if true; allow read, write: if isAdmin(); }
     match /contactUsSubmissions/{id} { allow create: if true; allow read, write: if isAdmin(); }
     match /emailLogs/{id} { allow read, write: if isAdmin(); }
-    match /systemStats/{id} { allow read, write: if isAdmin(); }
+    match /systemStats/{id} { allow read: if isAdmin(); allow write: if isAuthenticated(); }
 
     match /customServiceRequests/{id} {
       allow create: if true;
@@ -108,6 +114,14 @@ service cloud.firestore {
     // --- 6. DEFAULT FALLBACK ---
     match /{document=**} {
       allow read, write: if isAdmin();
+    }
+
+    // --- 7. COLLECTION GROUP QUERIES ---
+    match /{path=**}/bookings/{bookingId} {
+      allow read: if isAdmin() || (isAuthenticated() && (resource.data.userId == request.auth.uid || resource.data.providerId == request.auth.uid));
+      allow create: if isAuthenticated();
+      allow update: if isAdmin() || (isAuthenticated() && (resource.data.userId == request.auth.uid || resource.data.providerId == request.auth.uid));
+      allow delete: if isAdmin();
     }
   }
 }

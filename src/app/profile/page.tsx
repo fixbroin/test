@@ -250,9 +250,11 @@ export default function ProfilePage() {
   setIsDeletingAccount(true);
 
   try {
-    await deleteUser(auth.currentUser);
-
+    // 1. Delete Firestore record first while still authenticated
     await deleteDoc(doc(db, "users", user.uid));
+
+    // 2. Then delete Auth user
+    await deleteUser(auth.currentUser);
 
     toast({
       title: "Account Deleted",

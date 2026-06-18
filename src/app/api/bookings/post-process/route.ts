@@ -28,12 +28,12 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Booking not found' }, { status: 404 });
     }
 
-    const booking = bookingDoc.data() as any;
+    let booking = bookingDoc.data() as any;
     const userId = booking.userId;
-    const currentStatus = booking.status;
-    const isCompleted = currentStatus === 'Completed';
-    const isCancelled = currentStatus === 'Cancelled';
-    const isRescheduled = currentStatus === 'Rescheduled';
+    let currentStatus = booking.status;
+    let isCompleted = currentStatus === 'Completed';
+    let isCancelled = currentStatus === 'Cancelled';
+    let isRescheduled = currentStatus === 'Rescheduled';
 
     // 2. Fetch App Settings for Email/WhatsApp/Dispatch
     const [appConfigDoc, marketingConfigDoc, seoSettingsDoc] = await Promise.all([
@@ -47,7 +47,6 @@ export async function POST(request: Request) {
     const seoSettings = seoSettingsDoc.data() as any;
 
     // --- SERVER-SIDE SMART TAGGING & AUTO-DISPATCH ---
-    let updatedBooking = { ...booking };
     if (!booking.providerId && booking.workCategoryId && booking.latitude && booking.longitude && currentStatus !== 'Cancelled') {
         try {
             const providersSnapshot = await adminDb.collection('providerApplications')
@@ -104,9 +103,13 @@ export async function POST(request: Request) {
                     updates.providerId = autoAssignedProviderId;
                     updates.autoAssigned = true;
                     updates.status = "AssignedToProvider";
-                    // Update local object for subsequent tasks in this request
-                    updatedBooking.providerId = autoAssignedProviderId;
-                    updatedBooking.status = "AssignedToProvider";
+                    
+                    // Sync local variables for subsequent tasks in this request
+                    booking = { ...booking, ...updates };
+                    currentStatus = booking.status;
+                    isCompleted = currentStatus === 'Completed';
+                    isCancelled = currentStatus === 'Cancelled';
+                    isRescheduled = currentStatus === 'Rescheduled';
                 }
 
                 await adminDb.collection('bookings').doc(bookingDocId).update(updates);
