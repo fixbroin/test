@@ -489,7 +489,7 @@ export default function MyBookingsPage() {
               <Card key={booking.id} className="shadow-sm hover:shadow-md transition-shadow overflow-hidden">
                 <div className="flex flex-col md:flex-row">
                   {/* Service Image Section */}
-                  <div className="relative w-full md:w-48 h-48 md:h-auto bg-muted">
+                  <div className="relative w-full aspect-square md:w-80 md:h-81 bg-muted">
                     <AppImage 
                       src={booking.services[0]?.imageUrl || "/default-image.png"} 
                       alt={booking.services[0]?.name || "Service Image"}

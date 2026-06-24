@@ -267,7 +267,7 @@ const ServiceCard: React.FC<ServiceCardProps> = ({ service, priority = false }) 
             <div className="relative w-full h-28">
                 <AppImage src={displayImageUrl} alt={service.name} fill sizes="112px" className="object-cover rounded-lg group-hover:scale-105 transition-transform duration-500" data-ai-hint={aiHintValue} priority={priority}/>
             </div>
-            <div className="w-full mt-2" onClick={(e) => e.preventDefault()}>
+            <div className="w-full mt-2" onClick={(e) => { e.preventDefault(); e.stopPropagation(); }}>
                 {!isAvailable ? (
                     <Button size="sm" className="h-9 rounded-md px-4 w-full" disabled><Ban className="mr-1.5 h-4 w-4"/>Unavailable</Button>
                 ) : quantity === 0 ? (

@@ -35,9 +35,9 @@ const QuantitySelector: React.FC<QuantitySelectorProps> = ({
     const effectiveMax = maxQuantity ?? 99;
     if (quantity >= effectiveMax) {
       toast({
-        title: "Maximum Quantity Reached",
-        description: `You can only add up to ${effectiveMax} units for this service.`,
-        variant: "default",
+        title: "Limit Reached",
+        description: `You have reached the maximum limit of ${effectiveMax} units for this service.`,
+        variant: "destructive",
       });
       return;
     }
@@ -94,12 +94,19 @@ const QuantitySelector: React.FC<QuantitySelectorProps> = ({
   };
 
   return (
-    <div className={`flex items-center space-x-2 ${className}`}>
+    <div 
+      className={`flex items-center space-x-2 ${className}`}
+      onClick={(e) => e.stopPropagation()}
+    >
       <Button
         variant="outline"
         size="icon"
         className="h-8 w-8"
-        onClick={handleDecrement}
+        onClick={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          handleDecrement();
+        }}
         disabled={quantity === 0}
         aria-label="Decrease quantity"
       >
@@ -117,6 +124,11 @@ const QuantitySelector: React.FC<QuantitySelectorProps> = ({
                 onQuantityChange(newQuantity);
             }
         }}
+        onClick={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          e.currentTarget.focus();
+        }}
         min={minQuantity}
         max={maxQuantity ?? undefined}
         aria-label="Quantity"
@@ -124,9 +136,12 @@ const QuantitySelector: React.FC<QuantitySelectorProps> = ({
       <Button
         variant="outline"
         size="icon"
-        className="h-8 w-8"
-        onClick={handleIncrement}
-        disabled={quantity >= (maxQuantity ?? 99)}
+        className={`h-8 w-8 ${quantity >= (maxQuantity ?? 99) ? 'opacity-50 cursor-not-allowed' : ''}`}
+        onClick={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          handleIncrement();
+        }}
         aria-label="Increase quantity"
       >
         <Plus className="h-4 w-4" />
