@@ -38,7 +38,7 @@ export const getHomepageData = cache(async (): Promise<HomepageData> => {
                     adminDb.collection('webSettings').doc('featuresConfiguration').get(),
                     adminDb.collection('seoSettings').doc('global').get(),
                     adminDb.collection('webSettings').doc('global').get(),
-                    adminDb.collection('cities').where('isActive', '==', true).orderBy('name').get(),
+                    adminDb.collection('cities').where('isActive', '==', true).get(),
                     adminDb.collection('adminCategories').where('isActive', '==', true).orderBy('order', 'asc').get()
                 ]);
 
@@ -52,7 +52,7 @@ export const getHomepageData = cache(async (): Promise<HomepageData> => {
                         showCustomServiceButton: false,
                         homepageCategoryVisibility: {},
                         ads: [],
-                    } as FeaturesConfiguration;
+                     } as FeaturesConfiguration;
 
                 const seoSettings = seoSettingsDoc.exists
                     ? serializeFirestoreData<FirestoreSEOSettings>(seoSettingsDoc.data())
@@ -65,17 +65,18 @@ export const getHomepageData = cache(async (): Promise<HomepageData> => {
                 const allCategories = allCatsSnapshot.docs.map(doc => ({ ...serializeFirestoreData<Omit<FirestoreCategory, 'id'>>(doc.data() as any), id: doc.id } as FirestoreCategory));
 
                 const citiesData = citiesSnapshot.docs.map(doc => ({ ...serializeFirestoreData<Omit<FirestoreCity, 'id'>>(doc.data() as any), id: doc.id } as FirestoreCity));
+                citiesData.sort((a, b) => a.name.localeCompare(b.name));
                 
                 // Fetch all active areas in a single query instead of looping (N+1 reads optimization)
                 const allAreasSnapshot = await adminDb.collection('areas')
                     .where('isActive', '==', true)
-                    .orderBy('name')
                     .get();
                 
                 const allAreas = allAreasSnapshot.docs.map(doc => ({
                     ...serializeFirestoreData<Omit<FirestoreArea, 'id'>>(doc.data() as any),
                     id: doc.id
                 } as FirestoreArea));
+                allAreas.sort((a, b) => a.name.localeCompare(b.name));
 
                 // Group areas by cityId
                 const areasByCityId = new Map<string, FirestoreArea[]>();
