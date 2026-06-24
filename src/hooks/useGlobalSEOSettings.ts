@@ -5,7 +5,7 @@ import { db } from '@/lib/firebase';
 import { doc, getDoc } from 'firebase/firestore';
 import type { FirestoreSEOSettings } from '@/types/firestore';
 import { defaultSeoValues } from '@/lib/seoUtils';
-import { getCache, setCache } from '@/lib/client-cache';
+import { getCache, setCache, getRemoteCacheVersions } from '@/lib/client-cache';
 import { usePathname } from 'next/navigation';
 
 const CACHE_KEY = "global-seo-settings";
@@ -39,10 +39,9 @@ export function useGlobalSEOSettings() {
 
     const fetchSEO = async () => {
       try {
-        // Smart Cache Logic: Check global cache version (1 read)
-        const versionDocRef = doc(db, "appConfiguration", "cacheVersions");
-        const versionSnap = await getDoc(versionDocRef);
-        const remoteVersion = versionSnap.exists() ? (versionSnap.data().global || 0) : 0;
+        // Smart Cache Logic: Check global cache version (deduplicated client-side read)
+        const remoteVersions = await getRemoteCacheVersions();
+        const remoteVersion = remoteVersions.global || 0;
         
         const localVersion = parseInt(localStorage.getItem(`${CACHE_KEY}-version`) || "0");
         const cached = getCache<FirestoreSEOSettings>(CACHE_KEY, true);

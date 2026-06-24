@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { doc, getDoc } from "firebase/firestore";
 import { db } from '@/lib/firebase';
 import type { MarketingSettings, FirebaseClientConfig } from '@/types/firestore';
-import { getCache, setCache } from '@/lib/client-cache';
+import { getCache, setCache, getRemoteCacheVersions } from '@/lib/client-cache';
 import { usePathname } from 'next/navigation';
 
 const MARKETING_CONFIG_COLLECTION = "webSettings";
@@ -87,10 +87,9 @@ export function useMarketingSettings(): UseMarketingSettingsReturn {
 
     const fetchMarketing = async () => {
       try {
-        // Smart Cache Logic: Check global cache version (1 read)
-        const versionDocRef = doc(db, "appConfiguration", "cacheVersions");
-        const versionSnap = await getDoc(versionDocRef);
-        const remoteVersion = versionSnap.exists() ? (versionSnap.data().global || 0) : 0;
+        // Smart Cache Logic: Check global cache version (deduplicated client-side read)
+        const remoteVersions = await getRemoteCacheVersions();
+        const remoteVersion = remoteVersions.global || 0;
         
         const localVersion = parseInt(localStorage.getItem(`${CACHE_KEY}-version`) || "0");
         const cached = getCache<MarketingSettings>(CACHE_KEY, true);

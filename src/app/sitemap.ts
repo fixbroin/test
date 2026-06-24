@@ -48,23 +48,26 @@ async function getSitemapEntries(): Promise<MetadataRoute.Sitemap> {
     });
   });
 
-  // Add category-specific near-me pages
+  // Fetch all active categories once to reuse
+  let categories: FirestoreCategory[] = [];
   try {
     const categoriesSnapshot = await adminDb.collection('adminCategories').where('isActive', '==', true).get();
-    categoriesSnapshot.forEach(docSnap => {
-      const categoryData = docSnap.data() as FirestoreCategory;
-      if (categoryData.slug) {
-        entries.push({
-          url: `${appBaseUrl}/near-me/${categoryData.slug}`,
-          lastModified: currentDate,
-          changeFrequency: 'daily',
-          priority: 0.8,
-        });
-      }
-    });
+    categories = categoriesSnapshot.docs.map(doc => doc.data() as FirestoreCategory);
   } catch (e) {
-    console.error("Sitemap: Error adding near-me categories:", e);
+    console.error("Sitemap: Error fetching categories:", e);
   }
+
+  // Add category-specific near-me pages
+  categories.forEach(categoryData => {
+    if (categoryData.slug) {
+      entries.push({
+        url: `${appBaseUrl}/near-me/${categoryData.slug}`,
+        lastModified: currentDate,
+        changeFrequency: 'daily',
+        priority: 0.8,
+      });
+    }
+  });
 
   try {
     const contentPagesSnapshot = await adminDb.collection('contentPages').get();
@@ -103,22 +106,17 @@ async function getSitemapEntries(): Promise<MetadataRoute.Sitemap> {
     console.error("Sitemap: Error fetching blog posts:", e);
   }
 
-  try {
-    const categoriesSnapshot = await adminDb.collection('adminCategories').where('isActive', '==', true).get();
-    categoriesSnapshot.forEach(docSnap => {
-      const categoryData = docSnap.data() as FirestoreCategory;
-      if (categoryData.slug) {
-        entries.push({
-          url: `${appBaseUrl}/category/${categoryData.slug}`,
-          lastModified: safeToISOString(categoryData.createdAt, currentDate),
-          changeFrequency: 'daily',
-          priority: 0.9,
-        });
-      }
-    });
-  } catch (e) {
-    console.error("Sitemap: Error fetching categories:", e);
-  }
+  // Add categories sitemap
+  categories.forEach(categoryData => {
+    if (categoryData.slug) {
+      entries.push({
+        url: `${appBaseUrl}/category/${categoryData.slug}`,
+        lastModified: safeToISOString(categoryData.createdAt, currentDate),
+        changeFrequency: 'daily',
+        priority: 0.9,
+      });
+    }
+  });
 
   try {
     const servicesSnapshot = await adminDb
@@ -141,8 +139,24 @@ async function getSitemapEntries(): Promise<MetadataRoute.Sitemap> {
   }
 
   try {
-    const citiesSnapshot = await adminDb.collection('cities').where('isActive', '==', true).get();
-    const categoriesSnapshot = await adminDb.collection('adminCategories').where('isActive', '==', true).get();
+    // Fetch cities and areas in single parallel calls
+    const [citiesSnapshot, areasSnapshot] = await Promise.all([
+      adminDb.collection('cities').where('isActive', '==', true).get(),
+      adminDb.collection('areas').where('isActive', '==', true).get(),
+    ]);
+
+    const areas = areasSnapshot.docs.map(doc => ({ ...doc.data(), id: doc.id } as FirestoreArea));
+    
+    // Group areas by cityId in memory
+    const areasByCityId = new Map<string, FirestoreArea[]>();
+    areas.forEach(area => {
+      if (area.cityId) {
+        if (!areasByCityId.has(area.cityId)) {
+          areasByCityId.set(area.cityId, []);
+        }
+        areasByCityId.get(area.cityId)!.push(area);
+      }
+    });
 
     for (const cityDoc of citiesSnapshot.docs) {
       const city = cityDoc.data() as FirestoreCity;
@@ -155,8 +169,7 @@ async function getSitemapEntries(): Promise<MetadataRoute.Sitemap> {
         priority: 0.9,
       });
 
-      categoriesSnapshot.forEach(categoryDoc => {
-        const category = categoryDoc.data() as FirestoreCategory;
+      categories.forEach(category => {
         if (category.slug) {
           entries.push({
             url: `${appBaseUrl}/${city.slug}/category/${category.slug}`,
@@ -167,9 +180,8 @@ async function getSitemapEntries(): Promise<MetadataRoute.Sitemap> {
         }
       });
 
-      const areasSnapshot = await adminDb.collection('areas').where('cityId', '==', cityDoc.id).where('isActive', '==', true).get();
-      areasSnapshot.forEach(areaDoc => {
-        const area = areaDoc.data() as FirestoreArea;
+      const cityAreas = areasByCityId.get(cityDoc.id) || [];
+      cityAreas.forEach(area => {
         if (area.slug) {
           entries.push({
             url: `${appBaseUrl}/${city.slug}/${area.slug}`,
@@ -178,8 +190,7 @@ async function getSitemapEntries(): Promise<MetadataRoute.Sitemap> {
             priority: 0.8,
           });
 
-          categoriesSnapshot.forEach(categoryDoc => {
-            const category = categoryDoc.data() as FirestoreCategory;
+          categories.forEach(category => {
             if (category.slug) {
               entries.push({
                 url: `${appBaseUrl}/${city.slug}/${area.slug}/${category.slug}`,

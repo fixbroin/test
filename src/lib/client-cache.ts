@@ -1,5 +1,8 @@
 // src/lib/client-cache.ts
 
+import { doc, getDoc } from "firebase/firestore";
+import { db } from "@/lib/firebase";
+
 interface CacheEntry {
   data: any;
   timestamp: number;
@@ -8,6 +11,45 @@ interface CacheEntry {
 const cache = new Map<string, CacheEntry>();
 const STALE_TIME_MS = 10 * 60 * 1000; // 10 minutes default for in-memory
 const PERSISTENT_STALE_TIME_MS = 30 * 24 * 60 * 60 * 1000; // 30 days for settings (lifetime cache)
+
+// In-memory promise sharing to avoid redundant parallel reads of cache versions
+let remoteVersionsPromise: Promise<any> | null = null;
+let lastVersionFetchTime = 0;
+const CACHE_VERSION_TTL_MS = 10 * 1000; // 10 seconds cache for versions check
+
+/**
+ * Fetches the remote cache versions with deduplication and in-memory caching.
+ * Collapses multiple concurrent page hook calls into a single database read.
+ */
+export const getRemoteCacheVersions = async (): Promise<any> => {
+  const now = Date.now();
+  
+  // Reuse the existing promise if it is still within the TTL
+  if (remoteVersionsPromise && (now - lastVersionFetchTime < CACHE_VERSION_TTL_MS)) {
+    return remoteVersionsPromise;
+  }
+  
+  lastVersionFetchTime = now;
+  remoteVersionsPromise = (async () => {
+    try {
+      const versionDocRef = doc(db, "appConfiguration", "cacheVersions");
+      const versionSnap = await getDoc(versionDocRef);
+      if (versionSnap.exists()) {
+        return versionSnap.data() || {};
+      }
+      return {};
+    } catch (e) {
+      console.warn("Failed to fetch remote cache versions:", e);
+      // Reset the promise on failure so that subsequent calls can retry
+      remoteVersionsPromise = null;
+      lastVersionFetchTime = 0;
+      return {};
+    }
+  })();
+  
+  return remoteVersionsPromise;
+};
+
 
 /**
  * Sets a value in the cache with the current timestamp.

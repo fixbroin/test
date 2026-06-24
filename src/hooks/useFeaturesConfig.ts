@@ -5,7 +5,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { doc, getDoc } from "firebase/firestore";
 import { db } from '@/lib/firebase';
 import type { FeaturesConfiguration, MarketingAutomationSettings } from '@/types/firestore';
-import { getCache, setCache } from '@/lib/client-cache';
+import { getCache, setCache, getRemoteCacheVersions } from '@/lib/client-cache';
 
 const FEATURES_CONFIG_COLLECTION = "webSettings";
 const FEATURES_CONFIG_DOC_ID = "featuresConfiguration";
@@ -63,10 +63,9 @@ export function useFeaturesConfig(): UseFeaturesAndAutomationConfigReturn {
 
     const fetchConfigs = async () => {
       try {
-        // Smart Cache Logic: Check global cache version (1 read)
-        const versionDocRef = doc(db, "appConfiguration", "cacheVersions");
-        const versionSnap = await getDoc(versionDocRef);
-        const remoteVersion = versionSnap.exists() ? (versionSnap.data().global || 0) : 0;
+        // Smart Cache Logic: Check global cache version (deduplicated client-side read)
+        const remoteVersions = await getRemoteCacheVersions();
+        const remoteVersion = remoteVersions.global || 0;
         
         const localVersion = parseInt(localStorage.getItem(`${CACHE_KEY}-version`) || "0");
         const cached = getCache<{features: FeaturesConfiguration, marketing: MarketingAutomationSettings | null}>(CACHE_KEY, true);

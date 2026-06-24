@@ -5,6 +5,7 @@ import { initFirebaseAdmin } from '@/lib/firebase-admin';
 import { sendMarketingEmail } from '@/ai/flows/sendMarketingEmailFlow';
 import type { MarketingAutomationSettings, AppSettings, GlobalWebSettings, FirestoreUser, FirestoreService, UserCart, FirestoreCategory, FirestoreSubCategory } from '@/types/firestore';
 import { getBaseUrl } from '@/lib/config';
+import { getMarketingAutomationSettings, getGlobalAppSettings, getGlobalWebSettings } from '@/lib/webServerUtils';
 
 /**
  * Server-side helper to safely get milliseconds from various timestamp formats.
@@ -89,21 +90,17 @@ export async function GET(req: NextRequest) {
         const now = Date.now();
         console.log("Marketing cron job started at:", new Date(now).toISOString());
 
-        // --- 1. Fetch configurations first ---
-        const [marketingConfigDoc, appConfigDoc, globalSettingsDoc] = await Promise.all([
-             db.collection('webSettings').doc('marketingAutomation').get(),
-             db.collection('webSettings').doc('applicationConfig').get(),
-             db.collection('webSettings').doc('global').get(),
+        // --- 1. Fetch configurations first (uses server-side cache) ---
+        const [marketingConfig, appConfig, globalSettings] = await Promise.all([
+             getMarketingAutomationSettings(),
+             getGlobalAppSettings(),
+             getGlobalWebSettings(),
         ]);
         
-        if (!marketingConfigDoc.exists || !appConfigDoc.exists || !globalSettingsDoc.exists) {
+        if (!marketingConfig || !appConfig || !globalSettings) {
             console.log("Settings documents not found. Aborting cron job.");
             return NextResponse.json({ status: 'Settings not found' }, { status: 500 });
         }
-        
-        const marketingConfig = marketingConfigDoc.data() as MarketingAutomationSettings;
-        const appConfig = appConfigDoc.data() as AppSettings;
-        const globalSettings = globalSettingsDoc.data() as GlobalWebSettings;
 
         // Early Exit: If no marketing features are enabled, stop now.
         const anyEnabled = marketingConfig.noBookingReminderEnabled || 

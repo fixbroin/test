@@ -5,7 +5,7 @@ import { doc, onSnapshot, getDoc } from "firebase/firestore";
 import { db } from '@/lib/firebase';
 import type { AppSettings } from '@/types/firestore';
 import { defaultAppSettings } from '@/config/appDefaults';
-import { getCache, setCache } from '@/lib/client-cache';
+import { getCache, setCache, getRemoteCacheVersions } from '@/lib/client-cache';
 import { usePathname } from 'next/navigation';
 
 const APP_CONFIG_COLLECTION = "webSettings";
@@ -53,10 +53,9 @@ export function useApplicationConfig(): UseApplicationConfigReturn {
     const fetchConfig = async () => {
       try {
         // Smart Cache Logic:
-        // Check global cache version (1 read)
-        const versionDocRef = doc(db, "appConfiguration", "cacheVersions");
-        const versionSnap = await getDoc(versionDocRef);
-        const remoteVersion = versionSnap.exists() ? (versionSnap.data().global || 0) : 0;
+        // Check global cache version (deduplicated client-side read)
+        const remoteVersions = await getRemoteCacheVersions();
+        const remoteVersion = remoteVersions.global || 0;
         
         const localVersion = parseInt(localStorage.getItem(`${CACHE_KEY}-version`) || "0");
         const cached = getCache<AppSettings>(CACHE_KEY, true);

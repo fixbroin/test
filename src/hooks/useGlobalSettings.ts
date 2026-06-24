@@ -6,7 +6,7 @@ import { db } from '@/lib/firebase';
 import type { GlobalWebSettings, ThemeColors, ThemePalette, GlobalAdminPopup, LoaderType } from '@/types/firestore';
 import { DEFAULT_LIGHT_THEME_COLORS_HSL, DEFAULT_DARK_THEME_COLORS_HSL, THEME_PALETTE_KEYS } from '@/lib/colorUtils';
 import { defaultGlobalWebSettings } from '@/config/webDefaults';
-import { getCache, setCache } from '@/lib/client-cache';
+import { getCache, setCache, getRemoteCacheVersions } from '@/lib/client-cache';
 import { usePathname } from 'next/navigation';
 import { getTimestampMillis } from '@/lib/utils';
 
@@ -114,10 +114,9 @@ export function useGlobalSettings() {
       // Public site and providers use one-time fetch + cache
     const fetchSettings = async () => {
         try {
-          // Check Global Version (1 read)
-          const versionDocRef = doc(db, "appConfiguration", "cacheVersions");
-          const versionSnap = await getDoc(versionDocRef);
-          const remoteVersion = versionSnap.exists() ? (versionSnap.data().global || 0) : 0;
+          // Check Global Version (deduplicated client-side read)
+          const remoteVersions = await getRemoteCacheVersions();
+          const remoteVersion = remoteVersions.global || 0;
           
           const localVersion = parseInt(localStorage.getItem(`${CACHE_KEY}-version`) || "0");
           const cached = getCache<GlobalWebSettings>(CACHE_KEY, true);

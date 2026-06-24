@@ -3,7 +3,7 @@
 
 import { adminDb } from './firebaseAdmin';
 import { Timestamp } from 'firebase-admin/firestore';
-import type { GlobalWebSettings, ThemePalette } from '@/types/firestore';
+import type { GlobalWebSettings, ThemePalette, MarketingAutomationSettings } from '@/types/firestore';
 import { DEFAULT_LIGHT_THEME_COLORS_HSL, DEFAULT_DARK_THEME_COLORS_HSL, THEME_PALETTE_KEYS } from '@/lib/colorUtils';
 import { defaultGlobalWebSettings } from '@/config/webDefaults';
 import { defaultAppSettings } from '@/config/appDefaults';
@@ -67,6 +67,33 @@ export const getMarketingSettings = cache(async (): Promise<any> => {
       }
     },
     ['marketing-settings'],
+    { 
+      revalidate: false, 
+      tags: ['marketing-settings', 'global-cache'] 
+    }
+  )();
+});
+
+/**
+ * Fetches marketing automation settings with server-side request memoization using Admin SDK.
+ * This is safe to call only from Server Components or Server Actions.
+ * Uses unstable_cache for cross-request caching (24 hours).
+ */
+export const getMarketingAutomationSettings = cache(async (): Promise<MarketingAutomationSettings | null> => {
+  return unstable_cache(
+    async () => {
+      try {
+        const docSnap = await adminDb.collection(WEB_SETTINGS_COLLECTION).doc('marketingAutomation').get();
+        if (docSnap.exists) {
+          return serializeFirestoreData(docSnap.data()) as MarketingAutomationSettings;
+        }
+        return null;
+      } catch (error) {
+        console.error('Error fetching marketing automation settings via Admin SDK:', error);
+        return null;
+      }
+    },
+    ['marketing-automation-settings'],
     { 
       revalidate: false, 
       tags: ['marketing-settings', 'global-cache'] 

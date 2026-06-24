@@ -31,7 +31,7 @@ import type { BreadcrumbItem } from '@/types/ui';
 import { replacePlaceholders, defaultSeoValues } from '@/lib/seoUtils';
 import { useLoading } from '@/contexts/LoadingContext';
 import { Carousel, CarouselContent, CarouselItem, type CarouselApi, CarouselPrevious, CarouselNext } from "@/components/ui/carousel";
-import { getCache, setCache } from '@/lib/client-cache';
+import { getCache, setCache, getRemoteCacheVersions } from '@/lib/client-cache';
 import { cn } from '@/lib/utils';
 import { useFeaturesConfig } from '@/hooks/useFeaturesConfig';
 import SubCategoryCard from '@/components/category/SubCategoryCard';
@@ -297,14 +297,11 @@ export default function CategoryPageClient({
           return;
       }
 
-      // --- SmartSync: Version Checking ---
+      // --- SmartSync: Version Checking (deduplicated client-side read) ---
       let remoteVersion = 0;
       try {
-        const versionDocRef = doc(db, "appConfiguration", "cacheVersions");
-        const versionSnap = await getDoc(versionDocRef);
-        if (versionSnap.exists()) {
-          remoteVersion = versionSnap.data().services || 0;
-        }
+        const remoteVersions = await getRemoteCacheVersions();
+        remoteVersion = remoteVersions.services || 0;
       } catch (e) { console.warn("Failed to fetch cache versions:", e); }
 
       const localVersionKey = `category-version-${categorySlug}`;

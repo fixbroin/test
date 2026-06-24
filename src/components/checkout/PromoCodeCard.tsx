@@ -6,14 +6,14 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Tag, CheckCircle, XCircle, ListFilter, Loader2, TicketPercent, ChevronRight, Gift } from 'lucide-react';
+import { Tag, CheckCircle, XCircle, ListFilter, Loader2, TicketPercent, ChevronRight, Gift, X } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { db, auth } from '@/lib/firebase';
 import { collection, query, where, getDocs } from "firebase/firestore";
 import type { FirestorePromoCode } from '@/types/firestore';
 import { Badge } from '@/components/ui/badge';
 import { getTimestampMillis } from '@/lib/utils';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription, DialogClose } from '@/components/ui/dialog';
 
 interface AppliedPromoCodeInfo {
   id: string;
@@ -166,13 +166,19 @@ export default function PromoCodeCard({ sumOfItemPrices, onApply, appliedPromo }
           </Card>
         </DialogTrigger>
         
-        <DialogContent className="sm:max-w-md max-h-[85vh] overflow-y-auto p-0 flex flex-col">
+        <DialogContent hideCloseButton={true} className="sm:max-w-md max-h-[85vh] overflow-y-auto p-0 flex flex-col">
           <DialogHeader className="p-6 border-b sticky top-0 bg-background z-10 flex-shrink-0">
-            <DialogTitle className="flex items-center gap-2">
-              <Gift className="h-5 w-5 text-primary" />
-              Apply Coupon
-            </DialogTitle>
-            <DialogDescription>
+            <div className="flex items-center justify-between">
+              <DialogTitle className="flex items-center gap-2">
+                <Gift className="h-5 w-5 text-primary" />
+                Apply Coupon
+              </DialogTitle>
+              <DialogClose className="rounded-sm opacity-70 transition-opacity hover:opacity-100 focus:outline-none">
+                <X className="h-5 w-5 text-muted-foreground" />
+                <span className="sr-only">Close</span>
+              </DialogClose>
+            </div>
+            <DialogDescription className="mt-1.5 text-left">
               Enter a promo code or select from available offers to get a discount.
             </DialogDescription>
           </DialogHeader>
