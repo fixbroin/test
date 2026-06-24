@@ -28,19 +28,19 @@ const ToastViewport = React.forwardRef<
 ToastViewport.displayName = ToastPrimitives.Viewport.displayName
 
 const toastVariants = cva(
-  "group pointer-events-auto relative flex w-full items-center justify-between space-x-4 overflow-hidden rounded-xl border p-4 pr-6 shadow-2xl backdrop-blur-md transition-all duration-300 data-[swipe=cancel]:translate-x-0 data-[swipe=end]:translate-x-[var(--radix-toast-swipe-end-x)] data-[swipe=move]:translate-x-[var(--radix-toast-swipe-move-x)] data-[swipe=move]:transition-none data-[state=open]:animate-in data-[state=closed]:animate-out data-[swipe=end]:animate-out data-[state=closed]:fade-out-80 data-[state=closed]:slide-out-to-top-full data-[state=open]:slide-in-from-top-full",
+  "group pointer-events-auto relative flex w-full items-center justify-between space-x-4 overflow-hidden rounded-md border p-6 pr-8 shadow-lg transition-all data-[swipe=cancel]:translate-x-0 data-[swipe=end]:translate-x-[var(--radix-toast-swipe-end-x)] data-[swipe=move]:translate-x-[var(--radix-toast-swipe-move-x)] data-[swipe=move]:transition-none data-[state=open]:animate-in data-[state=closed]:animate-out data-[swipe=end]:animate-out data-[state=closed]:fade-out-80 data-[state=closed]:slide-out-to-top-full data-[state=open]:slide-in-from-top-full",
   {
     variants: {
       variant: {
-        default: "border-border/40 bg-background/90 dark:bg-zinc-950/90 text-foreground shadow-[0_8px_32px_rgba(0,0,0,0.08)]",
+        default: "border bg-background text-foreground",
         destructive:
-          "destructive group border-red-500/30 bg-red-600/90 dark:bg-red-950/80 text-white shadow-[0_8px_32px_rgba(239,68,68,0.25)]",
+          "destructive group border-destructive bg-destructive text-destructive-foreground",
         success:
-          "success group border-emerald-500/30 bg-emerald-600/90 dark:bg-emerald-950/80 text-white shadow-[0_8px_32px_rgba(16,185,129,0.25)]",
+          "success group border-green-600 bg-green-600 text-white",
         warning:
-          "warning group border-amber-500/30 bg-amber-500/90 dark:bg-amber-950/80 text-white shadow-[0_8px_32px_rgba(245,158,11,0.20)]",
+          "warning group border-yellow-500 bg-yellow-100 text-yellow-800",
         info:
-          "info group border-sky-500/30 bg-sky-600/90 dark:bg-sky-950/80 text-white shadow-[0_8px_32px_rgba(14,165,233,0.25)]",
+          "info group border-blue-600 bg-blue-600 text-white",
       },
     },
     defaultVariants: {
@@ -83,8 +83,10 @@ const Toast = React.forwardRef<
 }, [props.open, props.duration]);
 
   let progressBarColor = "bg-green-500";
-  if (variant === "destructive" || variant === "success" || variant === "info" || variant === "warning") {
+  if (variant === "destructive" || variant === "success" || variant === "info") {
     progressBarColor = "bg-white";
+  } else if (variant === "warning") {
+    progressBarColor = "bg-yellow-600";
   }
 
   return (
@@ -130,7 +132,7 @@ const ToastClose = React.forwardRef<
   <ToastPrimitives.Close
     ref={ref}
     className={cn(
-      "absolute right-2 top-2 rounded-md p-1 text-foreground/50 opacity-70 transition-opacity hover:text-foreground hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring group-[.destructive]:text-white/80 group-[.destructive]:hover:text-white group-[.destructive]:focus:ring-red-400 group-[.destructive]:focus:ring-offset-red-600 group-[.success]:text-white/80 group-[.success]:hover:text-white group-[.info]:text-white/80 group-[.info]:hover:text-white group-[.warning]:text-white/80 group-[.warning]:hover:text-white",
+      "absolute right-2 top-2 rounded-md p-1 text-foreground/50 opacity-70 transition-opacity hover:text-foreground hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring group-[.destructive]:text-white/80 group-[.destructive]:hover:text-white group-[.destructive]:focus:ring-red-400 group-[.destructive]:focus:ring-offset-red-600 group-[.success]:text-white/80 group-[.success]:hover:text-white group-[.info]:text-white/80 group-[.info]:hover:text-white",
       className
     )}
     toast-close=""

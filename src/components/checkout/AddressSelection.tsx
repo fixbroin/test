@@ -5,10 +5,10 @@ import { useState, useEffect, useCallback, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { PlusCircle, CheckCircle, Loader2, AlertTriangle, MapPin } from 'lucide-react';
+import { PlusCircle, CheckCircle, Loader2, AlertTriangle, MapPin, Edit3, Check } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { db } from '@/lib/firebase';
-import { doc, onSnapshot, updateDoc, arrayUnion, collection, query, where, getDocs, Timestamp } from 'firebase/firestore';
+import { doc, onSnapshot, updateDoc, arrayUnion, collection, query, where, getDocs, Timestamp, arrayRemove } from 'firebase/firestore';
 import type { Address, FirestoreUser, ServiceZone } from '@/types/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { nanoid } from 'nanoid';
@@ -152,6 +152,7 @@ export default function AddressSelection({ onSelect, initialAddressId }: Address
   }, [selectedAddressId, savedAddresses, checkServiceability]);
 
   const handleOpenMapClick = useCallback(async () => {
+    setEditingAddress(null);
     setIsLocating(true);
     try {
         if (!navigator.geolocation) {
@@ -195,25 +196,47 @@ export default function AddressSelection({ onSelect, initialAddressId }: Address
     setIsFormOpen(true); 
   }, [checkServiceability, user, firestoreUser, editingAddress]);
 
+  const handleEditAddress = (e: React.MouseEvent, address: Address) => {
+    e.stopPropagation();
+    setEditingAddress(address);
+    setIsFormOpen(true);
+  };
+
   const handleAddressSubmit = async (data: AddressFormData) => {
     setIsSubmitting(true);
-    const newAddress: Address = { ...data, id: nanoid(), isDefault: savedAddresses.length === 0 };
     
-    if (user) {
-      try {
+    try {
+      if (user) {
         const userDocRef = doc(db, 'users', user.uid);
-        await updateDoc(userDocRef, { addresses: arrayUnion(newAddress) });
-        toast({ title: "Success", description: "New address saved." });
+        if (editingAddress?.id) {
+          // Update
+          const updatedAddresses = savedAddresses.map(a => 
+            a.id === editingAddress.id ? { ...data, id: a.id, isDefault: a.isDefault } : a
+          );
+          await updateDoc(userDocRef, { addresses: updatedAddresses });
+          toast({ title: "Success", description: "Address updated." });
+        } else {
+          // Add new
+          const newAddress: Address = { ...data, id: nanoid(), isDefault: savedAddresses.length === 0 };
+          await updateDoc(userDocRef, { addresses: arrayUnion(newAddress) });
+          toast({ title: "Success", description: "New address saved." });
+          setSelectedAddressId(newAddress.id);
+        }
+      } else {
+        const newAddress: Address = { ...data, id: editingAddress?.id || 'guest_address', isDefault: true };
+        localStorage.setItem('fixbroCustomerAddress', JSON.stringify(newAddress));
+        setSavedAddresses([newAddress]);
         setSelectedAddressId(newAddress.id);
-        setIsFormOpen(false);
-      } catch (error) { toast({ title: "Error", description: "Could not save address.", variant: "destructive" }); }
-    } else {
-      localStorage.setItem('fixbroCustomerAddress', JSON.stringify(newAddress));
-      setSavedAddresses([newAddress]);
-      setSelectedAddressId(newAddress.id);
+        toast({ title: "Success", description: "Address saved." });
+      }
       setIsFormOpen(false);
+      setEditingAddress(null);
+    } catch (error) {
+      console.error("Error saving address:", error);
+      toast({ title: "Error", description: "Could not save address.", variant: "destructive" });
+    } finally {
+      setIsSubmitting(false);
     }
-    setIsSubmitting(false);
   };
 
   const handleConfirm = () => {
@@ -231,19 +254,47 @@ export default function AddressSelection({ onSelect, initialAddressId }: Address
     <div className="space-y-4">
       <div className="space-y-3">
         {savedAddresses.map(address => (
-          <Card 
-            key={address.id} 
-            className={`p-4 cursor-pointer hover:border-primary transition-all ${selectedAddressId === address.id ? 'border-primary ring-2 ring-primary' : 'border'}`}
+          <Card
+            key={address.id}
+            className={`p-4 cursor-pointer hover:border-primary transition-all relative ${
+              selectedAddressId === address.id
+                ? "border-primary ring-2 ring-primary"
+                : "border"
+            }`}
             onClick={() => setSelectedAddressId(address.id)}
           >
-            <div className="flex justify-between items-start">
-              <div className="space-y-1 text-sm">
+            {/* Edit Button */}
+            <Button
+              variant="ghost"
+              size="icon"
+              className="absolute top-2 right-2 h-8 w-8 z-10 rounded-full bg-muted/50 hover:bg-primary hover:text-primary-foreground transition-all duration-300 shadow-none"
+              onClick={(e) => handleEditAddress(e, address)}
+            >
+              <Edit3 className="h-4 w-4" />
+            </Button>
+
+            <div className="flex items-center justify-between">
+              <div className="space-y-1 text-sm flex-1 pr-12">
                 <p className="font-semibold">{address.fullName}</p>
-                <p className="text-muted-foreground">{address.addressLine1}, {address.addressLine2}</p>
-                <p className="text-muted-foreground">{address.city}, {address.state} - {address.pincode}</p>
-                <p className="text-muted-foreground">Phone: {address.phone}</p>
+                <p className="text-muted-foreground">
+                  {address.addressLine1}, {address.addressLine2}
+                </p>
+                <p className="text-muted-foreground">
+                  {address.city}, {address.state} - {address.pincode}
+                </p>
+                <p className="text-muted-foreground">
+                  Phone: {address.phone}
+                </p>
               </div>
-              {selectedAddressId === address.id && <CheckCircle className="h-5 w-5 text-primary flex-shrink-0" />}
+
+              {/* Selected Icon - Premium Styled */}
+              {selectedAddressId === address.id && (
+                <div className="flex items-center justify-center shrink-0 mr-2 animate-in zoom-in duration-300">
+                  <div className="bg-primary text-primary-foreground rounded-full p-1.5 shadow-lg shadow-primary/20 ring-2 ring-background">
+                    <CheckCircle className="h-5 w-5" />
+                  </div>
+                </div>
+              )}
             </div>
           </Card>
         ))}
@@ -275,7 +326,7 @@ export default function AddressSelection({ onSelect, initialAddressId }: Address
 
       <Dialog open={isFormOpen} onOpenChange={setIsFormOpen}>
         <DialogContent className="max-w-3xl w-[95vw] sm:w-[90vw] max-h-[90vh] p-0 flex flex-col" aria-describedby={undefined}>
-          <DialogHeader className="p-6 border-b"><DialogTitle>Confirm Address Details</DialogTitle></DialogHeader>
+          <DialogHeader className="p-6 border-b"><DialogTitle>{editingAddress?.id ? "Edit Address Details" : "Confirm Address Details"}</DialogTitle></DialogHeader>
           <div className="flex-grow overflow-y-auto p-6">
             <AddressForm
               initialData={editingAddress}
