@@ -13,7 +13,10 @@ import { Switch } from "@/components/ui/switch";
 import { Card } from "@/components/ui/card";
 import type { FirestoreService, FirestoreSubCategory, FirestoreTax, FirestoreCategory } from '@/types/firestore';
 import { useEffect, useState, useRef, useCallback, useMemo } from "react";
-import { Loader2, Image as ImageIcon, Trash2, PlusCircle, Percent, Clock, HelpCircle, Wand2, Users, ShoppingBag, ListOrdered, Edit2, Lock } from "lucide-react";
+import { Loader2, Image as ImageIcon, Trash2, PlusCircle, Percent, Clock, HelpCircle, Wand2, Users, ShoppingBag, ListOrdered, Edit2, Lock, Search, Tags, CheckCircle } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from "@/components/ui/dialog";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { cn } from "@/lib/utils";
 import NextImage from 'next/image';
 import { useToast } from "@/hooks/use-toast";
 import { storage, db } from '@/lib/firebase';
@@ -142,6 +145,11 @@ export default function ServiceForm({ onSubmit: onSubmitProp, initialData, onCan
   const [filteredSubCategories, setFilteredSubCategories] = useState<FirestoreSubCategory[]>([]);
   const [isSlugEditable, setIsSlugEditable] = useState(false);
 
+  const [isCategoryPickerOpen, setIsCategoryPickerOpen] = useState(false);
+  const [categorySearch, setCategorySearch] = useState("");
+  const [isSubCategoryPickerOpen, setIsSubCategoryPickerOpen] = useState(false);
+  const [subCategorySearch, setSubCategorySearch] = useState("");
+
   const form = useForm<ServiceFormDataInternal>({
     resolver: zodResolver(serviceFormSchema),
     defaultValues: {
@@ -171,6 +179,17 @@ export default function ServiceForm({ onSubmit: onSubmitProp, initialData, onCan
   const watchedHasPriceVariants = form.watch("hasPriceVariants");
   const watchedSlug = form.watch("slug");
   const taxSelected = watchedTaxId !== null && watchedTaxId !== NO_TAX_VALUE;
+
+  const selectedParentCategory = useMemo(() => parentCategories.find(c => c.id === watchedParentCategoryId), [parentCategories, watchedParentCategoryId]);
+  const selectedSubCategory = useMemo(() => subCategories.find(sc => sc.id === watchedSubCategoryId), [subCategories, watchedSubCategoryId]);
+
+  const searchableCategories = useMemo(() => {
+    return parentCategories.filter(c => c.name.toLowerCase().includes(categorySearch.toLowerCase()));
+  }, [parentCategories, categorySearch]);
+
+  const searchableSubCategories = useMemo(() => {
+    return filteredSubCategories.filter(sc => sc.name.toLowerCase().includes(subCategorySearch.toLowerCase()));
+  }, [filteredSubCategories, subCategorySearch]);
 
   const nextOrder = useMemo(() => {
     if (!watchedSubCategoryId) return 0;
@@ -281,6 +300,8 @@ export default function ServiceForm({ onSubmit: onSubmitProp, initialData, onCan
     setIsFormBusyForImage(false);
     setStatusMessage("");
     setIsSlugEditable(false);
+    setCategorySearch("");
+    setSubCategorySearch("");
     if (fileInputRef.current) {
       fileInputRef.current.value = "";
     }
@@ -578,8 +599,173 @@ export default function ServiceForm({ onSubmit: onSubmitProp, initialData, onCan
           )}
         />
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <FormField control={form.control} name="parentCategoryId" render={({ field }) => ( <FormItem> <FormLabel>Parent Category</FormLabel> <Select key={`parent-cat-select-${initialData?.id || 'new-service'}-${parentCategories.length}-${field.value}`} onValueChange={(value) => { field.onChange(value); }} value={field.value} disabled={effectiveIsSubmitting || parentCategories.length === 0}> <FormControl><SelectTrigger><SelectValue placeholder={parentCategories.length > 0 ? "Select a parent category" : "No parent categories"} /></SelectTrigger></FormControl> <SelectContent>{parentCategories.map(cat => (<SelectItem key={cat.id} value={cat.id}>{cat.name}</SelectItem>))}</SelectContent> </Select><FormMessage /> </FormItem> )}/>
-          <FormField control={form.control} name="subCategoryId" render={({ field }) => ( <FormItem> <FormLabel>Sub-Category</FormLabel> <Select key={`subcat-select-${initialData?.id || 'new-service'}-${watchedParentCategoryId}-${filteredSubCategories.length}-${field.value}`} onValueChange={field.onChange} value={field.value} disabled={effectiveIsSubmitting || !watchedParentCategoryId || filteredSubCategories.length === 0}> <FormControl><SelectTrigger><SelectValue placeholder={!watchedParentCategoryId ? "Select parent category first" : (filteredSubCategories.length > 0 ? "Select a sub-category" : "No sub-categories for selected parent")} /></SelectTrigger></FormControl> <SelectContent>{filteredSubCategories.map(subCat => (<SelectItem key={subCat.id} value={subCat.id}>{subCat.name}</SelectItem>))}</SelectContent> </Select><FormMessage /> </FormItem> )}/>
+          <FormField
+            control={form.control}
+            name="parentCategoryId"
+            render={({ field }) => (
+              <FormItem className="flex flex-col">
+                <FormLabel className="mb-2">Parent Category</FormLabel>
+                <Dialog open={isCategoryPickerOpen} onOpenChange={setIsCategoryPickerOpen}>
+                  <DialogTrigger asChild>
+                    <Button
+                      variant="outline"
+                      role="combobox"
+                      className={cn(
+                        "w-full justify-between text-left font-normal h-10",
+                        !field.value && "text-muted-foreground"
+                      )}
+                      disabled={effectiveIsSubmitting || parentCategories.length === 0}
+                      type="button"
+                    >
+                      {selectedParentCategory ? (
+                        <div className="flex items-center gap-2">
+                          <Tags className="h-4 w-4 text-primary" />
+                          <span>{selectedParentCategory.name}</span>
+                        </div>
+                      ) : (
+                        "Search and select category..."
+                      )}
+                      <Search className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent className="sm:max-w-[425px]">
+                    <DialogHeader>
+                      <DialogTitle>Select Parent Category</DialogTitle>
+                      <DialogDescription>
+                        Search and select a parent category for the service.
+                      </DialogDescription>
+                    </DialogHeader>
+                    <div className="space-y-4 py-4">
+                      <div className="relative">
+                        <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+                        <Input
+                          placeholder="Type category name..."
+                          className="pl-8"
+                          value={categorySearch}
+                          onChange={(e) => setCategorySearch(e.target.value)}
+                        />
+                      </div>
+                      <ScrollArea className="h-[300px] rounded-md border p-2">
+                        <div className="space-y-1">
+                          {searchableCategories.length === 0 ? (
+                            <p className="text-center py-4 text-sm text-muted-foreground">No categories found.</p>
+                          ) : (
+                            searchableCategories.map((cat) => (
+                              <Button
+                                key={cat.id}
+                                variant={field.value === cat.id ? "secondary" : "ghost"}
+                                className="w-full justify-start text-left h-auto py-3 px-3 relative group"
+                                onClick={() => {
+                                  field.onChange(cat.id);
+                                  setIsCategoryPickerOpen(false);
+                                  setCategorySearch("");
+                                }}
+                                type="button"
+                              >
+                                <div className="flex items-center gap-2 pr-8">
+                                  <Tags className="h-4 w-4 text-muted-foreground" />
+                                  <span className="font-semibold text-sm">{cat.name}</span>
+                                </div>
+                                {field.value === cat.id && (
+                                  <CheckCircle className="absolute right-3 top-3 h-4 w-4 text-green-500" />
+                                )}
+                              </Button>
+                            ))
+                          )}
+                        </div>
+                      </ScrollArea>
+                    </div>
+                  </DialogContent>
+                </Dialog>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
+          <FormField
+            control={form.control}
+            name="subCategoryId"
+            render={({ field }) => (
+              <FormItem className="flex flex-col">
+                <FormLabel className="mb-2">Sub-Category</FormLabel>
+                <Dialog open={isSubCategoryPickerOpen} onOpenChange={setIsSubCategoryPickerOpen}>
+                  <DialogTrigger asChild>
+                    <Button
+                      variant="outline"
+                      role="combobox"
+                      className={cn(
+                        "w-full justify-between text-left font-normal h-10",
+                        !field.value && "text-muted-foreground"
+                      )}
+                      disabled={effectiveIsSubmitting || !watchedParentCategoryId || filteredSubCategories.length === 0}
+                      type="button"
+                    >
+                      {selectedSubCategory ? (
+                        <div className="flex items-center gap-2">
+                          <Tags className="h-4 w-4 text-primary" />
+                          <span>{selectedSubCategory.name}</span>
+                        </div>
+                      ) : (
+                        !watchedParentCategoryId
+                          ? "Select parent category first"
+                          : (filteredSubCategories.length > 0 ? "Search and select sub-category..." : "No sub-categories")
+                      )}
+                      <Search className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent className="sm:max-w-[425px]">
+                    <DialogHeader>
+                      <DialogTitle>Select Sub-category</DialogTitle>
+                      <DialogDescription>
+                        Search and select a sub-category under {selectedParentCategory?.name || 'the selected parent category'}.
+                      </DialogDescription>
+                    </DialogHeader>
+                    <div className="space-y-4 py-4">
+                      <div className="relative">
+                        <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+                        <Input
+                          placeholder="Type sub-category name..."
+                          className="pl-8"
+                          value={subCategorySearch}
+                          onChange={(e) => setSubCategorySearch(e.target.value)}
+                        />
+                      </div>
+                      <ScrollArea className="h-[300px] rounded-md border p-2">
+                        <div className="space-y-1">
+                          {searchableSubCategories.length === 0 ? (
+                            <p className="text-center py-4 text-sm text-muted-foreground">No sub-categories found.</p>
+                          ) : (
+                            searchableSubCategories.map((subCat) => (
+                              <Button
+                                key={subCat.id}
+                                variant={field.value === subCat.id ? "secondary" : "ghost"}
+                                className="w-full justify-start text-left h-auto py-3 px-3 relative group"
+                                onClick={() => {
+                                  field.onChange(subCat.id);
+                                  setIsSubCategoryPickerOpen(false);
+                                  setSubCategorySearch("");
+                                }}
+                                type="button"
+                              >
+                                <div className="flex items-center gap-2 pr-8">
+                                  <Tags className="h-4 w-4 text-muted-foreground" />
+                                  <span className="font-semibold text-sm">{subCat.name}</span>
+                                </div>
+                                {field.value === subCat.id && (
+                                  <CheckCircle className="absolute right-3 top-3 h-4 w-4 text-green-500" />
+                                )}
+                              </Button>
+                            ))
+                          )}
+                        </div>
+                      </ScrollArea>
+                    </div>
+                  </DialogContent>
+                </Dialog>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
         </div>
         
         <Separator />
