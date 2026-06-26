@@ -99,7 +99,22 @@ export default function AdminServicesPage() {
       const fetchedCats = catData.docs.map((doc) => ({ ...doc.data(), id: doc.id } as FirestoreCategory));
       const fetchedSubCats = subCatData.docs.map((doc) => ({ ...doc.data(), id: doc.id } as FirestoreSubCategory));
       const fetchedServices = serviceData.docs.map((doc) => ({ ...doc.data(), id: doc.id } as FirestoreService));
-      const fetchedTaxes = taxData.docs.map((doc) => ({ ...doc.data(), id: doc.id } as FirestoreTax));
+      let fetchedTaxes = taxData.docs.map((doc) => ({ ...doc.data(), id: doc.id } as FirestoreTax));
+
+      const hasNoTax = fetchedTaxes.some(t => t.taxPercent === 0 || t.taxName.toLowerCase() === "no tax");
+      if (!hasNoTax) {
+        const defaultTax = {
+          taxName: "No Tax",
+          taxPercent: 0,
+          isActive: true,
+          createdAt: Timestamp.now(),
+          updatedAt: Timestamp.now()
+        };
+        const docRef = await addDoc(taxesCollectionRef, defaultTax);
+        fetchedTaxes.push({ ...defaultTax, id: docRef.id });
+        fetchedTaxes.sort((a, b) => a.taxName.localeCompare(b.taxName));
+        await triggerRefresh('global-cache');
+      }
 
       setParentCategories(fetchedCats);
       setSubCategories(fetchedSubCats);

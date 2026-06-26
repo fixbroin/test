@@ -178,7 +178,16 @@ export default function ServiceForm({ onSubmit: onSubmitProp, initialData, onCan
   const watchedTaxId = form.watch("taxId");
   const watchedHasPriceVariants = form.watch("hasPriceVariants");
   const watchedSlug = form.watch("slug");
-  const taxSelected = watchedTaxId !== null && watchedTaxId !== NO_TAX_VALUE;
+  const defaultNoTaxId = useMemo(() => {
+    const found = taxes.find(t => t.taxPercent === 0 || t.taxName.toLowerCase().includes("no tax"));
+    return found?.id || null;
+  }, [taxes]);
+
+  const selectedTaxDetails = useMemo(() => {
+    return taxes.find(t => t.id === watchedTaxId);
+  }, [taxes, watchedTaxId]);
+
+  const taxSelected = selectedTaxDetails ? selectedTaxDetails.taxPercent > 0 : false;
 
   const selectedParentCategory = useMemo(() => parentCategories.find(c => c.id === watchedParentCategoryId), [parentCategories, watchedParentCategoryId]);
   const selectedSubCategory = useMemo(() => subCategories.find(sc => sc.id === watchedSubCategoryId), [subCategories, watchedSubCategoryId]);
@@ -262,7 +271,7 @@ export default function ServiceForm({ onSubmit: onSubmitProp, initialData, onCan
         maxQuantity: initialData.maxQuantity === undefined ? null : initialData.maxQuantity,
         order: initialData.order || 0,
         isActive: initialData.isActive === undefined ? true : initialData.isActive,
-        taxId: initialData.taxId || null,
+        taxId: initialData.taxId || defaultNoTaxId || null,
         isTaxInclusive: initialData.isTaxInclusive === true ? "true" : "false",
         h1_title: initialData.h1_title || "",
         seo_title: initialData.seo_title || "",
@@ -286,7 +295,7 @@ export default function ServiceForm({ onSubmit: onSubmitProp, initialData, onCan
         description: "", shortDescription: "", fullDescription: "", serviceHighlights: [],
         imageUrl: "", imageHint: "", rating: 0, reviewCount: 0, 
         hasMinQuantity: false, minQuantity: 2, maxQuantity: null, order: 0, isActive: true,
-        taxId: null, isTaxInclusive: "false",
+        taxId: defaultNoTaxId || null, isTaxInclusive: "false",
         h1_title: "", seo_title: "", seo_description: "", seo_keywords: "",
         taskTimeValue: null, taskTimeUnit: null, includedItems: [], excludedItems: [], allowPayLater: true, serviceFaqs: [],
         membersRequired: null,
@@ -459,9 +468,9 @@ export default function ServiceForm({ onSubmit: onSubmitProp, initialData, onCan
     setIsFormBusyForImage(true);
     let finalImageUrl = formData.imageUrl || "";
 
-    const currentIsTaxInclusiveString = form.getValues('isTaxInclusive');
-    const finalTaxIdValue = (formData.taxId && formData.taxId !== NO_TAX_VALUE) ? formData.taxId : null;
-    const finalIsTaxInclusiveValue = finalTaxIdValue ? (currentIsTaxInclusiveString === "true") : false;
+    const finalTaxIdValue = formData.taxId || null;
+    const selectedTax = taxes.find(t => t.id === finalTaxIdValue);
+    const finalIsTaxInclusiveValue = (finalTaxIdValue && selectedTax && selectedTax.taxPercent > 0) ? (form.getValues('isTaxInclusive') === "true") : false;
 
     try {
       if (selectedFile) {
@@ -824,7 +833,37 @@ export default function ServiceForm({ onSubmit: onSubmitProp, initialData, onCan
           )}
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <FormField control={form.control} name="taxId" render={({ field }) => ( <FormItem><FormLabel>Applicable Tax (Optional)</FormLabel> <Select key={`tax-id-select-${initialData?.id || 'new-service'}-${taxes.length}-${field.value}`} onValueChange={(value) => { const newTaxId = value === NO_TAX_VALUE ? null : value; field.onChange(newTaxId); if (newTaxId === null) { form.setValue('isTaxInclusive', "false", { shouldValidate: true });}}} value={field.value ?? NO_TAX_VALUE} disabled={effectiveIsSubmitting || taxes.length === 0}> <FormControl><SelectTrigger><SelectValue placeholder={taxes.length > 0 ? "Select a tax configuration" : "No active taxes"} /></SelectTrigger></FormControl> <SelectContent><SelectItem value={NO_TAX_VALUE}>No Tax</SelectItem>{taxes.map(tax => (<SelectItem key={tax.id} value={tax.id}>{tax.taxName} ({tax.taxPercent}%)</SelectItem>))}</SelectContent> </Select><FormMessage /> </FormItem> )}/>
+            <FormField control={form.control} name="taxId" render={({ field }) => (
+              <FormItem>
+                <FormLabel>Applicable Tax</FormLabel>
+                <Select
+                  key={`tax-id-select-${initialData?.id || 'new-service'}-${taxes.length}-${field.value}`}
+                  onValueChange={(value) => {
+                    field.onChange(value);
+                    const selectedTax = taxes.find(t => t.id === value);
+                    if (!selectedTax || selectedTax.taxPercent === 0) {
+                      form.setValue('isTaxInclusive', "false", { shouldValidate: true });
+                    }
+                  }}
+                  value={field.value || ""}
+                  disabled={effectiveIsSubmitting || taxes.length === 0}
+                >
+                  <FormControl>
+                    <SelectTrigger>
+                      <SelectValue placeholder={taxes.length > 0 ? "Select a tax configuration" : "No active taxes"} />
+                    </SelectTrigger>
+                  </FormControl>
+                  <SelectContent>
+                    {taxes.map(tax => (
+                      <SelectItem key={tax.id} value={tax.id}>
+                        {tax.taxName} ({tax.taxPercent}%)
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <FormMessage />
+              </FormItem>
+            )}/>
             <FormField control={form.control} name="isTaxInclusive" render={({ field }) => { return ( <FormItem><FormLabel className={!taxSelected ? "text-muted-foreground" : ""}>Price Tax Type</FormLabel> <Select key={`is-tax-inclusive-select-${initialData?.id || 'new-service'}-${taxes.length}-${String(field.value)}`} onValueChange={field.onChange} value={field.value} disabled={!taxSelected || effectiveIsSubmitting}> <FormControl><SelectTrigger><SelectValue placeholder="Select tax type" /></SelectTrigger></FormControl> <SelectContent><SelectItem value={"false"}>Tax Exclusive (Price + Tax)</SelectItem><SelectItem value={"true"}>Tax Inclusive (Price includes Tax)</SelectItem></SelectContent> </Select>{!taxSelected && <FormDescription className="text-xs">Select a tax first to enable this option.</FormDescription>}<FormMessage /> </FormItem> ); }}/>
           </div>
         </div>
