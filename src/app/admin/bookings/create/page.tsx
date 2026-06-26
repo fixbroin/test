@@ -7,17 +7,17 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter }
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Calendar } from '@/components/ui/calendar';
 import { 
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter, DialogDescription
 } from "@/components/ui/dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { cn } from "@/lib/utils";
 import { 
   Loader2, ArrowLeft, Search, User, MapPin, Phone, Mail, 
   CalendarDays, Clock, CheckCircle2, IndianRupee, Tag, 
-  AlertCircle, Plus, Trash2, Info, HandCoins, ChevronDown, CheckCircle
+  AlertCircle, Plus, Trash2, Info, HandCoins, ChevronDown, CheckCircle, Check, ChevronsUpDown
 } from "lucide-react";
 import { db } from '@/lib/firebase';
 import { 
@@ -89,6 +89,7 @@ export default function AdminCreateBookingPage() {
 
   const [paymentMode, setPaymentMode] = useState("Pay after service");
   const [bookingStatus, setBookingStatus] = useState<BookingStatus>("Confirmed");
+  const [isStatusPickerOpen, setIsStatusPickerOpen] = useState(false);
 
   useEffect(() => {
     if (ignoreNextSearch.current) { ignoreNextSearch.current = false; return; }
@@ -371,9 +372,65 @@ export default function AdminCreateBookingPage() {
                   <Label className="flex items-center gap-2 border p-3 rounded-md cursor-pointer hover:bg-muted"><RadioGroupItem value="Pending" /> Pending</Label>
                 </RadioGroup>
               </div>
-              <div className="space-y-3">
+              <div className="space-y-3 flex flex-col">
                 <Label>Status</Label>
-                <Select value={bookingStatus} onValueChange={(v) => setBookingStatus(v as BookingStatus)}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="Confirmed">Confirmed</SelectItem><SelectItem value="Pending Payment">Pending Payment</SelectItem></SelectContent></Select>
+                <Dialog open={isStatusPickerOpen} onOpenChange={setIsStatusPickerOpen}>
+                  <DialogTrigger asChild>
+                    <Button
+                      variant="outline"
+                      role="combobox"
+                      aria-expanded={isStatusPickerOpen}
+                      className="w-full justify-between text-left font-normal h-10"
+                      disabled={isSubmitting}
+                      type="button"
+                    >
+                      <span>{bookingStatus}</span>
+                      <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent className="w-[calc(100%-6px)] sm:max-w-[425px]">
+                    <DialogHeader>
+                      <DialogTitle>Select Booking Status</DialogTitle>
+                      <DialogDescription>
+                        Set the status of the booking being created.
+                      </DialogDescription>
+                    </DialogHeader>
+                    <div className="py-4">
+                      <ScrollArea className="h-[150px] rounded-md border p-2">
+                        <div className="space-y-1">
+                          <Button
+                            variant={bookingStatus === "Confirmed" ? "secondary" : "ghost"}
+                            className="w-full justify-start text-left h-auto py-3 px-3 relative group"
+                            onClick={() => {
+                              setBookingStatus("Confirmed");
+                              setIsStatusPickerOpen(false);
+                            }}
+                            type="button"
+                          >
+                            <span className="font-semibold text-sm">Confirmed</span>
+                            {bookingStatus === "Confirmed" && (
+                              <Check className="absolute right-3 top-3 h-4 w-4 text-green-500" />
+                            )}
+                          </Button>
+                          <Button
+                            variant={bookingStatus === "Pending Payment" ? "secondary" : "ghost"}
+                            className="w-full justify-start text-left h-auto py-3 px-3 relative group"
+                            onClick={() => {
+                              setBookingStatus("Pending Payment");
+                              setIsStatusPickerOpen(false);
+                            }}
+                            type="button"
+                          >
+                            <span className="font-semibold text-sm">Pending Payment</span>
+                            {bookingStatus === "Pending Payment" && (
+                              <Check className="absolute right-3 top-3 h-4 w-4 text-green-500" />
+                            )}
+                          </Button>
+                        </div>
+                      </ScrollArea>
+                    </div>
+                  </DialogContent>
+                </Dialog>
               </div>
             </CardContent>
             <CardFooter><Button className="w-full h-12 text-lg font-bold shadow-lg" onClick={handleSubmit} disabled={isSubmitting}>{isSubmitting ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : "Create Booking"}</Button></CardFooter>

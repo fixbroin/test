@@ -16,11 +16,10 @@ import PlatformSettingsForm from '@/components/admin/PlatformSettingsForm';
 import { Input } from '@/components/ui/input';
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Tooltip, TooltipProvider, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip';
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from "@/components/ui/dialog";
 import { Check, ChevronsUpDown, Search as SearchIcon } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import PermissionGuard from '@/components/admin/PermissionGuard';
@@ -85,7 +84,9 @@ export default function AdminSettingsPage() {
   const [isSaving, setIsSaving] = useState(false);
   const [isLoadingSettings, setIsLoadingSettings] = useState(true);
   const [timezoneSearch, setTimezoneSearch] = useState("");
-  const [isTimezonePopoverOpen, setIsTimezonePopoverOpen] = useState(false);
+  const [isTimezoneDialogOpen, setIsTimezoneDialogOpen] = useState(false);
+  const [isVcTaxPickerOpen, setIsVcTaxPickerOpen] = useState(false);
+  const [isCancelFeeTypePickerOpen, setIsCancelFeeTypePickerOpen] = useState(false);
 
   const filteredTimezones = useMemo(() => {
     if (!timezoneSearch) return ALL_TIMEZONES;
@@ -391,62 +392,76 @@ export default function AdminSettingsPage() {
                 </h3>
                 <div className="space-y-2">
                   <Label htmlFor="timezone">Select Timezone</Label>
-                  <Popover open={isTimezonePopoverOpen} onOpenChange={setIsTimezonePopoverOpen}>
-                    <PopoverTrigger asChild>
+                  <Dialog open={isTimezoneDialogOpen} onOpenChange={setIsTimezoneDialogOpen}>
+                    <DialogTrigger asChild>
                       <Button
                         id="timezone"
                         variant="outline"
                         role="combobox"
-                        aria-expanded={isTimezonePopoverOpen}
-                        className="w-full justify-between font-normal"
+                        aria-expanded={isTimezoneDialogOpen}
+                        className="w-full justify-between text-left font-normal h-10"
                         disabled={isSaving}
+                        type="button"
                       >
-                        {settings.timezone
-                          ? ALL_TIMEZONES.find((tz) => tz.value === settings.timezone)?.label || settings.timezone
-                          : "Select application timezone..."}
+                        {settings.timezone ? (
+                          <div className="flex items-center gap-2">
+                            <Clock className="h-4 w-4 text-primary" />
+                            <span>{ALL_TIMEZONES.find((tz) => tz.value === settings.timezone)?.label || settings.timezone}</span>
+                          </div>
+                        ) : (
+                          "Select application timezone..."
+                        )}
                         <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                       </Button>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-0" align="start">
-                      <div className="flex items-center border-b px-3">
-                        <SearchIcon className="mr-2 h-4 w-4 shrink-0 opacity-50" />
-                        <input
-                          className="flex h-10 w-full rounded-md bg-transparent py-3 text-sm outline-none placeholder:text-muted-foreground disabled:cursor-not-allowed disabled:opacity-50"
-                          placeholder="Search timezone..."
-                          value={timezoneSearch}
-                          onChange={(e) => setTimezoneSearch(e.target.value)}
-                        />
-                      </div>
-                      <ScrollArea className="h-72">
-                        <div className="p-1">
-                          {filteredTimezones.length === 0 ? (
-                            <div className="py-6 text-center text-sm">No timezone found.</div>
-                          ) : (
-                            filteredTimezones.map((tz) => (
+                    </DialogTrigger>
+                    <DialogContent className="w-[calc(100%-6px)] sm:max-w-[425px]">
+                      <DialogHeader>
+                        <DialogTitle>Select Application Timezone</DialogTitle>
+                        <DialogDescription>
+                          Choose the primary timezone for booking slots, emails, and reporting.
+                        </DialogDescription>
+                      </DialogHeader>
+                      <div className="space-y-4 py-4">
+                        <div className="relative">
+                          <SearchIcon className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+                          <Input
+                            placeholder="Type timezone name..."
+                            className="pl-8"
+                            value={timezoneSearch}
+                            onChange={(e) => setTimezoneSearch(e.target.value)}
+                          />
+                        </div>
+                        <ScrollArea className="h-[300px] rounded-md border p-2">
+                          <div className="space-y-1">
+                            {filteredTimezones.map((tz) => (
                               <Button
                                 key={tz.value}
-                                variant="ghost"
-                                className="w-full justify-start font-normal"
+                                variant={settings.timezone === tz.value ? "secondary" : "ghost"}
+                                className="w-full justify-start text-left h-auto py-3 px-3 relative group"
                                 onClick={() => {
                                   handleSelectChange('timezone', tz.value);
-                                  setIsTimezonePopoverOpen(false);
+                                  setIsTimezoneDialogOpen(false);
                                   setTimezoneSearch("");
                                 }}
+                                type="button"
                               >
-                                <Check
-                                  className={cn(
-                                    "mr-2 h-4 w-4",
-                                    settings.timezone === tz.value ? "opacity-100" : "opacity-0"
-                                  )}
-                                />
-                                {tz.label}
+                                <div className="flex flex-col gap-0.5 pr-8">
+                                  <span className="font-semibold text-sm">{tz.label}</span>
+                                  <span className="text-xs text-muted-foreground font-mono">{tz.subLabel}</span>
+                                </div>
+                                {settings.timezone === tz.value && (
+                                  <Check className="absolute right-3 top-4 h-4 w-4 text-green-500" />
+                                )}
                               </Button>
-                            ))
-                          )}
-                        </div>
-                      </ScrollArea>
-                    </PopoverContent>
-                  </Popover>
+                            ))}
+                            {filteredTimezones.length === 0 && (
+                              <p className="text-center py-4 text-sm text-muted-foreground">No timezones found.</p>
+                            )}
+                          </div>
+                        </ScrollArea>
+                      </div>
+                    </DialogContent>
+                  </Dialog>
                   <p className="text-xs text-muted-foreground">
                     Search and select from all world timezones. This will be used for booking slots, email timestamps, and all date/time calculations.
                   </p>
@@ -558,19 +573,68 @@ export default function AdminSettingsPage() {
                         )}
                         <div className="space-y-2 mt-3 pl-2">
                           <Label htmlFor="isVisitingChargeTaxInclusive" className={!canSetVcTaxInclusive ? "text-muted-foreground" : ""}>Visiting Charge Price Type</Label>
-                          <Select
-                            value={String(settings.isVisitingChargeTaxInclusive || false)}
-                            onValueChange={(value) => handleSelectChange('isVisitingChargeTaxInclusive', value as "true" | "false")}
-                            disabled={isSaving || !canSetVcTaxInclusive}
-                          >
-                            <SelectTrigger>
-                              <SelectValue placeholder="Select tax type" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="false">Tax Exclusive (Charge + Tax)</SelectItem>
-                              <SelectItem value="true">Tax Inclusive (Charge includes Tax)</SelectItem>
-                            </SelectContent>
-                          </Select>
+                          <Dialog open={isVcTaxPickerOpen} onOpenChange={setIsVcTaxPickerOpen}>
+                            <DialogTrigger asChild>
+                              <Button
+                                id="isVisitingChargeTaxInclusive"
+                                variant="outline"
+                                role="combobox"
+                                aria-expanded={isVcTaxPickerOpen}
+                                className="w-full justify-between text-left font-normal h-10"
+                                disabled={isSaving || !canSetVcTaxInclusive}
+                                type="button"
+                              >
+                                <span>
+                                  {settings.isVisitingChargeTaxInclusive
+                                    ? "Tax Inclusive (Charge includes Tax)"
+                                    : "Tax Exclusive (Charge + Tax)"}
+                                </span>
+                                <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                              </Button>
+                            </DialogTrigger>
+                            <DialogContent className="w-[calc(100%-6px)] sm:max-w-[425px]">
+                              <DialogHeader>
+                                <DialogTitle>Select Price Tax Type</DialogTitle>
+                                <DialogDescription>
+                                  Choose how tax is calculated on the visiting charge.
+                                </DialogDescription>
+                              </DialogHeader>
+                              <div className="py-4">
+                                <ScrollArea className="h-[150px] rounded-md border p-2">
+                                  <div className="space-y-1">
+                                    <Button
+                                      variant={!settings.isVisitingChargeTaxInclusive ? "secondary" : "ghost"}
+                                      className="w-full justify-start text-left h-auto py-3 px-3 relative group"
+                                      onClick={() => {
+                                        handleSelectChange('isVisitingChargeTaxInclusive', 'false');
+                                        setIsVcTaxPickerOpen(false);
+                                      }}
+                                      type="button"
+                                    >
+                                      <span className="font-semibold text-sm">Tax Exclusive (Charge + Tax)</span>
+                                      {!settings.isVisitingChargeTaxInclusive && (
+                                        <Check className="absolute right-3 top-3 h-4 w-4 text-green-500" />
+                                      )}
+                                    </Button>
+                                    <Button
+                                      variant={settings.isVisitingChargeTaxInclusive ? "secondary" : "ghost"}
+                                      className="w-full justify-start text-left h-auto py-3 px-3 relative group"
+                                      onClick={() => {
+                                        handleSelectChange('isVisitingChargeTaxInclusive', 'true');
+                                        setIsVcTaxPickerOpen(false);
+                                      }}
+                                      type="button"
+                                    >
+                                      <span className="font-semibold text-sm">Tax Inclusive (Charge includes Tax)</span>
+                                      {settings.isVisitingChargeTaxInclusive && (
+                                        <Check className="absolute right-3 top-3 h-4 w-4 text-green-500" />
+                                      )}
+                                    </Button>
+                                  </div>
+                                </ScrollArea>
+                              </div>
+                            </DialogContent>
+                          </Dialog>
                           {!canSetVcTaxInclusive && <p className="text-xs text-muted-foreground">Enable tax on visiting charge and set a rate  0 to configure this.</p>}
                         </div>
                     </div>
@@ -946,13 +1010,68 @@ export default function AdminSettingsPage() {
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div className="space-y-1">
                       <Label htmlFor="cancellationFeeType">Fee Type</Label>
-                      <Select name="cancellationFeeType" value={settings.cancellationFeeType || 'fixed'} onValueChange={(value) => handleSelectChange('cancellationFeeType', value)} disabled={isSaving}>
-                        <SelectTrigger id="cancellationFeeType"><SelectValue /></SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="fixed">Fixed Amount (₹)</SelectItem>
-                          <SelectItem value="percentage">Percentage (%)</SelectItem>
-                        </SelectContent>
-                      </Select>
+                      <Dialog open={isCancelFeeTypePickerOpen} onOpenChange={setIsCancelFeeTypePickerOpen}>
+                        <DialogTrigger asChild>
+                          <Button
+                            id="cancellationFeeType"
+                            variant="outline"
+                            role="combobox"
+                            aria-expanded={isCancelFeeTypePickerOpen}
+                            className="w-full justify-between text-left font-normal h-10"
+                            disabled={isSaving}
+                            type="button"
+                          >
+                            <span>
+                              {settings.cancellationFeeType === 'percentage'
+                                ? "Percentage (%)"
+                                : "Fixed Amount (₹)"}
+                            </span>
+                            <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                          </Button>
+                        </DialogTrigger>
+                        <DialogContent className="w-[calc(100%-6px)] sm:max-w-[425px]">
+                          <DialogHeader>
+                            <DialogTitle>Select Cancellation Fee Type</DialogTitle>
+                            <DialogDescription>
+                              Choose how the fee is calculated.
+                            </DialogDescription>
+                          </DialogHeader>
+                          <div className="py-4">
+                            <ScrollArea className="h-[150px] rounded-md border p-2">
+                              <div className="space-y-1">
+                                <Button
+                                  variant={settings.cancellationFeeType !== 'percentage' ? "secondary" : "ghost"}
+                                  className="w-full justify-start text-left h-auto py-3 px-3 relative group"
+                                  onClick={() => {
+                                    handleSelectChange('cancellationFeeType', 'fixed');
+                                    setIsCancelFeeTypePickerOpen(false);
+                                  }}
+                                  type="button"
+                                >
+                                  <span className="font-semibold text-sm">Fixed Amount (₹)</span>
+                                  {settings.cancellationFeeType !== 'percentage' && (
+                                    <Check className="absolute right-3 top-3 h-4 w-4 text-green-500" />
+                                  )}
+                                </Button>
+                                <Button
+                                  variant={settings.cancellationFeeType === 'percentage' ? "secondary" : "ghost"}
+                                  className="w-full justify-start text-left h-auto py-3 px-3 relative group"
+                                  onClick={() => {
+                                    handleSelectChange('cancellationFeeType', 'percentage');
+                                    setIsCancelFeeTypePickerOpen(false);
+                                  }}
+                                  type="button"
+                                >
+                                  <span className="font-semibold text-sm">Percentage (%)</span>
+                                  {settings.cancellationFeeType === 'percentage' && (
+                                    <Check className="absolute right-3 top-3 h-4 w-4 text-green-500" />
+                                  )}
+                                </Button>
+                              </div>
+                            </ScrollArea>
+                          </div>
+                        </DialogContent>
+                      </Dialog>
                     </div>
                     <div className="space-y-1">
                       <Label htmlFor="cancellationFeeValue">Fee Value</Label>

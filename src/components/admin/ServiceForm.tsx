@@ -8,12 +8,11 @@ import { Button } from "@/components/ui/button";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDescription } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { Card } from "@/components/ui/card";
 import type { FirestoreService, FirestoreSubCategory, FirestoreTax, FirestoreCategory } from '@/types/firestore';
 import { useEffect, useState, useRef, useCallback, useMemo } from "react";
-import { Loader2, Image as ImageIcon, Trash2, PlusCircle, Percent, Clock, HelpCircle, Wand2, Users, ShoppingBag, ListOrdered, Edit2, Lock, Search, Tags, CheckCircle } from "lucide-react";
+import { Loader2, Image as ImageIcon, Trash2, PlusCircle, Percent, Clock, HelpCircle, Wand2, Users, ShoppingBag, ListOrdered, Edit2, Lock, Search, Tags, CheckCircle, Check, ChevronsUpDown } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from "@/components/ui/dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
@@ -149,6 +148,15 @@ export default function ServiceForm({ onSubmit: onSubmitProp, initialData, onCan
   const [categorySearch, setCategorySearch] = useState("");
   const [isSubCategoryPickerOpen, setIsSubCategoryPickerOpen] = useState(false);
   const [subCategorySearch, setSubCategorySearch] = useState("");
+
+  const [isTaxPickerOpen, setIsTaxPickerOpen] = useState(false);
+  const [taxSearch, setTaxSearch] = useState("");
+  const [isTaxTypePickerOpen, setIsTaxTypePickerOpen] = useState(false);
+  const [isTimeUnitPickerOpen, setIsTimeUnitPickerOpen] = useState(false);
+
+  const searchableTaxes = useMemo(() => {
+    return taxes.filter(tax => tax.taxName.toLowerCase().includes(taxSearch.toLowerCase()));
+  }, [taxes, taxSearch]);
 
   const form = useForm<ServiceFormDataInternal>({
     resolver: zodResolver(serviceFormSchema),
@@ -833,38 +841,158 @@ export default function ServiceForm({ onSubmit: onSubmitProp, initialData, onCan
           )}
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <FormField control={form.control} name="taxId" render={({ field }) => (
-              <FormItem>
-                <FormLabel>Applicable Tax</FormLabel>
-                <Select
-                  key={`tax-id-select-${initialData?.id || 'new-service'}-${taxes.length}-${field.value}`}
-                  onValueChange={(value) => {
-                    field.onChange(value);
-                    const selectedTax = taxes.find(t => t.id === value);
-                    if (!selectedTax || selectedTax.taxPercent === 0) {
-                      form.setValue('isTaxInclusive', "false", { shouldValidate: true });
-                    }
-                  }}
-                  value={field.value || ""}
-                  disabled={effectiveIsSubmitting || taxes.length === 0}
-                >
-                  <FormControl>
-                    <SelectTrigger>
-                      <SelectValue placeholder={taxes.length > 0 ? "Select a tax configuration" : "No active taxes"} />
-                    </SelectTrigger>
-                  </FormControl>
-                  <SelectContent>
-                    {taxes.map(tax => (
-                      <SelectItem key={tax.id} value={tax.id}>
-                        {tax.taxName} ({tax.taxPercent}%)
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <FormMessage />
-              </FormItem>
-            )}/>
-            <FormField control={form.control} name="isTaxInclusive" render={({ field }) => { return ( <FormItem><FormLabel className={!taxSelected ? "text-muted-foreground" : ""}>Price Tax Type</FormLabel> <Select key={`is-tax-inclusive-select-${initialData?.id || 'new-service'}-${taxes.length}-${String(field.value)}`} onValueChange={field.onChange} value={field.value} disabled={!taxSelected || effectiveIsSubmitting}> <FormControl><SelectTrigger><SelectValue placeholder="Select tax type" /></SelectTrigger></FormControl> <SelectContent><SelectItem value={"false"}>Tax Exclusive (Price + Tax)</SelectItem><SelectItem value={"true"}>Tax Inclusive (Price includes Tax)</SelectItem></SelectContent> </Select>{!taxSelected && <FormDescription className="text-xs">Select a tax first to enable this option.</FormDescription>}<FormMessage /> </FormItem> ); }}/>
+            <FormField control={form.control} name="taxId" render={({ field }) => {
+              const selectedTax = taxes.find(t => t.id === field.value);
+              return (
+                <FormItem className="flex flex-col">
+                  <FormLabel className="mb-2">Applicable Tax</FormLabel>
+                  <Dialog open={isTaxPickerOpen} onOpenChange={setIsTaxPickerOpen}>
+                    <DialogTrigger asChild>
+                      <Button
+                        variant="outline"
+                        role="combobox"
+                        className={cn(
+                          "w-full justify-between text-left font-normal h-10",
+                          !field.value && "text-muted-foreground"
+                        )}
+                        disabled={effectiveIsSubmitting || taxes.length === 0}
+                        type="button"
+                      >
+                        {selectedTax ? (
+                          <div className="flex items-center gap-2">
+                            <Percent className="h-4 w-4 text-primary" />
+                            <span>{selectedTax.taxName} ({selectedTax.taxPercent}%)</span>
+                          </div>
+                        ) : (
+                          taxes.length > 0 ? "Select a tax configuration..." : "No active taxes"
+                        )}
+                        <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                      </Button>
+                    </DialogTrigger>
+                    <DialogContent className="w-[calc(100%-6px)] sm:max-w-[425px]">
+                      <DialogHeader>
+                        <DialogTitle>Select Applicable Tax</DialogTitle>
+                        <DialogDescription>
+                          Choose a tax configuration for this service.
+                        </DialogDescription>
+                      </DialogHeader>
+                      <div className="space-y-4 py-4">
+                        <div className="relative">
+                          <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+                          <Input
+                            placeholder="Search tax..."
+                            className="pl-8"
+                            value={taxSearch}
+                            onChange={(e) => setTaxSearch(e.target.value)}
+                          />
+                        </div>
+                        <ScrollArea className="h-[250px] rounded-md border p-2">
+                          <div className="space-y-1">
+                            {searchableTaxes.map((tax) => (
+                              <Button
+                                key={tax.id}
+                                variant={field.value === tax.id ? "secondary" : "ghost"}
+                                className="w-full justify-start text-left h-auto py-3 px-3 relative group"
+                                onClick={() => {
+                                  field.onChange(tax.id);
+                                  if (tax.taxPercent === 0) {
+                                    form.setValue('isTaxInclusive', "false", { shouldValidate: true });
+                                  }
+                                  setIsTaxPickerOpen(false);
+                                  setTaxSearch("");
+                                }}
+                                type="button"
+                              >
+                                <div className="flex items-center gap-2 pr-8">
+                                  <span className="font-semibold text-sm">{tax.taxName} ({tax.taxPercent}%)</span>
+                                </div>
+                                {field.value === tax.id && (
+                                  <Check className="absolute right-3 top-3 h-4 w-4 text-green-500" />
+                                )}
+                              </Button>
+                            ))}
+                            {searchableTaxes.length === 0 && (
+                              <p className="text-center py-4 text-sm text-muted-foreground">No taxes found.</p>
+                            )}
+                          </div>
+                        </ScrollArea>
+                      </div>
+                    </DialogContent>
+                  </Dialog>
+                  <FormMessage />
+                </FormItem>
+              );
+            }}/>
+            <FormField control={form.control} name="isTaxInclusive" render={({ field }) => {
+              const isValTrue = String(field.value) === "true";
+              return (
+                <FormItem className="flex flex-col">
+                  <FormLabel className={cn("mb-2", !taxSelected && "text-muted-foreground")}>Price Tax Type</FormLabel>
+                  <Dialog open={isTaxTypePickerOpen} onOpenChange={setIsTaxTypePickerOpen}>
+                    <DialogTrigger asChild>
+                      <Button
+                        variant="outline"
+                        role="combobox"
+                        className="w-full justify-between text-left font-normal h-10"
+                        disabled={!taxSelected || effectiveIsSubmitting}
+                        type="button"
+                      >
+                        <span>
+                          {isValTrue
+                            ? "Tax Inclusive (Price includes Tax)"
+                            : "Tax Exclusive (Price + Tax)"}
+                        </span>
+                        <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                      </Button>
+                    </DialogTrigger>
+                    <DialogContent className="w-[calc(100%-6px)] sm:max-w-[425px]">
+                      <DialogHeader>
+                        <DialogTitle>Select Price Tax Type</DialogTitle>
+                        <DialogDescription>
+                          Choose how tax is calculated on the service price.
+                        </DialogDescription>
+                      </DialogHeader>
+                      <div className="py-4">
+                        <ScrollArea className="h-[150px] rounded-md border p-2">
+                          <div className="space-y-1">
+                            <Button
+                              variant={!isValTrue ? "secondary" : "ghost"}
+                              className="w-full justify-start text-left h-auto py-3 px-3 relative group"
+                              onClick={() => {
+                                field.onChange("false");
+                                setIsTaxTypePickerOpen(false);
+                              }}
+                              type="button"
+                            >
+                              <span className="font-semibold text-sm">Tax Exclusive (Price + Tax)</span>
+                              {!isValTrue && (
+                                <Check className="absolute right-3 top-3 h-4 w-4 text-green-500" />
+                              )}
+                            </Button>
+                            <Button
+                              variant={isValTrue ? "secondary" : "ghost"}
+                              className="w-full justify-start text-left h-auto py-3 px-3 relative group"
+                              onClick={() => {
+                                field.onChange("true");
+                                setIsTaxTypePickerOpen(false);
+                              }}
+                              type="button"
+                            >
+                              <span className="font-semibold text-sm">Tax Inclusive (Price includes Tax)</span>
+                              {isValTrue && (
+                                <Check className="absolute right-3 top-3 h-4 w-4 text-green-500" />
+                              )}
+                            </Button>
+                          </div>
+                        </ScrollArea>
+                      </div>
+                    </DialogContent>
+                  </Dialog>
+                  {!taxSelected && <FormDescription className="text-xs">Select a tax first to enable this option.</FormDescription>}
+                  <FormMessage />
+                </FormItem>
+              );
+            }}/>
           </div>
         </div>
 
@@ -927,7 +1055,75 @@ export default function ServiceForm({ onSubmit: onSubmitProp, initialData, onCan
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <FormField control={form.control} name="taskTimeValue" render={({ field }) => (<FormItem><FormLabel>Time Value</FormLabel><FormControl><Input type="number" placeholder="e.g., 30 or 2" {...field} value={field.value ?? ""} disabled={effectiveIsSubmitting} /></FormControl><FormMessage /></FormItem>)}/>
-              <FormField control={form.control} name="taskTimeUnit" render={({ field }) => ( <FormItem><FormLabel>Time Unit</FormLabel> <Select key={`task-unit-select-${initialData?.id || 'new-service'}-${String(field.value)}`} onValueChange={field.onChange} value={field.value === null ? undefined : field.value} disabled={effectiveIsSubmitting || !form.watch('taskTimeValue')}> <FormControl><SelectTrigger><SelectValue placeholder="Select unit" /></SelectTrigger></FormControl> <SelectContent><SelectItem value="minutes">Minutes</SelectItem><SelectItem value="hours">Hours</SelectItem></SelectContent> </Select> {!form.watch('taskTimeValue') && <FormDescription className="text-xs">Enter a time value first.</FormDescription>} <FormMessage /> </FormItem> )}/>
+              <FormField control={form.control} name="taskTimeUnit" render={({ field }) => (
+                <FormItem className="flex flex-col">
+                  <FormLabel className="mb-2">Time Unit</FormLabel>
+                  <Dialog open={isTimeUnitPickerOpen} onOpenChange={setIsTimeUnitPickerOpen}>
+                    <DialogTrigger asChild>
+                      <Button
+                        variant="outline"
+                        role="combobox"
+                        className="w-full justify-between text-left font-normal h-10"
+                        disabled={effectiveIsSubmitting || !form.watch('taskTimeValue')}
+                        type="button"
+                      >
+                        <span>
+                          {field.value === "minutes"
+                            ? "Minutes"
+                            : field.value === "hours"
+                            ? "Hours"
+                            : "Select unit..."}
+                        </span>
+                        <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                      </Button>
+                    </DialogTrigger>
+                    <DialogContent className="w-[calc(100%-6px)] sm:max-w-[425px]">
+                      <DialogHeader>
+                        <DialogTitle>Select Time Unit</DialogTitle>
+                        <DialogDescription>
+                          Choose either minutes or hours for task performance time.
+                        </DialogDescription>
+                      </DialogHeader>
+                      <div className="py-4">
+                        <ScrollArea className="h-[150px] rounded-md border p-2">
+                          <div className="space-y-1">
+                            <Button
+                              variant={field.value === "minutes" ? "secondary" : "ghost"}
+                              className="w-full justify-start text-left h-auto py-3 px-3 relative group"
+                              onClick={() => {
+                                field.onChange("minutes");
+                                setIsTimeUnitPickerOpen(false);
+                              }}
+                              type="button"
+                            >
+                              <span className="font-semibold text-sm">Minutes</span>
+                              {field.value === "minutes" && (
+                                <Check className="absolute right-3 top-3 h-4 w-4 text-green-500" />
+                              )}
+                            </Button>
+                            <Button
+                              variant={field.value === "hours" ? "secondary" : "ghost"}
+                              className="w-full justify-start text-left h-auto py-3 px-3 relative group"
+                              onClick={() => {
+                                field.onChange("hours");
+                                setIsTimeUnitPickerOpen(false);
+                              }}
+                              type="button"
+                            >
+                              <span className="font-semibold text-sm">Hours</span>
+                              {field.value === "hours" && (
+                                <Check className="absolute right-3 top-3 h-4 w-4 text-green-500" />
+                              )}
+                            </Button>
+                          </div>
+                        </ScrollArea>
+                      </div>
+                    </DialogContent>
+                  </Dialog>
+                  {!form.watch('taskTimeValue') && <FormDescription className="text-xs">Enter a time value first.</FormDescription>}
+                  <FormMessage />
+                </FormItem>
+              )}/>
           </div>
         </div>
 

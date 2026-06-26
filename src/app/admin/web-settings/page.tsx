@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import Link from 'next/link';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea"; 
 import { Label } from "@/components/ui/label";
-import { Settings2, Save, Loader2, AlertTriangle, Building, Image as ImageIcon, FileText, ExternalLink, Trash2, Facebook, Instagram, Linkedin, Youtube, TwitterIcon, Heading1, Heading2, Bold, List, Link as LinkIcon, Type, ImagePlus, Copy, Check, Pilcrow, LayoutDashboard, Plus, Trash } from "lucide-react";
+import { Settings2, Save, Loader2, AlertTriangle, Building, Image as ImageIcon, FileText, ExternalLink, Trash2, Facebook, Instagram, Linkedin, Youtube, TwitterIcon, Heading1, Heading2, Bold, List, Link as LinkIcon, Type, ImagePlus, Copy, Check, Pilcrow, LayoutDashboard, Plus, Trash, Search, Tags, CheckCircle } from "lucide-react";
 import { useToast } from '@/hooks/use-toast';
 import { db, storage } from '@/lib/firebase';
 import { doc, getDoc, setDoc, Timestamp, collection, query, orderBy, onSnapshot } from "firebase/firestore";
@@ -18,6 +18,8 @@ import type { GlobalWebSettings, ContentPage } from '@/types/firestore';
 import NextImage from 'next/image';
 import { Progress } from '@/components/ui/progress';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from "@/components/ui/dialog";
+import { cn } from "@/lib/utils";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm, Controller } from "react-hook-form";
 import * as z from "zod";
@@ -120,6 +122,17 @@ export default function WebSettingsPage() {
 
   const [contentPages, setContentPages] = useState<ContentPage[]>([]);
   const [selectedPageSlug, setSelectedPageSlug] = useState<string>(knownPageSlugs[0]);
+  const [isPagePickerOpen, setIsPagePickerOpen] = useState(false);
+  const [pageSearch, setPageSearch] = useState("");
+
+  const selectedPage = useMemo(() => {
+    return contentPages.find(p => p.slug === selectedPageSlug);
+  }, [contentPages, selectedPageSlug]);
+
+  const searchablePages = useMemo(() => {
+    return contentPages.filter(p => p.title.toLowerCase().includes(pageSearch.toLowerCase()));
+  }, [contentPages, pageSearch]);
+
   const [isSavingContent, setIsSavingContent] = useState(false);
 
   // Content Asset Management
@@ -1039,14 +1052,79 @@ export default function WebSettingsPage() {
                 <div className="lg:col-span-1 space-y-6">
                   <div className="space-y-2">
                     <Label htmlFor="select-page" className="text-sm font-bold">Select Page</Label>
-                    <Select value={selectedPageSlug} onValueChange={setSelectedPageSlug} disabled={isSavingContent}>
-                      <SelectTrigger id="select-page"><SelectValue placeholder="Choose a page" /></SelectTrigger>
-                      <SelectContent>
-                        {contentPages.map(page => (
-                          <SelectItem key={page.slug} value={page.slug}>{page.title}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                    <Dialog open={isPagePickerOpen} onOpenChange={setIsPagePickerOpen}>
+                      <DialogTrigger asChild>
+                        <Button
+                          variant="outline"
+                          role="combobox"
+                          className={cn(
+                            "w-full justify-between text-left font-normal h-10",
+                            !selectedPageSlug && "text-muted-foreground"
+                          )}
+                          disabled={isSavingContent || contentPages.length === 0}
+                          type="button"
+                          id="select-page"
+                        >
+                          {selectedPage ? (
+                            <div className="flex items-center gap-2">
+                              <Tags className="h-4 w-4 text-primary" />
+                              <span>{selectedPage.title}</span>
+                            </div>
+                          ) : (
+                            "Select a page..."
+                          )}
+                          <Search className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                        </Button>
+                      </DialogTrigger>
+                      <DialogContent className="w-[calc(100%-6px)] sm:max-w-[425px]">
+                        <DialogHeader>
+                          <DialogTitle>Select Page</DialogTitle>
+                          <DialogDescription>
+                            Search and select a static page to edit.
+                          </DialogDescription>
+                        </DialogHeader>
+                        <div className="space-y-4 py-4">
+                          <div className="relative">
+                            <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+                            <Input
+                              placeholder="Type page title..."
+                              className="pl-8"
+                              value={pageSearch}
+                              onChange={(e) => setPageSearch(e.target.value)}
+                            />
+                          </div>
+                          <ScrollArea className="h-[300px] rounded-md border p-2">
+                            <div className="space-y-1">
+                              {searchablePages.length === 0 ? (
+                                <p className="text-center py-4 text-sm text-muted-foreground">No pages found.</p>
+                              ) : (
+                                searchablePages.map((page: ContentPage) => (
+                                  <Button
+                                    key={page.slug}
+                                    variant={selectedPageSlug === page.slug ? "secondary" : "ghost"}
+                                    className="w-full justify-start text-left h-auto py-3 px-3 relative group"
+                                    onClick={() => {
+                                      setSelectedPageSlug(page.slug);
+                                      setIsPagePickerOpen(false);
+                                      setPageSearch("");
+                                    }}
+                                    type="button"
+                                  >
+                                    <div className="flex items-center gap-2 pr-8">
+                                      <FileText className="h-4 w-4 text-muted-foreground" />
+                                      <span className="font-semibold text-sm">{page.title}</span>
+                                    </div>
+                                    {selectedPageSlug === page.slug && (
+                                      <CheckCircle className="absolute right-3 top-3 h-4 w-4 text-green-500" />
+                                    )}
+                                  </Button>
+                                ))
+                              )}
+                            </div>
+                          </ScrollArea>
+                        </div>
+                      </DialogContent>
+                    </Dialog>
                   </div>
 
                   <Separator />

@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
@@ -12,7 +12,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Loader2, Send, Users, UserSearch, Copy, Tag, Layers } from "lucide-react";
+import { Loader2, Send, Users, UserSearch, Copy, Tag, Layers, Search, Tags, CheckCircle } from "lucide-react";
 import { useToast } from '@/hooks/use-toast';
 import { db } from '@/lib/firebase';
 import { collection, query, orderBy, getDocs, where, limit } from "firebase/firestore";
@@ -21,6 +21,8 @@ import { useGlobalSettings } from '@/hooks/useGlobalSettings';
 import { sendBulkMarketingEmail } from '@/ai/flows/sendBulkMarketingEmailFlow';
 import { getBaseUrl } from '@/lib/config';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from "@/components/ui/dialog";
+import { cn } from "@/lib/utils";
 
 const sendEmailFormSchema = z.object({
   targetAudience: z.enum(['all', 'specific'], { required_error: "Please select an audience."}),
@@ -70,6 +72,20 @@ export default function SendManualEmailForm() {
   });
 
   const watchedTargetAudience = form.watch('targetAudience');
+
+  const [isCategoryPickerOpen, setIsCategoryPickerOpen] = useState(false);
+  const [categorySearch, setCategorySearch] = useState("");
+
+  const watchedCategoryId = form.watch('categoryId');
+
+  const selectedCategory = useMemo(() => {
+    if (watchedCategoryId === 'none') return { name: "-- None --" };
+    return allCategories.find(c => c.id === watchedCategoryId);
+  }, [allCategories, watchedCategoryId]);
+
+  const searchableCategories = useMemo(() => {
+    return allCategories.filter(c => c.name.toLowerCase().includes(categorySearch.toLowerCase()));
+  }, [allCategories, categorySearch]);
 
   useEffect(() => {
     const fetchSelectData = async () => {
@@ -209,19 +225,100 @@ export default function SendManualEmailForm() {
                 control={form.control}
                 name="categoryId"
                 render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Category for Services (Optional)</FormLabel>
-                    <Select onValueChange={field.onChange} value={field.value || "none"} disabled={isSending || isLoadingCategories}>
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select a category to list its services..." />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        <SelectItem value="none">-- None --</SelectItem>
-                        {allCategories.map(cat => <SelectItem key={cat.id} value={cat.id}>{cat.name}</SelectItem>)}
-                      </SelectContent>
-                    </Select>
+                  <FormItem className="flex flex-col">
+                    <FormLabel className="mb-2">Category for Services (Optional)</FormLabel>
+                    <Dialog open={isCategoryPickerOpen} onOpenChange={setIsCategoryPickerOpen}>
+                      <DialogTrigger asChild>
+                        <Button
+                          variant="outline"
+                          role="combobox"
+                          className={cn(
+                            "w-full justify-between text-left font-normal h-10",
+                            !field.value && "text-muted-foreground"
+                          )}
+                          disabled={isSending || isLoadingCategories}
+                          type="button"
+                        >
+                          {selectedCategory ? (
+                            <div className="flex items-center gap-2">
+                              <Tags className="h-4 w-4 text-primary" />
+                              <span>{selectedCategory.name}</span>
+                            </div>
+                          ) : (
+                            "Select a category..."
+                          )}
+                          <Search className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                        </Button>
+                      </DialogTrigger>
+                      <DialogContent className="w-[calc(100%-6px)] sm:max-w-[425px]">
+                        <DialogHeader>
+                          <DialogTitle>Select Category</DialogTitle>
+                          <DialogDescription>
+                            Search and select a category to list its services.
+                          </DialogDescription>
+                        </DialogHeader>
+                        <div className="space-y-4 py-4">
+                          <div className="relative">
+                            <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+                            <Input
+                              placeholder="Type category name..."
+                              className="pl-8"
+                              value={categorySearch}
+                              onChange={(e) => setCategorySearch(e.target.value)}
+                            />
+                          </div>
+                          <ScrollArea className="h-[300px] rounded-md border p-2">
+                            <div className="space-y-1">
+                              <Button
+                                key="none"
+                                variant={field.value === "none" ? "secondary" : "ghost"}
+                                className="w-full justify-start text-left h-auto py-3 px-3 relative group"
+                                onClick={() => {
+                                  field.onChange("none");
+                                  setIsCategoryPickerOpen(false);
+                                  setCategorySearch("");
+                                }}
+                                type="button"
+                              >
+                                <div className="flex items-center gap-2 pr-8">
+                                  <Tags className="h-4 w-4 text-muted-foreground" />
+                                  <span className="font-semibold text-sm">-- None --</span>
+                                </div>
+                                {field.value === "none" && (
+                                  <CheckCircle className="absolute right-3 top-3 h-4 w-4 text-green-500" />
+                                )}
+                              </Button>
+
+                              {searchableCategories.map((cat) => (
+                                <Button
+                                  key={cat.id}
+                                  variant={field.value === cat.id ? "secondary" : "ghost"}
+                                  className="w-full justify-start text-left h-auto py-3 px-3 relative group"
+                                  onClick={() => {
+                                    field.onChange(cat.id);
+                                    setIsCategoryPickerOpen(false);
+                                    setCategorySearch("");
+                                  }}
+                                  type="button"
+                                >
+                                  <div className="flex items-center gap-2 pr-8">
+                                    <Tags className="h-4 w-4 text-muted-foreground" />
+                                    <span className="font-semibold text-sm">{cat.name}</span>
+                                  </div>
+                                  {field.value === cat.id && (
+                                    <CheckCircle className="absolute right-3 top-3 h-4 w-4 text-green-500" />
+                                  )}
+                                </Button>
+                              ))}
+
+                              {searchableCategories.length === 0 && (
+                                <p className="text-center py-4 text-sm text-muted-foreground">No categories found.</p>
+                              )}
+                            </div>
+                          </ScrollArea>
+                        </div>
+                      </DialogContent>
+                    </Dialog>
                     <FormDescription>If selected, you can use the {"{{category_services}}"} merge tag in your email body.</FormDescription>
                     <FormMessage />
                   </FormItem>

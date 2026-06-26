@@ -16,11 +16,13 @@ import {
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from "@/components/ui/dialog";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { cn } from "@/lib/utils";
 import type { FirestorePopup, PopupType, PopupDisplayRuleType, PopupDisplayFrequency } from '@/types/firestore';
-import { useEffect, useState, useRef } from "react";
-import { Loader2, Image as ImageIconLucide, Trash2, User, Phone, MapPin } from "lucide-react";
+import { useEffect, useState, useRef, useMemo } from "react";
+import { Loader2, Image as ImageIconLucide, Trash2, User, Phone, MapPin, Check, ChevronsUpDown, Search, CheckCircle, Megaphone } from "lucide-react";
 import NextImage from 'next/image';
 import { useToast } from "@/hooks/use-toast";
 import { storage } from '@/lib/firebase';
@@ -80,6 +82,23 @@ export default function PopupForm({ onSubmit: onSubmitProp, initialData, onCance
   
   const [isFormBusyForImage, setIsFormBusyForImage] = useState(false);
   const [statusMessage, setStatusMessage] = useState("");
+
+  const [isPopupTypePickerOpen, setIsPopupTypePickerOpen] = useState(false);
+  const [isPromoFieldsPickerOpen, setIsPromoFieldsPickerOpen] = useState(false);
+  const [isDisplayRulePickerOpen, setIsDisplayRulePickerOpen] = useState(false);
+  const [isDisplayFreqPickerOpen, setIsDisplayFreqPickerOpen] = useState(false);
+
+  const getPopupTypeLabel = (type: string) => type.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+
+  const promoConditionOptions = [
+    { value: 0, label: "0 fields (Show immediately)" },
+    { value: 1, label: "At least 1 enabled field" },
+    { value: 2, label: "At least 2 enabled fields" },
+    { value: 3, label: "All 3 enabled fields" },
+  ];
+
+  const getDisplayRuleLabel = (rule: string) => rule.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+  const getDisplayFreqLabel = (freq: string) => freq.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
 
   const form = useForm<PopupFormData>({
     resolver: zodResolver(popupFormSchema),
@@ -236,12 +255,65 @@ export default function PopupForm({ onSubmit: onSubmitProp, initialData, onCance
         )} />
 
         <FormField control={form.control} name="popupType" render={({ field }) => (
-          <FormItem>
-            <FormLabel>Popup Type *</FormLabel>
-            <Select key={`type-${field.value}`} onValueChange={field.onChange} value={field.value} disabled={effectiveIsSubmitting}>
-              <FormControl><SelectTrigger><SelectValue placeholder="Select popup type" /></SelectTrigger></FormControl>
-              <SelectContent>{popupTypes.map(type => (<SelectItem key={type} value={type}>{type.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}</SelectItem>))}</SelectContent>
-            </Select>
+          <FormItem className="flex flex-col">
+            <FormLabel className="mb-2">Popup Type *</FormLabel>
+            <Dialog open={isPopupTypePickerOpen} onOpenChange={setIsPopupTypePickerOpen}>
+              <DialogTrigger asChild>
+                <Button
+                  variant="outline"
+                  role="combobox"
+                  className={cn(
+                    "w-full justify-between text-left font-normal h-10",
+                    !field.value && "text-muted-foreground"
+                  )}
+                  disabled={effectiveIsSubmitting}
+                  type="button"
+                >
+                  {field.value ? (
+                    <div className="flex items-center gap-2">
+                      <Megaphone className="h-4 w-4 text-primary" />
+                      <span>{getPopupTypeLabel(field.value)}</span>
+                    </div>
+                  ) : (
+                    "Select popup type..."
+                  )}
+                  <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="w-[calc(100%-6px)] sm:max-w-[425px]">
+                <DialogHeader>
+                  <DialogTitle>Select Popup Type</DialogTitle>
+                  <DialogDescription>
+                    Choose a type of popup.
+                  </DialogDescription>
+                </DialogHeader>
+                <div className="py-4">
+                  <ScrollArea className="h-[250px] rounded-md border p-2">
+                    <div className="space-y-1">
+                      {popupTypes.map((type) => (
+                        <Button
+                          key={type}
+                          variant={field.value === type ? "secondary" : "ghost"}
+                          className="w-full justify-start text-left h-auto py-3 px-3 relative group"
+                          onClick={() => {
+                            field.onChange(type);
+                            setIsPopupTypePickerOpen(false);
+                          }}
+                          type="button"
+                        >
+                          <div className="flex items-center gap-2 pr-8">
+                            <span className="font-semibold text-sm">{getPopupTypeLabel(type)}</span>
+                          </div>
+                          {field.value === type && (
+                            <Check className="absolute right-3 top-3 h-4 w-4 text-green-500" />
+                          )}
+                        </Button>
+                      ))}
+                    </div>
+                  </ScrollArea>
+                </div>
+              </DialogContent>
+            </Dialog>
             <FormMessage />
           </FormItem>
         )} />
@@ -278,17 +350,55 @@ export default function PopupForm({ onSubmit: onSubmitProp, initialData, onCance
             <FormField control={form.control} name="promoCode" render={({ field }) => (<FormItem><FormLabel>Promo Code to Display (Optional)</FormLabel><FormControl><Input placeholder="e.g., SAVE20" {...field} disabled={effectiveIsSubmitting} /></FormControl><FormMessage /></FormItem>)} />
             {watchedPromoCode && watchedPromoCode.trim() !== "" && (
                 <FormField control={form.control} name="promoCodeConditionFieldsRequired" render={({ field }) => (
-                    <FormItem>
-                        <FormLabel>Show Promo After User Fills:</FormLabel>
-                        <Select key={`fields-req-${field.value}`} onValueChange={(value) => field.onChange(parseInt(value))} value={String(field.value ?? 0)} disabled={effectiveIsSubmitting}>
-                            <FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl>
-                            <SelectContent>
-                                <SelectItem value="0">0 fields (Show immediately)</SelectItem>
-                                <SelectItem value="1">At least 1 enabled field</SelectItem>
-                                <SelectItem value="2">At least 2 enabled fields</SelectItem>
-                                <SelectItem value="3">All 3 enabled fields</SelectItem>
-                            </SelectContent>
-                        </Select>
+                    <FormItem className="flex flex-col">
+                        <FormLabel className="mb-2">Show Promo After User Fills:</FormLabel>
+                        <Dialog open={isPromoFieldsPickerOpen} onOpenChange={setIsPromoFieldsPickerOpen}>
+                          <DialogTrigger asChild>
+                            <Button
+                              variant="outline"
+                              role="combobox"
+                              className="w-full justify-between text-left font-normal h-10"
+                              disabled={effectiveIsSubmitting}
+                              type="button"
+                            >
+                              <span>
+                                {promoConditionOptions.find(opt => opt.value === (field.value ?? 0))?.label || "0 fields (Show immediately)"}
+                              </span>
+                              <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                            </Button>
+                          </DialogTrigger>
+                          <DialogContent className="w-[calc(100%-6px)] sm:max-w-[425px]">
+                            <DialogHeader>
+                              <DialogTitle>Select Requirement Condition</DialogTitle>
+                              <DialogDescription>
+                                Select how many fields must be filled before showing promo code.
+                              </DialogDescription>
+                            </DialogHeader>
+                            <div className="py-4">
+                              <ScrollArea className="h-[200px] rounded-md border p-2">
+                                <div className="space-y-1">
+                                  {promoConditionOptions.map((opt) => (
+                                    <Button
+                                      key={opt.value}
+                                      variant={field.value === opt.value ? "secondary" : "ghost"}
+                                      className="w-full justify-start text-left h-auto py-3 px-3 relative group"
+                                      onClick={() => {
+                                        field.onChange(opt.value);
+                                        setIsPromoFieldsPickerOpen(false);
+                                      }}
+                                      type="button"
+                                    >
+                                      <span className="font-semibold text-sm">{opt.label}</span>
+                                      {field.value === opt.value && (
+                                        <Check className="absolute right-3 top-3 h-4 w-4 text-green-500" />
+                                      )}
+                                    </Button>
+                                  ))}
+                                </div>
+                              </ScrollArea>
+                            </div>
+                          </DialogContent>
+                        </Dialog>
                         <FormMessage />
                     </FormItem>
                 )} />
@@ -301,12 +411,55 @@ export default function PopupForm({ onSubmit: onSubmitProp, initialData, onCance
           <h3 className="text-md font-semibold text-muted-foreground">Display Rules</h3>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <FormField control={form.control} name="displayRuleType" render={({ field }) => (
-              <FormItem>
-                <FormLabel>Show Popup</FormLabel>
-                <Select key={`rule-${field.value}`} onValueChange={field.onChange} value={field.value} disabled={effectiveIsSubmitting}>
-                  <FormControl><SelectTrigger><SelectValue placeholder="Select display rule" /></SelectTrigger></FormControl>
-                  <SelectContent>{displayRuleTypes.map(type => (<SelectItem key={type} value={type}>{type.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}</SelectItem>))}</SelectContent>
-                </Select>
+              <FormItem className="flex flex-col">
+                <FormLabel className="mb-2">Show Popup</FormLabel>
+                <Dialog open={isDisplayRulePickerOpen} onOpenChange={setIsDisplayRulePickerOpen}>
+                  <DialogTrigger asChild>
+                    <Button
+                      variant="outline"
+                      role="combobox"
+                      className="w-full justify-between text-left font-normal h-10"
+                      disabled={effectiveIsSubmitting}
+                      type="button"
+                    >
+                      <span>
+                        {field.value ? getDisplayRuleLabel(field.value) : "Select display rule..."}
+                      </span>
+                      <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent className="w-[calc(100%-6px)] sm:max-w-[425px]">
+                    <DialogHeader>
+                      <DialogTitle>Select Display Rule</DialogTitle>
+                      <DialogDescription>
+                        Select when the popup should appear.
+                      </DialogDescription>
+                    </DialogHeader>
+                    <div className="py-4">
+                      <ScrollArea className="h-[200px] rounded-md border p-2">
+                        <div className="space-y-1">
+                          {displayRuleTypes.map((rule) => (
+                            <Button
+                              key={rule}
+                              variant={field.value === rule ? "secondary" : "ghost"}
+                              className="w-full justify-start text-left h-auto py-3 px-3 relative group"
+                              onClick={() => {
+                                field.onChange(rule);
+                                setIsDisplayRulePickerOpen(false);
+                              }}
+                              type="button"
+                            >
+                              <span className="font-semibold text-sm">{getDisplayRuleLabel(rule)}</span>
+                              {field.value === rule && (
+                                <Check className="absolute right-3 top-3 h-4 w-4 text-green-500" />
+                              )}
+                            </Button>
+                          ))}
+                        </div>
+                      </ScrollArea>
+                    </div>
+                  </DialogContent>
+                </Dialog>
                 <FormMessage />
               </FormItem>
             )} />
@@ -315,12 +468,55 @@ export default function PopupForm({ onSubmit: onSubmitProp, initialData, onCance
             )}
           </div>
           <FormField control={form.control} name="displayFrequency" render={({ field }) => (
-            <FormItem>
-              <FormLabel>Display Frequency</FormLabel>
-              <Select key={`freq-${field.value}`} onValueChange={field.onChange} value={field.value} disabled={effectiveIsSubmitting}>
-                <FormControl><SelectTrigger><SelectValue placeholder="Select frequency" /></SelectTrigger></FormControl>
-                <SelectContent>{displayFrequencies.map(type => (<SelectItem key={type} value={type}>{type.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}</SelectItem>))}</SelectContent>
-              </Select>
+            <FormItem className="flex flex-col">
+              <FormLabel className="mb-2">Display Frequency</FormLabel>
+              <Dialog open={isDisplayFreqPickerOpen} onOpenChange={setIsDisplayFreqPickerOpen}>
+                <DialogTrigger asChild>
+                  <Button
+                    variant="outline"
+                    role="combobox"
+                    className="w-full justify-between text-left font-normal h-10"
+                    disabled={effectiveIsSubmitting}
+                    type="button"
+                  >
+                    <span>
+                      {field.value ? getDisplayFreqLabel(field.value) : "Select frequency..."}
+                    </span>
+                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                  </Button>
+                </DialogTrigger>
+                 <DialogContent className="w-[calc(100%-6px)] sm:max-w-[425px]">
+                  <DialogHeader>
+                    <DialogTitle>Select Display Frequency</DialogTitle>
+                    <DialogDescription>
+                      Select how often the popup is displayed to users.
+                    </DialogDescription>
+                  </DialogHeader>
+                  <div className="py-4">
+                    <ScrollArea className="h-[200px] rounded-md border p-2">
+                      <div className="space-y-1">
+                        {displayFrequencies.map((freq) => (
+                          <Button
+                            key={freq}
+                            variant={field.value === freq ? "secondary" : "ghost"}
+                            className="w-full justify-start text-left h-auto py-3 px-3 relative group"
+                            onClick={() => {
+                              field.onChange(freq);
+                              setIsDisplayFreqPickerOpen(false);
+                            }}
+                            type="button"
+                          >
+                            <span className="font-semibold text-sm">{getDisplayFreqLabel(freq)}</span>
+                            {field.value === freq && (
+                              <Check className="absolute right-3 top-3 h-4 w-4 text-green-500" />
+                            )}
+                          </Button>
+                        ))}
+                      </div>
+                    </ScrollArea>
+                  </div>
+                </DialogContent>
+              </Dialog>
               <FormMessage />
             </FormItem>
           )} />

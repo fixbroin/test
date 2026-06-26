@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
@@ -12,7 +12,10 @@ import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
-import { Loader2, Save, Send, Mail, Users, ShoppingCart, Repeat, Megaphone, Layers } from "lucide-react";
+import { Loader2, Save, Send, Mail, Users, ShoppingCart, Repeat, Megaphone, Layers, Search, Tags, CheckCircle } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from "@/components/ui/dialog";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { cn } from "@/lib/utils";
 import { useToast } from '@/hooks/use-toast';
 import { db } from '@/lib/firebase';
 import { doc, getDoc, setDoc, Timestamp, collection, query, where, orderBy, limit, getDocs } from "firebase/firestore";
@@ -91,6 +94,28 @@ export default function MarketingAutomationPage() {
     resolver: zodResolver(marketingAutomationSchema),
     defaultValues: defaultMarketingAutomationSettings,
   });
+
+  const [pickerOpenStates, setPickerOpenStates] = useState<Record<string, boolean>>({});
+  const [pickerSearchTerms, setPickerSearchTerms] = useState<Record<string, string>>({});
+
+  const setPickerOpen = useCallback((id: string, open: boolean) => {
+    setPickerOpenStates(prev => ({ ...prev, [id]: open }));
+  }, []);
+
+  const setPickerSearch = useCallback((id: string, search: string) => {
+    setPickerSearchTerms(prev => ({ ...prev, [id]: search }));
+  }, []);
+
+  const getSelectedCategory = useCallback((val: string) => {
+    if (val === 'cart') return { name: "Automatic (from user's cart)" };
+    if (val === 'none') return { name: "-- None --" };
+    return allCategories.find(c => c.id === val);
+  }, [allCategories]);
+
+  const getSearchableCategories = useCallback((id: string) => {
+    const search = pickerSearchTerms[id] || "";
+    return allCategories.filter(c => c.name.toLowerCase().includes(search.toLowerCase()));
+  }, [allCategories, pickerSearchTerms]);
   
   useEffect(() => {
     const fetchSelectData = async () => {
@@ -123,6 +148,8 @@ export default function MarketingAutomationPage() {
       } else {
         form.reset(defaultMarketingAutomationSettings);
       }
+      setPickerOpenStates({});
+      setPickerSearchTerms({});
     } catch (error) {
       toast({ title: "Error", description: "Could not load settings.", variant: "destructive" });
     } finally {
@@ -235,20 +262,131 @@ export default function MarketingAutomationPage() {
           <div className="pl-4 border-l-2 ml-2 space-y-4">
             {id !== 'recurringEngagement' && renderDelayInputs(`${id}Delay`, "Send After")}
             {id === 'recurringEngagement' && renderDelayInputs(`${id}Delay`, "Send Every")}
-            <FormField control={form.control} name={`${id}CategoryId`} render={({ field }) => (
-                <FormItem>
+            <FormField control={form.control} name={`${id}CategoryId`} render={({ field }) => {
+              const selectedCat = getSelectedCategory(field.value || "cart");
+              const isOpen = !!pickerOpenStates[id];
+              const search = pickerSearchTerms[id] || "";
+              const searchableCats = getSearchableCategories(id);
+
+              return (
+                <FormItem className="flex flex-col">
                   <FormLabel className="flex items-center"><Layers className="mr-2 h-4 w-4"/>Category for {"{{category_services}}"} Tag</FormLabel>
-                  <Select onValueChange={field.onChange} value={field.value || "cart"} disabled={isSaving || isLoadingCategories}>
-                    <FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl>
-                    <SelectContent>
-                        <SelectItem value="cart">Automatic (from user's cart)</SelectItem>
-                        <SelectItem value="none">-- None --</SelectItem>
-                        {allCategories.map(cat => <SelectItem key={cat.id} value={cat.id}>{cat.name}</SelectItem>)}
-                    </SelectContent>
-                  </Select>
+                  <Dialog open={isOpen} onOpenChange={(open) => setPickerOpen(id, open)}>
+                    <DialogTrigger asChild>
+                      <Button
+                        variant="outline"
+                        role="combobox"
+                        className={cn(
+                          "w-full justify-between text-left font-normal h-10",
+                          !field.value && "text-muted-foreground"
+                        )}
+                        disabled={isSaving || isLoadingCategories}
+                        type="button"
+                      >
+                        {selectedCat ? (
+                          <div className="flex items-center gap-2">
+                            <Tags className="h-4 w-4 text-primary" />
+                            <span>{selectedCat.name}</span>
+                          </div>
+                        ) : (
+                          "Select category..."
+                        )}
+                        <Search className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                      </Button>
+                    </DialogTrigger>
+                    <DialogContent className="w-[calc(100%-6px)] sm:max-w-[425px]">
+                      <DialogHeader>
+                        <DialogTitle>Select Category</DialogTitle>
+                        <DialogDescription>
+                          Search and select a category for this automation trigger.
+                        </DialogDescription>
+                      </DialogHeader>
+                      <div className="space-y-4 py-4">
+                        <div className="relative">
+                          <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+                          <Input
+                            placeholder="Type category name..."
+                            className="pl-8"
+                            value={search}
+                            onChange={(e) => setPickerSearch(id, e.target.value)}
+                          />
+                        </div>
+                        <ScrollArea className="h-[300px] rounded-md border p-2">
+                          <div className="space-y-1">
+                            <Button
+                              key="cart"
+                              variant={field.value === "cart" ? "secondary" : "ghost"}
+                              className="w-full justify-start text-left h-auto py-3 px-3 relative group"
+                              onClick={() => {
+                                field.onChange("cart");
+                                setPickerOpen(id, false);
+                                setPickerSearch(id, "");
+                              }}
+                              type="button"
+                            >
+                              <div className="flex items-center gap-2 pr-8">
+                                <Tags className="h-4 w-4 text-muted-foreground" />
+                                <span className="font-semibold text-sm">Automatic (from user's cart)</span>
+                              </div>
+                              {field.value === "cart" && (
+                                <CheckCircle className="absolute right-3 top-3 h-4 w-4 text-green-500" />
+                              )}
+                            </Button>
+
+                            <Button
+                              key="none"
+                              variant={field.value === "none" ? "secondary" : "ghost"}
+                              className="w-full justify-start text-left h-auto py-3 px-3 relative group"
+                              onClick={() => {
+                                field.onChange("none");
+                                setPickerOpen(id, false);
+                                setPickerSearch(id, "");
+                              }}
+                              type="button"
+                            >
+                              <div className="flex items-center gap-2 pr-8">
+                                <Tags className="h-4 w-4 text-muted-foreground" />
+                                <span className="font-semibold text-sm">-- None --</span>
+                              </div>
+                              {field.value === "none" && (
+                                <CheckCircle className="absolute right-3 top-3 h-4 w-4 text-green-500" />
+                              )}
+                            </Button>
+
+                            {searchableCats.map((cat) => (
+                              <Button
+                                key={cat.id}
+                                variant={field.value === cat.id ? "secondary" : "ghost"}
+                                className="w-full justify-start text-left h-auto py-3 px-3 relative group"
+                                onClick={() => {
+                                  field.onChange(cat.id);
+                                  setPickerOpen(id, false);
+                                  setPickerSearch(id, "");
+                                }}
+                                type="button"
+                              >
+                                <div className="flex items-center gap-2 pr-8">
+                                  <Tags className="h-4 w-4 text-muted-foreground" />
+                                  <span className="font-semibold text-sm">{cat.name}</span>
+                                </div>
+                                {field.value === cat.id && (
+                                  <CheckCircle className="absolute right-3 top-3 h-4 w-4 text-green-500" />
+                                )}
+                              </Button>
+                            ))}
+
+                            {searchableCats.length === 0 && (
+                              <p className="text-center py-4 text-sm text-muted-foreground">No categories found.</p>
+                            )}
+                          </div>
+                        </ScrollArea>
+                      </div>
+                    </DialogContent>
+                  </Dialog>
                   <FormDescription>Select a category, or let it be determined from the user's cart (if available).</FormDescription>
                 </FormItem>
-            )}/>
+              );
+            }}/>
             <FormField control={form.control} name={`${id}Template`} render={({ field }) => (<FormItem><FormLabel>Email Body</FormLabel><FormControl><Textarea placeholder="Hi {{name}}, ..." {...field} rows={5} /></FormControl><FormDescription>Use merge tags like {"{{name}}"}, {"{{popular_services}}"}, {"{{category_services}}"}, etc.</FormDescription><FormMessage /></FormItem>)}/>
             <Button type="button" variant="secondary" size="sm" onClick={() => handleTestSend(subject, form.getValues(`${id}Template`) || 'Test', form.getValues(categoryIdField as any))} disabled={isTestSending}><Send className="mr-2 h-4 w-4"/>Send Test Email</Button>
           </div>
