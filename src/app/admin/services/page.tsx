@@ -471,7 +471,7 @@ export default function AdminServicesPage() {
       )}
 
       <Dialog open={isFormOpen} onOpenChange={(open) => { if (!isSubmitting) { setIsFormOpen(open); if (!open) setEditingService(null); } }}>
-        <DialogContent className="w-full max-w-xs sm:max-w-md md:max-w-lg lg:max-w-2xl max-h-[90vh] p-0 flex flex-col">
+        <DialogContent className="w-[calc(100%-6px)] sm:max-w-md md:max-w-lg lg:max-w-2xl max-h-[90vh] p-0 flex flex-col">
           <DialogHeader className="p-6 pb-4 border-b"><DialogTitle>{editingService ? 'Edit Service' : 'Add New Service'}</DialogTitle><DialogDescription>{editingService ? 'Update details.' : 'Fill in details for a new service.'}</DialogDescription></DialogHeader>
           {(parentCategories.length === 0 && !editingService && !isLoadingData) || (subCategories.length === 0 && !editingService && !isLoadingData) ? (
              <div className="p-6 py-8 text-center"><p className="text-destructive">{(parentCategories.length === 0 && "No parent categories exist. ")}{(subCategories.length === 0 && "No sub-categories exist. ")}</p><p className="text-muted-foreground text-sm mt-2">Please add categories/sub-categories first.</p></div>

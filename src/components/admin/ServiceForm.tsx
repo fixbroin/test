@@ -551,368 +551,486 @@ export default function ServiceForm({ onSubmit: onSubmitProp, initialData, onCan
   return (
     <Form {...form} key={initialData ? `service-form-${initialData.id}` : 'new-service-form'}>
       <form onSubmit={form.handleSubmit(handleSubmit)} className="flex-grow space-y-6 p-6 overflow-y-auto">
-        <FormField control={form.control} name="name" render={({ field }) => (<FormItem><FormLabel>Service Name</FormLabel><FormControl><Input placeholder="e.g., Premium AC Servicing" {...field} disabled={effectiveIsSubmitting} /></FormControl><FormMessage /></FormItem>)}/>
-        <div className="flex items-center justify-end">
-            <Button type="button" size="sm" variant="outline" onClick={handleAiGenerate} disabled={effectiveIsSubmitting || !watchedName.trim() || !form.getValues('subCategoryId')}>
-              {isGeneratingAiContent ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : <Wand2 className="mr-2 h-4 w-4"/>}
-              Generate AI Content
-            </Button>
-        </div>
-        <FormField
-          control={form.control}
-          name="slug"
-          render={({ field }) => (
-            <FormItem>
-              <div className="flex items-center justify-between">
-                <FormLabel>Service Slug {initialData ? "(Editing might affect SEO)" : "(Auto-generated or custom)"}</FormLabel>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => setIsSlugEditable(!isSlugEditable)}
-                  className="h-8 px-2 text-xs"
-                  disabled={effectiveIsSubmitting}
-                >
-                  {isSlugEditable ? (
-                    <><Lock className="mr-1 h-3 w-3" /> Lock</>
-                  ) : (
-                    <><Edit2 className="mr-1 h-3 w-3" /> Edit Manually</>
-                  )}
-                </Button>
-              </div>
-              <FormControl>
-                <Input
-                  placeholder="e.g., premium-ac-servicing"
-                  {...field}
-                  onChange={(e) => field.onChange(generateSlug(e.target.value))}
-                  disabled={effectiveIsSubmitting || !isSlugEditable}
-                  className={!isSlugEditable ? "bg-muted/50 font-mono text-xs" : "font-mono text-xs"}
-                />
-              </FormControl>
-              <FormDescription>
-                {isSlugEditable 
-                  ? "Lowercase, dash-separated. Uniqueness is automatically checked." 
-                  : "Automatically generated and unique. Click 'Edit Manually' to customize."}
-              </FormDescription>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        
+        {/* Basic Information Section */}
+        <div className="border border-muted/80 rounded-xl p-5 bg-card/40 backdrop-blur-sm shadow-sm space-y-4 hover:border-primary/20 transition-all duration-200">
+          <div className="flex items-center gap-2 border-b pb-3 mb-2">
+            <ShoppingBag className="h-5 w-5 text-primary" />
+            <h3 className="font-semibold text-base text-foreground">Basic Information</h3>
+          </div>
+          
+          <FormField control={form.control} name="name" render={({ field }) => (<FormItem><FormLabel>Service Name</FormLabel><FormControl><Input placeholder="e.g., Premium AC Servicing" {...field} disabled={effectiveIsSubmitting} /></FormControl><FormMessage /></FormItem>)}/>
+          
+          <div className="flex items-center justify-end">
+              <Button type="button" size="sm" variant="outline" onClick={handleAiGenerate} disabled={effectiveIsSubmitting || !watchedName.trim() || !form.getValues('subCategoryId')}>
+                {isGeneratingAiContent ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : <Wand2 className="mr-2 h-4 w-4"/>}
+                Generate AI Content
+              </Button>
+          </div>
+          
           <FormField
             control={form.control}
-            name="parentCategoryId"
+            name="slug"
             render={({ field }) => (
-              <FormItem className="flex flex-col">
-                <FormLabel className="mb-2">Parent Category</FormLabel>
-                <Dialog open={isCategoryPickerOpen} onOpenChange={setIsCategoryPickerOpen}>
-                  <DialogTrigger asChild>
-                    <Button
-                      variant="outline"
-                      role="combobox"
-                      className={cn(
-                        "w-full justify-between text-left font-normal h-10",
-                        !field.value && "text-muted-foreground"
-                      )}
-                      disabled={effectiveIsSubmitting || parentCategories.length === 0}
-                      type="button"
-                    >
-                      {selectedParentCategory ? (
-                        <div className="flex items-center gap-2">
-                          <Tags className="h-4 w-4 text-primary" />
-                          <span>{selectedParentCategory.name}</span>
-                        </div>
-                      ) : (
-                        "Search and select category..."
-                      )}
-                      <Search className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                    </Button>
-                  </DialogTrigger>
-                  <DialogContent className="sm:max-w-[425px]">
-                    <DialogHeader>
-                      <DialogTitle>Select Parent Category</DialogTitle>
-                      <DialogDescription>
-                        Search and select a parent category for the service.
-                      </DialogDescription>
-                    </DialogHeader>
-                    <div className="space-y-4 py-4">
-                      <div className="relative">
-                        <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
-                        <Input
-                          placeholder="Type category name..."
-                          className="pl-8"
-                          value={categorySearch}
-                          onChange={(e) => setCategorySearch(e.target.value)}
-                        />
-                      </div>
-                      <ScrollArea className="h-[300px] rounded-md border p-2">
-                        <div className="space-y-1">
-                          {searchableCategories.length === 0 ? (
-                            <p className="text-center py-4 text-sm text-muted-foreground">No categories found.</p>
-                          ) : (
-                            searchableCategories.map((cat) => (
-                              <Button
-                                key={cat.id}
-                                variant={field.value === cat.id ? "secondary" : "ghost"}
-                                className="w-full justify-start text-left h-auto py-3 px-3 relative group"
-                                onClick={() => {
-                                  field.onChange(cat.id);
-                                  setIsCategoryPickerOpen(false);
-                                  setCategorySearch("");
-                                }}
-                                type="button"
-                              >
-                                <div className="flex items-center gap-2 pr-8">
-                                  <Tags className="h-4 w-4 text-muted-foreground" />
-                                  <span className="font-semibold text-sm">{cat.name}</span>
-                                </div>
-                                {field.value === cat.id && (
-                                  <CheckCircle className="absolute right-3 top-3 h-4 w-4 text-green-500" />
-                                )}
-                              </Button>
-                            ))
-                          )}
-                        </div>
-                      </ScrollArea>
-                    </div>
-                  </DialogContent>
-                </Dialog>
+              <FormItem>
+                <div className="flex items-center justify-between">
+                  <FormLabel>Service Slug {initialData ? "(Editing might affect SEO)" : "(Auto-generated or custom)"}</FormLabel>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setIsSlugEditable(!isSlugEditable)}
+                    className="h-8 px-2 text-xs"
+                    disabled={effectiveIsSubmitting}
+                  >
+                    {isSlugEditable ? (
+                      <><Lock className="mr-1 h-3 w-3" /> Lock</>
+                    ) : (
+                      <><Edit2 className="mr-1 h-3 w-3" /> Edit Manually</>
+                    )}
+                  </Button>
+                </div>
+                <FormControl>
+                  <Input
+                    placeholder="e.g., premium-ac-servicing"
+                    {...field}
+                    onChange={(e) => field.onChange(generateSlug(e.target.value))}
+                    disabled={effectiveIsSubmitting || !isSlugEditable}
+                    className={!isSlugEditable ? "bg-muted/50 font-mono text-xs" : "font-mono text-xs"}
+                  />
+                </FormControl>
+                <FormDescription>
+                  {isSlugEditable 
+                    ? "Lowercase, dash-separated. Uniqueness is automatically checked." 
+                    : "Automatically generated and unique. Click 'Edit Manually' to customize."}
+                </FormDescription>
                 <FormMessage />
               </FormItem>
             )}
           />
 
-          <FormField
-            control={form.control}
-            name="subCategoryId"
-            render={({ field }) => (
-              <FormItem className="flex flex-col">
-                <FormLabel className="mb-2">Sub-Category</FormLabel>
-                <Dialog open={isSubCategoryPickerOpen} onOpenChange={setIsSubCategoryPickerOpen}>
-                  <DialogTrigger asChild>
-                    <Button
-                      variant="outline"
-                      role="combobox"
-                      className={cn(
-                        "w-full justify-between text-left font-normal h-10",
-                        !field.value && "text-muted-foreground"
-                      )}
-                      disabled={effectiveIsSubmitting || !watchedParentCategoryId || filteredSubCategories.length === 0}
-                      type="button"
-                    >
-                      {selectedSubCategory ? (
-                        <div className="flex items-center gap-2">
-                          <Tags className="h-4 w-4 text-primary" />
-                          <span>{selectedSubCategory.name}</span>
-                        </div>
-                      ) : (
-                        !watchedParentCategoryId
-                          ? "Select parent category first"
-                          : (filteredSubCategories.length > 0 ? "Search and select sub-category..." : "No sub-categories")
-                      )}
-                      <Search className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                    </Button>
-                  </DialogTrigger>
-                  <DialogContent className="sm:max-w-[425px]">
-                    <DialogHeader>
-                      <DialogTitle>Select Sub-category</DialogTitle>
-                      <DialogDescription>
-                        Search and select a sub-category under {selectedParentCategory?.name || 'the selected parent category'}.
-                      </DialogDescription>
-                    </DialogHeader>
-                    <div className="space-y-4 py-4">
-                      <div className="relative">
-                        <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
-                        <Input
-                          placeholder="Type sub-category name..."
-                          className="pl-8"
-                          value={subCategorySearch}
-                          onChange={(e) => setSubCategorySearch(e.target.value)}
-                        />
-                      </div>
-                      <ScrollArea className="h-[300px] rounded-md border p-2">
-                        <div className="space-y-1">
-                          {searchableSubCategories.length === 0 ? (
-                            <p className="text-center py-4 text-sm text-muted-foreground">No sub-categories found.</p>
-                          ) : (
-                            searchableSubCategories.map((subCat) => (
-                              <Button
-                                key={subCat.id}
-                                variant={field.value === subCat.id ? "secondary" : "ghost"}
-                                className="w-full justify-start text-left h-auto py-3 px-3 relative group"
-                                onClick={() => {
-                                  field.onChange(subCat.id);
-                                  setIsSubCategoryPickerOpen(false);
-                                  setSubCategorySearch("");
-                                }}
-                                type="button"
-                              >
-                                <div className="flex items-center gap-2 pr-8">
-                                  <Tags className="h-4 w-4 text-muted-foreground" />
-                                  <span className="font-semibold text-sm">{subCat.name}</span>
-                                </div>
-                                {field.value === subCat.id && (
-                                  <CheckCircle className="absolute right-3 top-3 h-4 w-4 text-green-500" />
-                                )}
-                              </Button>
-                            ))
-                          )}
-                        </div>
-                      </ScrollArea>
-                    </div>
-                  </DialogContent>
-                </Dialog>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-        </div>
-        
-        <Separator />
-        
-        <FormField
-          control={form.control}
-          name="hasPriceVariants"
-          render={({ field }) => (
-            <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4 shadow-sm">
-              <div className="space-y-0.5">
-                <FormLabel className="text-base">Enable Price Variation</FormLabel>
-                <FormDescription>Define different prices for different quantities.</FormDescription>
-              </div>
-              <FormControl><Switch checked={field.value} onCheckedChange={field.onChange} disabled={effectiveIsSubmitting} /></FormControl>
-            </FormItem>
-          )}
-        />
-        
-        {watchedHasPriceVariants ? (
-          <div className="space-y-3 p-4 border rounded-md">
-            <h3 className="text-lg font-medium">Price Tiers</h3>
-            {priceVariantFields.map((item, index) => (
-              <div key={item.id} className="p-3 border rounded-md space-y-2 relative">
-                 <div className="grid grid-cols-3 gap-2 items-end">
-                    <FormField control={form.control} name={`priceVariants.${index}.fromQuantity`} render={({ field }) => (<FormItem><FormLabel className="text-xs">From Qty</FormLabel><FormControl><Input type="number" placeholder="1" {...field} /></FormControl><FormMessage /></FormItem>)}/>
-                    <FormField control={form.control} name={`priceVariants.${index}.toQuantity`} render={({ field }) => (<FormItem><FormLabel className="text-xs">To Qty (Opt.)</FormLabel><FormControl><Input type="number" placeholder="5" {...field} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>)}/>
-                    <FormField control={form.control} name={`priceVariants.${index}.price`} render={({ field }) => (<FormItem><FormLabel className="text-xs">Price (₹)</FormLabel><FormControl><Input type="number" step="0.01" placeholder="100" {...field} /></FormControl><FormMessage /></FormItem>)}/>
-                 </div>
-                <Button type="button" variant="ghost" size="icon" className="absolute top-1 right-1 h-6 w-6 text-destructive" onClick={() => removePriceVariant(index)} disabled={effectiveIsSubmitting}><Trash2 className="h-4 w-4" /></Button>
-              </div>
-            ))}
-            <Button type="button" variant="outline" size="sm" onClick={() => appendPriceVariant({ id: nanoid(), fromQuantity: priceVariantFields.length > 0 ? (priceVariantFields[priceVariantFields.length - 1].toQuantity || 0) + 1 : 1, price: 0 })} disabled={effectiveIsSubmitting}><PlusCircle className="mr-2 h-4 w-4" />Add Tier</Button>
-          </div>
-        ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <FormField control={form.control} name="price" render={({ field }) => (<FormItem><FormLabel>Default Price (₹)</FormLabel><FormControl><Input type="number" step="0.01" placeholder="e.g., 1200" {...field} disabled={effectiveIsSubmitting} /></FormControl><FormMessage /></FormItem>)}/>
-            <FormField control={form.control} name="discountedPrice" render={({ field }) => (<FormItem><FormLabel>Default Discounted Price (₹) (Optional)</FormLabel><FormControl><Input type="number" step="0.01" placeholder="e.g., 999" {...field} value={field.value ?? ""} disabled={effectiveIsSubmitting}/></FormControl><FormMessage /></FormItem>)}/>
-          </div>
-        )}
+            <FormField
+              control={form.control}
+              name="parentCategoryId"
+              render={({ field }) => (
+                <FormItem className="flex flex-col">
+                  <FormLabel className="mb-2">Parent Category</FormLabel>
+                  <Dialog open={isCategoryPickerOpen} onOpenChange={setIsCategoryPickerOpen}>
+                    <DialogTrigger asChild>
+                      <Button
+                        variant="outline"
+                        role="combobox"
+                        className={cn(
+                          "w-full justify-between text-left font-normal h-10",
+                          !field.value && "text-muted-foreground"
+                        )}
+                        disabled={effectiveIsSubmitting || parentCategories.length === 0}
+                        type="button"
+                      >
+                        {selectedParentCategory ? (
+                          <div className="flex items-center gap-2">
+                            <Tags className="h-4 w-4 text-primary" />
+                            <span>{selectedParentCategory.name}</span>
+                          </div>
+                        ) : (
+                          "Search and select category..."
+                        )}
+                        <Search className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                      </Button>
+                    </DialogTrigger>
+                    <DialogContent className="w-[calc(100%-6px)] sm:max-w-[425px]">
+                      <DialogHeader>
+                        <DialogTitle>Select Parent Category</DialogTitle>
+                        <DialogDescription>
+                          Search and select a parent category for the service.
+                        </DialogDescription>
+                      </DialogHeader>
+                      <div className="space-y-4 py-4">
+                        <div className="relative">
+                          <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+                          <Input
+                            placeholder="Type category name..."
+                            className="pl-8"
+                            value={categorySearch}
+                            onChange={(e) => setCategorySearch(e.target.value)}
+                          />
+                        </div>
+                        <ScrollArea className="h-[300px] rounded-md border p-2">
+                          <div className="space-y-1">
+                            {searchableCategories.length === 0 ? (
+                              <p className="text-center py-4 text-sm text-muted-foreground">No categories found.</p>
+                            ) : (
+                              searchableCategories.map((cat) => (
+                                <Button
+                                  key={cat.id}
+                                  variant={field.value === cat.id ? "secondary" : "ghost"}
+                                  className="w-full justify-start text-left h-auto py-3 px-3 relative group"
+                                  onClick={() => {
+                                    field.onChange(cat.id);
+                                    setIsCategoryPickerOpen(false);
+                                    setCategorySearch("");
+                                  }}
+                                  type="button"
+                                >
+                                  <div className="flex items-center gap-2 pr-8">
+                                    <Tags className="h-4 w-4 text-muted-foreground" />
+                                    <span className="font-semibold text-sm">{cat.name}</span>
+                                  </div>
+                                  {field.value === cat.id && (
+                                    <CheckCircle className="absolute right-3 top-3 h-4 w-4 text-green-500" />
+                                  )}
+                                </Button>
+                              ))
+                            )}
+                          </div>
+                        </ScrollArea>
+                      </div>
+                    </DialogContent>
+                  </Dialog>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <FormField control={form.control} name="taxId" render={({ field }) => ( <FormItem><FormLabel className="flex items-center"><Percent className="mr-2 h-4 w-4 text-muted-foreground" />Applicable Tax (Optional)</FormLabel> <Select key={`tax-id-select-${initialData?.id || 'new-service'}-${taxes.length}-${field.value}`} onValueChange={(value) => { const newTaxId = value === NO_TAX_VALUE ? null : value; field.onChange(newTaxId); if (newTaxId === null) { form.setValue('isTaxInclusive', "false", { shouldValidate: true });}}} value={field.value ?? NO_TAX_VALUE} disabled={effectiveIsSubmitting || taxes.length === 0}> <FormControl><SelectTrigger><SelectValue placeholder={taxes.length > 0 ? "Select a tax configuration" : "No active taxes"} /></SelectTrigger></FormControl> <SelectContent><SelectItem value={NO_TAX_VALUE}>No Tax</SelectItem>{taxes.map(tax => (<SelectItem key={tax.id} value={tax.id}>{tax.taxName} ({tax.taxPercent}%)</SelectItem>))}</SelectContent> </Select><FormMessage /> </FormItem> )}/>
-          <FormField control={form.control} name="isTaxInclusive" render={({ field }) => { return ( <FormItem><FormLabel className={!taxSelected ? "text-muted-foreground" : ""}>Price Tax Type</FormLabel> <Select key={`is-tax-inclusive-select-${initialData?.id || 'new-service'}-${taxes.length}-${String(field.value)}`} onValueChange={field.onChange} value={field.value} disabled={!taxSelected || effectiveIsSubmitting}> <FormControl><SelectTrigger><SelectValue placeholder="Select tax type" /></SelectTrigger></FormControl> <SelectContent><SelectItem value={"false"}>Tax Exclusive (Price + Tax)</SelectItem><SelectItem value={"true"}>Tax Inclusive (Price includes Tax)</SelectItem></SelectContent> </Select>{!taxSelected && <FormDescription className="text-xs">Select a tax first to enable this option.</FormDescription>}<FormMessage /> </FormItem> ); }}/>
+            <FormField
+              control={form.control}
+              name="subCategoryId"
+              render={({ field }) => (
+                <FormItem className="flex flex-col">
+                  <FormLabel className="mb-2">Sub-Category</FormLabel>
+                  <Dialog open={isSubCategoryPickerOpen} onOpenChange={setIsSubCategoryPickerOpen}>
+                    <DialogTrigger asChild>
+                      <Button
+                        variant="outline"
+                        role="combobox"
+                        className={cn(
+                          "w-full justify-between text-left font-normal h-10",
+                          !field.value && "text-muted-foreground"
+                        )}
+                        disabled={effectiveIsSubmitting || !watchedParentCategoryId || filteredSubCategories.length === 0}
+                        type="button"
+                      >
+                        {selectedSubCategory ? (
+                          <div className="flex items-center gap-2">
+                            <Tags className="h-4 w-4 text-primary" />
+                            <span>{selectedSubCategory.name}</span>
+                          </div>
+                        ) : (
+                          !watchedParentCategoryId
+                            ? "Select parent category first"
+                            : (filteredSubCategories.length > 0 ? "Search and select sub-category..." : "No sub-categories")
+                        )}
+                        <Search className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                      </Button>
+                    </DialogTrigger>
+                    <DialogContent className="w-[calc(100%-6px)] sm:max-w-[425px]">
+                      <DialogHeader>
+                        <DialogTitle>Select Sub-category</DialogTitle>
+                        <DialogDescription>
+                          Search and select a sub-category under {selectedParentCategory?.name || 'the selected parent category'}.
+                        </DialogDescription>
+                      </DialogHeader>
+                      <div className="space-y-4 py-4">
+                        <div className="relative">
+                          <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+                          <Input
+                            placeholder="Type sub-category name..."
+                            className="pl-8"
+                            value={subCategorySearch}
+                            onChange={(e) => setSubCategorySearch(e.target.value)}
+                          />
+                        </div>
+                        <ScrollArea className="h-[300px] rounded-md border p-2">
+                          <div className="space-y-1">
+                            {searchableSubCategories.length === 0 ? (
+                              <p className="text-center py-4 text-sm text-muted-foreground">No sub-categories found.</p>
+                            ) : (
+                              searchableSubCategories.map((subCat) => (
+                                <Button
+                                  key={subCat.id}
+                                  variant={field.value === subCat.id ? "secondary" : "ghost"}
+                                  className="w-full justify-start text-left h-auto py-3 px-3 relative group"
+                                  onClick={() => {
+                                    field.onChange(subCat.id);
+                                    setIsSubCategoryPickerOpen(false);
+                                    setSubCategorySearch("");
+                                  }}
+                                  type="button"
+                                >
+                                  <div className="flex items-center gap-2 pr-8">
+                                    <Tags className="h-4 w-4 text-muted-foreground" />
+                                    <span className="font-semibold text-sm">{subCat.name}</span>
+                                  </div>
+                                  {field.value === subCat.id && (
+                                    <CheckCircle className="absolute right-3 top-3 h-4 w-4 text-green-500" />
+                                  )}
+                                </Button>
+                              ))
+                            )}
+                          </div>
+                        </ScrollArea>
+                      </div>
+                    </DialogContent>
+                  </Dialog>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          </div>
         </div>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        
+        {/* Pricing & Taxes Section */}
+        <div className="border border-muted/80 rounded-xl p-5 bg-card/40 backdrop-blur-sm shadow-sm space-y-4 hover:border-primary/20 transition-all duration-200">
+          <div className="flex items-center gap-2 border-b pb-3 mb-2">
+            <Percent className="h-5 w-5 text-emerald-500" />
+            <h3 className="font-semibold text-base text-foreground">Pricing & Taxes</h3>
+          </div>
+          
           <FormField
             control={form.control}
-            name="hasMinQuantity"
+            name="hasPriceVariants"
             render={({ field }) => (
-              <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4 shadow-sm bg-background/50">
+              <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4 shadow-sm bg-background/30">
                 <div className="space-y-0.5">
-                  <FormLabel className="text-base flex items-center">
-                    <ListOrdered className="mr-2 h-4 w-4 text-muted-foreground"/>
-                    Enforce Min Quantity
-                  </FormLabel>
-                  <FormDescription>Set a minimum number of units for booking.</FormDescription>
+                  <FormLabel className="text-base">Enable Price Variation</FormLabel>
+                  <FormDescription>Define different prices for different quantities.</FormDescription>
                 </div>
                 <FormControl><Switch checked={field.value} onCheckedChange={field.onChange} disabled={effectiveIsSubmitting} /></FormControl>
               </FormItem>
             )}
           />
-          {form.watch("hasMinQuantity") && (
+          
+          {watchedHasPriceVariants ? (
+            <div className="space-y-3 p-4 border rounded-md bg-background/20">
+              <h4 className="text-sm font-semibold text-muted-foreground">Price Tiers</h4>
+              {priceVariantFields.map((item, index) => (
+                <div key={item.id} className="p-3 border rounded-md space-y-2 relative bg-background/50">
+                   <div className="grid grid-cols-3 gap-2 items-end">
+                      <FormField control={form.control} name={`priceVariants.${index}.fromQuantity`} render={({ field }) => (<FormItem><FormLabel className="text-xs font-medium">From Qty</FormLabel><FormControl><Input type="number" placeholder="1" {...field} className="h-8 text-xs" /></FormControl><FormMessage /></FormItem>)}/>
+                      <FormField control={form.control} name={`priceVariants.${index}.toQuantity`} render={({ field }) => (<FormItem><FormLabel className="text-xs font-medium">To Qty (Opt.)</FormLabel><FormControl><Input type="number" placeholder="5" {...field} value={field.value ?? ''} className="h-8 text-xs" /></FormControl><FormMessage /></FormItem>)}/>
+                      <FormField control={form.control} name={`priceVariants.${index}.price`} render={({ field }) => (<FormItem><FormLabel className="text-xs font-medium">Price (₹)</FormLabel><FormControl><Input type="number" step="0.01" placeholder="100" {...field} className="h-8 text-xs" /></FormControl><FormMessage /></FormItem>)}/>
+                   </div>
+                  <Button type="button" variant="ghost" size="icon" className="absolute top-1 right-1 h-6 w-6 text-destructive" onClick={() => removePriceVariant(index)} disabled={effectiveIsSubmitting}><Trash2 className="h-4 w-4" /></Button>
+                </div>
+              ))}
+              <Button type="button" variant="outline" size="sm" className="h-8 text-xs" onClick={() => appendPriceVariant({ id: nanoid(), fromQuantity: priceVariantFields.length > 0 ? (priceVariantFields[priceVariantFields.length - 1].toQuantity || 0) + 1 : 1, price: 0 })} disabled={effectiveIsSubmitting}><PlusCircle className="mr-1.5 h-3.5 w-3.5" />Add Tier</Button>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <FormField control={form.control} name="price" render={({ field }) => (<FormItem><FormLabel>Default Price (₹)</FormLabel><FormControl><Input type="number" step="0.01" placeholder="e.g., 1200" {...field} disabled={effectiveIsSubmitting} /></FormControl><FormMessage /></FormItem>)}/>
+              <FormField control={form.control} name="discountedPrice" render={({ field }) => (<FormItem><FormLabel>Default Discounted Price (₹) (Optional)</FormLabel><FormControl><Input type="number" step="0.01" placeholder="e.g., 999" {...field} value={field.value ?? ""} disabled={effectiveIsSubmitting}/></FormControl><FormMessage /></FormItem>)}/>
+            </div>
+          )}
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <FormField control={form.control} name="taxId" render={({ field }) => ( <FormItem><FormLabel>Applicable Tax (Optional)</FormLabel> <Select key={`tax-id-select-${initialData?.id || 'new-service'}-${taxes.length}-${field.value}`} onValueChange={(value) => { const newTaxId = value === NO_TAX_VALUE ? null : value; field.onChange(newTaxId); if (newTaxId === null) { form.setValue('isTaxInclusive', "false", { shouldValidate: true });}}} value={field.value ?? NO_TAX_VALUE} disabled={effectiveIsSubmitting || taxes.length === 0}> <FormControl><SelectTrigger><SelectValue placeholder={taxes.length > 0 ? "Select a tax configuration" : "No active taxes"} /></SelectTrigger></FormControl> <SelectContent><SelectItem value={NO_TAX_VALUE}>No Tax</SelectItem>{taxes.map(tax => (<SelectItem key={tax.id} value={tax.id}>{tax.taxName} ({tax.taxPercent}%)</SelectItem>))}</SelectContent> </Select><FormMessage /> </FormItem> )}/>
+            <FormField control={form.control} name="isTaxInclusive" render={({ field }) => { return ( <FormItem><FormLabel className={!taxSelected ? "text-muted-foreground" : ""}>Price Tax Type</FormLabel> <Select key={`is-tax-inclusive-select-${initialData?.id || 'new-service'}-${taxes.length}-${String(field.value)}`} onValueChange={field.onChange} value={field.value} disabled={!taxSelected || effectiveIsSubmitting}> <FormControl><SelectTrigger><SelectValue placeholder="Select tax type" /></SelectTrigger></FormControl> <SelectContent><SelectItem value={"false"}>Tax Exclusive (Price + Tax)</SelectItem><SelectItem value={"true"}>Tax Inclusive (Price includes Tax)</SelectItem></SelectContent> </Select>{!taxSelected && <FormDescription className="text-xs">Select a tax first to enable this option.</FormDescription>}<FormMessage /> </FormItem> ); }}/>
+          </div>
+        </div>
+
+        {/* Booking Rules & Limits Section */}
+        <div className="border border-muted/80 rounded-xl p-5 bg-card/40 backdrop-blur-sm shadow-sm space-y-4 hover:border-primary/20 transition-all duration-200">
+          <div className="flex items-center gap-2 border-b pb-3 mb-2">
+            <ListOrdered className="h-5 w-5 text-sky-500" />
+            <h3 className="font-semibold text-base text-foreground">Booking Rules & Limits</h3>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <FormField
               control={form.control}
-              name="minQuantity"
+              name="hasMinQuantity"
               render={({ field }) => (
-                <FormItem>
-                  <FormLabel className="flex items-center">Min Quantity Value</FormLabel>
-                  <FormControl><Input type="number" placeholder="e.g., 2" {...field} value={field.value ?? ""} disabled={effectiveIsSubmitting} /></FormControl>
-                  <FormDescription className="text-xs">Automatically added to cart.</FormDescription>
-                  <FormMessage />
+                <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4 shadow-sm bg-background/30">
+                  <div className="space-y-0.5">
+                    <FormLabel className="text-base flex items-center">
+                      Enforce Min Quantity
+                    </FormLabel>
+                    <FormDescription>Set a minimum number of units for booking.</FormDescription>
+                  </div>
+                  <FormControl><Switch checked={field.value} onCheckedChange={field.onChange} disabled={effectiveIsSubmitting} /></FormControl>
                 </FormItem>
               )}
             />
-          )}
-        </div>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <FormField control={form.control} name="membersRequired" render={({ field }) => (<FormItem><FormLabel className="flex items-center"><Users className="mr-2 h-4 w-4 text-muted-foreground"/>Members Required</FormLabel><FormControl><Input type="number" placeholder="e.g., 2" {...field} value={field.value ?? ""} disabled={effectiveIsSubmitting} /></FormControl><FormDescription className="text-xs">Technicians for this task.</FormDescription><FormMessage /></FormItem>)}/>
-            <FormField control={form.control} name="maxQuantity" render={({ field }) => (<FormItem><FormLabel className="flex items-center"><ShoppingBag className="mr-2 h-4 w-4 text-muted-foreground"/>Max Quantity</FormLabel><FormControl><Input type="number" placeholder="e.g., 5" {...field} value={field.value ?? ""} disabled={effectiveIsSubmitting} /></FormControl><FormDescription className="text-xs">Max bookable units per user.</FormDescription><FormMessage /></FormItem>)}/>
-            <FormField control={form.control} name="order" render={({ field }) => (
-              <FormItem>
-                <FormLabel className="flex items-center"><ListOrdered className="mr-2 h-4 w-4 text-muted-foreground"/>Display Order</FormLabel>
-                <FormControl><Input type="number" placeholder="e.g., 0" {...field} disabled={effectiveIsSubmitting} /></FormControl>
-                <FormDescription className="text-xs">Lower numbers appear first. {!initialData && `(Suggested: ${nextOrder})`}</FormDescription>
-                <FormMessage />
-              </FormItem>
-            )}/>
+            {form.watch("hasMinQuantity") ? (
+              <FormField
+                control={form.control}
+                name="minQuantity"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel className="flex items-center">Min Quantity Value</FormLabel>
+                    <FormControl><Input type="number" placeholder="e.g., 2" {...field} value={field.value ?? ""} disabled={effectiveIsSubmitting} /></FormControl>
+                    <FormDescription className="text-xs">Automatically added to cart.</FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            ) : <div />}
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <FormField control={form.control} name="membersRequired" render={({ field }) => (<FormItem><FormLabel className="flex items-center"><Users className="mr-1.5 h-4 w-4 text-muted-foreground"/>Members Required</FormLabel><FormControl><Input type="number" placeholder="e.g., 2" {...field} value={field.value ?? ""} disabled={effectiveIsSubmitting} /></FormControl><FormDescription className="text-xs">Technicians for this task.</FormDescription><FormMessage /></FormItem>)}/>
+              <FormField control={form.control} name="maxQuantity" render={({ field }) => (<FormItem><FormLabel className="flex items-center"><ShoppingBag className="mr-1.5 h-4 w-4 text-muted-foreground"/>Max Quantity</FormLabel><FormControl><Input type="number" placeholder="e.g., 5" {...field} value={field.value ?? ""} disabled={effectiveIsSubmitting} /></FormControl><FormDescription className="text-xs">Max bookable units per user.</FormDescription><FormMessage /></FormItem>)}/>
+              <FormField control={form.control} name="order" render={({ field }) => (
+                <FormItem>
+                  <FormLabel className="flex items-center"><ListOrdered className="mr-1.5 h-4 w-4 text-muted-foreground"/>Display Order</FormLabel>
+                  <FormControl><Input type="number" placeholder="e.g., 0" {...field} disabled={effectiveIsSubmitting} /></FormControl>
+                  <FormDescription className="text-xs">Lower numbers appear first. {!initialData && `(Suggested: ${nextOrder})`}</FormDescription>
+                  <FormMessage />
+                </FormItem>
+              )}/>
+          </div>
         </div>
 
-       
-        <Separator />
-        <div>
-            <FormLabel className="text-md font-semibold text-muted-foreground flex items-center"><Clock className="mr-2 h-4 w-4" />Task Performance Time (Optional)</FormLabel>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-2">
-                <FormField control={form.control} name="taskTimeValue" render={({ field }) => (<FormItem><FormLabel>Time Value</FormLabel><FormControl><Input type="number" placeholder="e.g., 30 or 2" {...field} value={field.value ?? ""} disabled={effectiveIsSubmitting} /></FormControl><FormMessage /></FormItem>)}/>
-                <FormField control={form.control} name="taskTimeUnit" render={({ field }) => ( <FormItem><FormLabel>Time Unit</FormLabel> <Select key={`task-unit-select-${initialData?.id || 'new-service'}-${String(field.value)}`} onValueChange={field.onChange} value={field.value === null ? undefined : field.value} disabled={effectiveIsSubmitting || !form.watch('taskTimeValue')}> <FormControl><SelectTrigger><SelectValue placeholder="Select unit" /></SelectTrigger></FormControl> <SelectContent><SelectItem value="minutes">Minutes</SelectItem><SelectItem value="hours">Hours</SelectItem></SelectContent> </Select> {!form.watch('taskTimeValue') && <FormDescription className="text-xs">Enter a time value first.</FormDescription>} <FormMessage /> </FormItem> )}/>
-            </div>
+        {/* Performance Time Section */}
+        <div className="border border-muted/80 rounded-xl p-5 bg-card/40 backdrop-blur-sm shadow-sm space-y-4 hover:border-primary/20 transition-all duration-200">
+          <div className="flex items-center gap-2 border-b pb-3 mb-2">
+            <Clock className="h-5 w-5 text-orange-500" />
+            <h3 className="font-semibold text-base text-foreground">Task Performance Time</h3>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <FormField control={form.control} name="taskTimeValue" render={({ field }) => (<FormItem><FormLabel>Time Value</FormLabel><FormControl><Input type="number" placeholder="e.g., 30 or 2" {...field} value={field.value ?? ""} disabled={effectiveIsSubmitting} /></FormControl><FormMessage /></FormItem>)}/>
+              <FormField control={form.control} name="taskTimeUnit" render={({ field }) => ( <FormItem><FormLabel>Time Unit</FormLabel> <Select key={`task-unit-select-${initialData?.id || 'new-service'}-${String(field.value)}`} onValueChange={field.onChange} value={field.value === null ? undefined : field.value} disabled={effectiveIsSubmitting || !form.watch('taskTimeValue')}> <FormControl><SelectTrigger><SelectValue placeholder="Select unit" /></SelectTrigger></FormControl> <SelectContent><SelectItem value="minutes">Minutes</SelectItem><SelectItem value="hours">Hours</SelectItem></SelectContent> </Select> {!form.watch('taskTimeValue') && <FormDescription className="text-xs">Enter a time value first.</FormDescription>} <FormMessage /> </FormItem> )}/>
+          </div>
         </div>
-        <Separator />
-        <div>
-            <FormLabel className="text-md font-semibold text-muted-foreground">Service Descriptions</FormLabel>
-            <FormField control={form.control} name="description" render={({ field }) => (<FormItem className="mt-2"><FormLabel>Short Description (for cards, max 200 chars)</FormLabel><FormControl><Textarea placeholder="Briefly describe the service" {...field} rows={3} disabled={effectiveIsSubmitting} /></FormControl><FormMessage /></FormItem>)}/>
-            <FormField control={form.control} name="shortDescription" render={({ field }) => (<FormItem className="mt-2"><FormLabel>Detailed Short Description (Optional, max 300 chars)</FormLabel><FormControl><Textarea placeholder="Slightly more detailed description for service page intro." {...field} value={field.value ?? ""} rows={3} disabled={effectiveIsSubmitting}/></FormControl><FormMessage /></FormItem>)}/>
-            <FormField control={form.control} name="fullDescription" render={({ field }) => (<FormItem className="mt-2"><FormLabel>Please Note (Optional)</FormLabel><FormControl><Textarea placeholder="Important notes and disclaimers for the customer..." {...field} value={field.value ?? ""} rows={5} disabled={effectiveIsSubmitting}/></FormControl><FormMessage /></FormItem>)}/>
+
+        {/* Service Descriptions Section */}
+        <div className="border border-muted/80 rounded-xl p-5 bg-card/40 backdrop-blur-sm shadow-sm space-y-4 hover:border-primary/20 transition-all duration-200">
+          <div className="flex items-center gap-2 border-b pb-3 mb-2">
+            <Edit2 className="h-5 w-5 text-violet-500" />
+            <h3 className="font-semibold text-base text-foreground">Service Descriptions</h3>
+          </div>
+          <FormField control={form.control} name="description" render={({ field }) => (<FormItem><FormLabel>Short Description (for cards, max 200 chars)</FormLabel><FormControl><Textarea placeholder="Briefly describe the service" {...field} rows={3} disabled={effectiveIsSubmitting} /></FormControl><FormMessage /></FormItem>)}/>
+          <FormField control={form.control} name="shortDescription" render={({ field }) => (<FormItem><FormLabel>Detailed Short Description (Optional, max 300 chars)</FormLabel><FormControl><Textarea placeholder="Slightly more detailed description for service page intro." {...field} value={field.value ?? ""} rows={3} disabled={effectiveIsSubmitting}/></FormControl><FormMessage /></FormItem>)}/>
+          <FormField control={form.control} name="fullDescription" render={({ field }) => (<FormItem><FormLabel>Please Note (Optional)</FormLabel><FormControl><Textarea placeholder="Important notes and disclaimers for the customer..." {...field} value={field.value ?? ""} rows={5} disabled={effectiveIsSubmitting}/></FormControl><FormMessage /></FormItem>)}/>
         </div>
-        <Separator />
-        <div>
-            <FormLabel className="text-md font-semibold text-muted-foreground">What&apos;s Included (Optional)</FormLabel> <FormDescription className="mb-2 text-xs">List items or tasks included in this service.</FormDescription>
-            {includedFields.map((item, index) => (<FormField key={item.id} control={form.control} name={`includedItems.${index}.value`} render={({ field: itemField }) => (<FormItem className="flex items-center gap-2 mb-2"><FormControl><Input placeholder={`Included item ${index + 1}`} {...itemField} disabled={effectiveIsSubmitting} /></FormControl><Button type="button" variant="ghost" size="icon" onClick={() => removeIncluded(index)} disabled={effectiveIsSubmitting}><Trash2 className="h-4 w-4 text-destructive" /></Button><FormMessage /></FormItem>)}/>))}
-            <Button type="button" variant="outline" size="sm" onClick={() => appendIncluded({ value: "" })} disabled={effectiveIsSubmitting} className="mt-2"><PlusCircle className="mr-2 h-4 w-4" /> Add Included Item</Button>
+
+        {/* Inclusions, Exclusions & Highlights Section */}
+        <div className="border border-muted/80 rounded-xl p-5 bg-card/40 backdrop-blur-sm shadow-sm space-y-4 hover:border-primary/20 transition-all duration-200">
+          <div className="flex items-center gap-2 border-b pb-3 mb-2">
+            <CheckCircle className="h-5 w-5 text-green-500" />
+            <h3 className="font-semibold text-base text-foreground">Inclusions, Exclusions & Highlights</h3>
+          </div>
+          
+          <div className="space-y-2">
+              <FormLabel className="text-sm font-semibold flex items-center text-green-700">What&apos;s Included (Optional)</FormLabel>
+              <FormDescription className="text-xs">List items or tasks included in this service.</FormDescription>
+              {includedFields.map((item, index) => (<FormField key={item.id} control={form.control} name={`includedItems.${index}.value`} render={({ field: itemField }) => (<FormItem className="flex items-center gap-2 mb-2"><FormControl><Input placeholder={`Included item ${index + 1}`} {...itemField} disabled={effectiveIsSubmitting} className="h-9" /></FormControl><Button type="button" variant="ghost" size="icon" onClick={() => removeIncluded(index)} disabled={effectiveIsSubmitting} className="h-9 w-9"><Trash2 className="h-4 w-4 text-destructive" /></Button><FormMessage /></FormItem>)}/>))}
+              <Button type="button" variant="outline" size="sm" onClick={() => appendIncluded({ value: "" })} disabled={effectiveIsSubmitting} className="h-8 text-xs"><PlusCircle className="mr-1.5 h-3.5 w-3.5" /> Add Included Item</Button>
+          </div>
+
+          <Separator className="my-4" />
+
+          <div className="space-y-2">
+              <FormLabel className="text-sm font-semibold flex items-center text-red-600">What&apos;s Not Included (Optional)</FormLabel>
+              <FormDescription className="text-xs">List items or tasks explicitly excluded from this service.</FormDescription>
+              {excludedFields.map((item, index) => (<FormField key={item.id} control={form.control} name={`excludedItems.${index}.value`} render={({ field: itemField }) => (<FormItem className="flex items-center gap-2 mb-2"><FormControl><Input placeholder={`Excluded item ${index + 1}`} {...itemField} disabled={effectiveIsSubmitting} className="h-9" /></FormControl><Button type="button" variant="ghost" size="icon" onClick={() => removeExcluded(index)} disabled={effectiveIsSubmitting} className="h-9 w-9"><Trash2 className="h-4 w-4 text-destructive" /></Button><FormMessage /></FormItem>)}/>))}
+              <Button type="button" variant="outline" size="sm" onClick={() => appendExcluded({ value: "" })} disabled={effectiveIsSubmitting} className="h-8 text-xs"><PlusCircle className="mr-1.5 h-3.5 w-3.5" /> Add Excluded Item</Button>
+          </div>
+
+          <Separator className="my-4" />
+
+          <div className="space-y-2">
+            <FormLabel className="text-sm font-semibold flex items-center text-primary">Service Highlights (Optional)</FormLabel>
+            <FormDescription className="text-xs">Key benefits or features. Max 150 chars each.</FormDescription>
+            {highlightFields.map((item, index) => (<FormField key={item.id} control={form.control} name={`serviceHighlights.${index}.value`} render={({ field: itemField }) => (<FormItem className="flex items-center gap-2 mb-2"><FormControl><Input placeholder={`Highlight ${index + 1}`} {...itemField} disabled={effectiveIsSubmitting} className="h-9" /></FormControl><Button type="button" variant="ghost" size="icon" onClick={() => removeHighlight(index)} disabled={effectiveIsSubmitting} className="h-9 w-9"><Trash2 className="h-4 w-4 text-destructive" /></Button><FormMessage /></FormItem>)}/>))}
+            <Button type="button" variant="outline" size="sm" onClick={() => appendHighlight({ value: "" })} disabled={effectiveIsSubmitting} className="h-8 text-xs"><PlusCircle className="mr-1.5 h-3.5 w-3.5" /> Add Highlight</Button>
+          </div>
         </div>
-        <Separator />
-        <div>
-            <FormLabel className="text-md font-semibold text-muted-foreground">What&apos;s Not Included (Optional)</FormLabel> <FormDescription className="mb-2 text-xs">List items or tasks explicitly excluded from this service.</FormDescription>
-            {excludedFields.map((item, index) => (<FormField key={item.id} control={form.control} name={`excludedItems.${index}.value`} render={({ field: itemField }) => (<FormItem className="flex items-center gap-2 mb-2"><FormControl><Input placeholder={`Excluded item ${index + 1}`} {...itemField} disabled={effectiveIsSubmitting} /></FormControl><Button type="button" variant="ghost" size="icon" onClick={() => removeExcluded(index)} disabled={effectiveIsSubmitting}><Trash2 className="h-4 w-4 text-destructive" /></Button><FormMessage /></FormItem>)}/>))}
-            <Button type="button" variant="outline" size="sm" onClick={() => appendExcluded({ value: "" })} disabled={effectiveIsSubmitting} className="mt-2"><PlusCircle className="mr-2 h-4 w-4" /> Add Excluded Item</Button>
+
+        {/* Service Specific FAQs Section */}
+        <div className="border border-muted/80 rounded-xl p-5 bg-card/40 backdrop-blur-sm shadow-sm space-y-4 hover:border-primary/20 transition-all duration-200">
+          <div className="flex items-center gap-2 border-b pb-3 mb-2">
+            <HelpCircle className="h-5 w-5 text-indigo-500" />
+            <h3 className="font-semibold text-base text-foreground">Service Specific FAQs</h3>
+          </div>
+          <FormDescription className="text-xs">Add frequently asked questions related to this specific service.</FormDescription>
+          {faqFields.map((item, index) => (
+            <Card key={item.id} className="mb-3 p-4 relative border-muted/60 bg-background/40">
+              <FormField control={form.control} name={`serviceFaqs.${index}.question`} render={({ field }) => (<FormItem className="mb-2"><FormLabel className="text-xs font-semibold">Question {index + 1}</FormLabel><FormControl><Input placeholder="e.g., How long does it take?" {...field} disabled={effectiveIsSubmitting} /></FormControl><FormMessage /></FormItem>)} />
+              <FormField control={form.control} name={`serviceFaqs.${index}.answer`} render={({ field }) => (<FormItem><FormLabel className="text-xs font-semibold">Answer {index + 1}</FormLabel><FormControl><Textarea placeholder="e.g., Typically about 2 hours..." {...field} rows={3} disabled={effectiveIsSubmitting} /></FormControl><FormMessage /></FormItem>)} />
+              <Button type="button" variant="ghost" size="icon" onClick={() => removeFaq(index)} disabled={effectiveIsSubmitting} className="absolute top-2 right-2 h-7 w-7"><Trash2 className="h-4 w-4 text-destructive" /></Button>
+            </Card>
+          ))}
+          <Button type="button" variant="outline" size="sm" onClick={() => appendFaq({ id: nanoid(), question: "", answer: ""})} disabled={effectiveIsSubmitting} className="h-8 text-xs"><PlusCircle className="mr-1.5 h-3.5 w-3.5" /> Add FAQ</Button>
         </div>
-        <Separator />
-        <div>
-          <FormLabel className="text-md font-semibold text-muted-foreground">Service Highlights (Optional)</FormLabel><FormDescription className="mb-2 text-xs">Key benefits or features. Max 150 chars each.</FormDescription>
-          {highlightFields.map((item, index) => (<FormField key={item.id} control={form.control} name={`serviceHighlights.${index}.value`} render={({ field: itemField }) => (<FormItem className="flex items-center gap-2 mb-2"><FormControl><Input placeholder={`Highlight ${index + 1}`} {...itemField} disabled={effectiveIsSubmitting} /></FormControl><Button type="button" variant="ghost" size="icon" onClick={() => removeHighlight(index)} disabled={effectiveIsSubmitting}><Trash2 className="h-4 w-4 text-destructive" /></Button><FormMessage /></FormItem>)}/>))}
-          <Button type="button" variant="outline" size="sm" onClick={() => appendHighlight({ value: "" })} disabled={effectiveIsSubmitting} className="mt-2"><PlusCircle className="mr-2 h-4 w-4" /> Add Highlight</Button>
+
+        {/* Media & Image Section */}
+        <div className="border border-muted/80 rounded-xl p-5 bg-card/40 backdrop-blur-sm shadow-sm space-y-4 hover:border-primary/20 transition-all duration-200">
+          <div className="flex items-center gap-2 border-b pb-3 mb-2">
+            <ImageIcon className="h-5 w-5 text-pink-500" />
+            <h3 className="font-semibold text-base text-foreground">Media & Image</h3>
+          </div>
+          <FormItem>
+            <FormLabel>Service Main Image (Optional)</FormLabel>
+            {displayPreviewUrl ? (
+              <div className="my-2 relative w-full h-40 rounded-md overflow-hidden border bg-muted/10">
+                <NextImage src={displayPreviewUrl} alt="Current service image" fill className="object-contain" data-ai-hint={watchedImageHint || "service image preview"} unoptimized={displayPreviewUrl.startsWith('blob:')} sizes="(max-width: 640px) 100vw, 50vw"/>
+              </div>
+            ) : (
+              <div className="my-2 flex items-center justify-center w-full h-40 rounded-md border border-dashed bg-muted/10">
+                <ImageIcon className="h-10 w-10 text-muted-foreground" />
+              </div>
+            )}
+            <FormControl>
+              <Input type="file" accept="image/png, image/jpeg, image/gif, image/webp" onChange={handleFileSelected} disabled={effectiveIsSubmitting} ref={fileInputRef} className="file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-primary/80 file:text-primary-foreground hover:file:bg-primary/90"/>
+            </FormControl>
+            <FormDescription className="mt-1">Upload new image (PNG, JPG, GIF, WEBP, max 5MB).</FormDescription>
+            {uploadProgress !== null && selectedFile && (
+              <div className="mt-2">
+                <Progress value={uploadProgress} className="w-full h-2" />
+                {statusMessage && <p className="text-xs text-muted-foreground mt-1">{statusMessage}</p>}
+              </div>
+            )}
+          </FormItem>
+
+          <FormField
+            control={form.control}
+            name="imageUrl"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Image URL (Leave empty to remove image on save if one exists)</FormLabel>
+                <div className="flex flex-col sm:flex-row sm:items-center gap-2">
+                  <FormControl className="flex-grow">
+                    <Textarea placeholder="Auto-filled after upload, or manually enter a URL. Clear to remove existing image." {...field} disabled={effectiveIsSubmitting || selectedFile !== null} rows={3} onChange={(e) => { field.onChange(e); if (!selectedFile) { setCurrentImagePreview(e.target.value || null); }}}/>
+                  </FormControl>
+                  {(field.value || selectedFile || currentImagePreview) && (
+                    <Button type="button" variant="ghost" size="icon" onClick={handleRemoveImage} disabled={effectiveIsSubmitting} aria-label="Clear image selection or URL" className="sm:ml-auto mt-2 sm:mt-0"><Trash2 className="h-4 w-4 text-destructive"/></Button>
+                  )}
+                </div>
+                <FormDescription>If file uploaded, URL ignored. Empty this and save to remove existing image.</FormDescription>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
+          <FormField control={form.control} name="imageHint" render={({ field }) => (<FormItem><FormLabel>Image AI Hint (Optional)</FormLabel><FormControl><Input placeholder="e.g., ac unit repair" {...field} disabled={effectiveIsSubmitting} /></FormControl><FormDescription>Keywords for AI. Max 50 chars.</FormDescription><FormMessage /></FormItem>)}/>
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <FormField control={form.control} name="rating" render={({ field }) => (<FormItem><FormLabel>Default Rating (0-5)</FormLabel><FormControl><Input type="number" step="0.1" placeholder="e.g., 4.5" {...field} disabled={effectiveIsSubmitting} /></FormControl><FormMessage /></FormItem>)}/>
+              <FormField control={form.control} name="reviewCount" render={({ field }) => (<FormItem><FormLabel>Default Review Count</FormLabel><FormControl><Input type="number" placeholder="e.g., 50" {...field} disabled={effectiveIsSubmitting} /></FormControl><FormMessage /></FormItem>)}/>
+          </div>
         </div>
-        <Separator />
-        <div>
-            <FormLabel className="text-md font-semibold text-muted-foreground flex items-center"><HelpCircle className="mr-2 h-4 w-4" />Service Specific FAQs (Optional)</FormLabel> <FormDescription className="mb-3 text-xs">Add frequently asked questions related to this specific service.</FormDescription>
-            {faqFields.map((item, index) => ( <Card key={item.id} className="mb-3 p-3 relative"><FormField control={form.control} name={`serviceFaqs.${index}.question`} render={({ field }) => (<FormItem className="mb-2"><FormLabel className="text-xs">Question {index + 1}</FormLabel><FormControl><Input placeholder="e.g., How long does it take?" {...field} disabled={effectiveIsSubmitting} /></FormControl><FormMessage /></FormItem>)} /> <FormField control={form.control} name={`serviceFaqs.${index}.answer`} render={({ field }) => (<FormItem><FormLabel className="text-xs">Answer {index + 1}</FormLabel><FormControl><Textarea placeholder="e.g., Typically about 2 hours..." {...field} rows={3} disabled={effectiveIsSubmitting} /></FormControl><FormMessage /></FormItem>)} /> <Button type="button" variant="ghost" size="icon" onClick={() => removeFaq(index)} disabled={effectiveIsSubmitting} className="absolute top-1 right-1 h-6 w-6"><Trash2 className="h-3.5 w-3.5 text-destructive" /></Button> </Card> ))}
-            <Button type="button" variant="outline" size="sm" onClick={() => appendFaq({ id: nanoid(), question: "", answer: ""})} disabled={effectiveIsSubmitting} className="mt-1"><PlusCircle className="mr-2 h-4 w-4" /> Add FAQ</Button>
+
+        {/* Status & Payment Configuration Section */}
+        <div className="border border-muted/80 rounded-xl p-5 bg-card/40 backdrop-blur-sm shadow-sm space-y-4 hover:border-primary/20 transition-all duration-200">
+          <div className="flex items-center gap-2 border-b pb-3 mb-2">
+            <Lock className="h-5 w-5 text-amber-500" />
+            <h3 className="font-semibold text-base text-foreground">Status & Payment Configuration</h3>
+          </div>
+          <FormField control={form.control} name="allowPayLater" render={({ field }) => (<FormItem className="flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm bg-background/30"><div className="space-y-0.5"><FormLabel>Allow &quot;Pay After Service&quot;</FormLabel><FormDescription>If enabled, this service can be booked with this option (if globally enabled).</FormDescription></div><FormControl><Switch checked={field.value} onCheckedChange={field.onChange} disabled={effectiveIsSubmitting} /></FormControl></FormItem>)}/>
+          <FormField control={form.control} name="isActive" render={({ field }) => (<FormItem className="flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm bg-background/30"><div className="space-y-0.5"><FormLabel>Service Active</FormLabel><FormDescription>If unchecked, this service will not be shown publicly.</FormDescription></div><FormControl><Switch checked={field.value} onCheckedChange={field.onChange} disabled={effectiveIsSubmitting}/></FormControl></FormItem>)}/>
         </div>
-        <Separator />
-        <FormItem> <FormLabel>Service Main Image (Optional)</FormLabel> {displayPreviewUrl ? (<div className="my-2 relative w-full h-40 rounded-md overflow-hidden border bg-muted/10"><NextImage src={displayPreviewUrl} alt="Current service image" fill className="object-contain" data-ai-hint={watchedImageHint || "service image preview"} unoptimized={displayPreviewUrl.startsWith('blob:')} sizes="(max-width: 640px) 100vw, 50vw"/></div>) : (<div className="my-2 flex items-center justify-center w-full h-40 rounded-md border border-dashed bg-muted/10"><ImageIcon className="h-10 w-10 text-muted-foreground" /></div>)} <FormControl><Input type="file" accept="image/png, image/jpeg, image/gif, image/webp" onChange={handleFileSelected} disabled={effectiveIsSubmitting} ref={fileInputRef} className="file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-primary/80 file:text-primary-foreground hover:file:bg-primary/90"/></FormControl> <FormDescription className="mt-1">Upload new image (PNG, JPG, GIF, WEBP, max 5MB).</FormDescription> {uploadProgress !== null && selectedFile && (<div className="mt-2"><Progress value={uploadProgress} className="w-full h-2" />{statusMessage && <p className="text-xs text-muted-foreground mt-1">{statusMessage}</p>}</div>)} </FormItem>
-        <FormField control={form.control} name="imageUrl" render={({ field }) => (<FormItem><FormLabel>Image URL (Leave empty to remove image on save if one exists)</FormLabel><div className="flex flex-col sm:flex-row sm:items-center gap-2"><FormControl className="flex-grow"><Textarea placeholder="Auto-filled after upload, or manually enter a URL. Clear to remove existing image." {...field} disabled={effectiveIsSubmitting || selectedFile !== null} rows={3} onChange={(e) => { field.onChange(e); if (!selectedFile) { setCurrentImagePreview(e.target.value || null); }}}/></FormControl>{(field.value || selectedFile || currentImagePreview) && (<Button type="button" variant="ghost" size="icon" onClick={handleRemoveImage} disabled={effectiveIsSubmitting} aria-label="Clear image selection or URL" className="sm:ml-auto mt-2 sm:mt-0"><Trash2 className="h-4 w-4 text-destructive"/></Button>)}</div><FormDescription>If file uploaded, URL ignored. Empty this and save to remove existing image.</FormDescription><FormMessage /></FormItem>)}/>
-        <FormField control={form.control} name="imageHint" render={({ field }) => (<FormItem><FormLabel>Image AI Hint (Optional)</FormLabel><FormControl><Input placeholder="e.g., ac unit repair" {...field} disabled={effectiveIsSubmitting} /></FormControl><FormDescription>Keywords for AI. Max 50 chars.</FormDescription><FormMessage /></FormItem>)}/>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <FormField control={form.control} name="rating" render={({ field }) => (<FormItem><FormLabel>Default Rating (0-5)</FormLabel><FormControl><Input type="number" step="0.1" placeholder="e.g., 4.5" {...field} disabled={effectiveIsSubmitting} /></FormControl><FormMessage /></FormItem>)}/>
-            <FormField control={form.control} name="reviewCount" render={({ field }) => (<FormItem><FormLabel>Default Review Count</FormLabel><FormControl><Input type="number" placeholder="e.g., 50" {...field} disabled={effectiveIsSubmitting} /></FormControl><FormMessage /></FormItem>)}/>
-        </div>
-        <FormField control={form.control} name="allowPayLater" render={({ field }) => (<FormItem className="flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm bg-background/50"><div className="space-y-0.5"><FormLabel>Allow &quot;Pay After Service&quot;</FormLabel><FormDescription>If enabled, this service can be booked with this option (if globally enabled).</FormDescription></div><FormControl><Switch checked={field.value} onCheckedChange={field.onChange} disabled={effectiveIsSubmitting} /></FormControl></FormItem>)}/>
-        <FormField control={form.control} name="isActive" render={({ field }) => (<FormItem className="flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm bg-background/50"><div className="space-y-0.5"><FormLabel>Service Active</FormLabel><FormDescription>If unchecked, this service will not be shown publicly.</FormDescription></div><FormControl><Switch checked={field.value} onCheckedChange={field.onChange} disabled={effectiveIsSubmitting}/></FormControl></FormItem>)}/>
-        <Separator />
-        <div className="space-y-4 pt-4 border-t">
-            <h3 className="text-md font-semibold text-muted-foreground">SEO Settings (Optional)</h3>
-            <p className="text-xs text-muted-foreground">Use placeholders like {"{{serviceName}}"} and {"{{categoryName}}"} for global patterns.</p>
-            <FormField control={form.control} name="h1_title" render={({ field }) => (<FormItem><FormLabel>H1 Title</FormLabel><FormControl><Input placeholder="e.g., Expert AC Servicing" {...field} value={field.value ?? ""} disabled={effectiveIsSubmitting} /></FormControl><FormMessage /></FormItem>)}/>
-            <FormField control={form.control} name="seo_title" render={({ field }) => (<FormItem><FormLabel>Meta Title</FormLabel><FormControl><Input placeholder="e.g., AC Servicing | Best AC Repair" {...field} value={field.value ?? ""} disabled={effectiveIsSubmitting} /></FormControl><FormMessage /></FormItem>)}/>
-            <FormField control={form.control} name="seo_description" render={({ field }) => (<FormItem><FormLabel>Meta Description</FormLabel><FormControl><Textarea placeholder="e.g., Get your AC serviced by professionals." {...field} value={field.value ?? ""} rows={3} disabled={effectiveIsSubmitting} /></FormControl><FormMessage /></FormItem>)}/>
-            <FormField control={form.control} name="seo_keywords" render={({ field }) => (<FormItem><FormLabel>Meta Keywords (comma-separated)</FormLabel><FormControl><Input placeholder="e.g., ac service, ac repair" {...field} value={field.value ?? ""} disabled={effectiveIsSubmitting} /></FormControl><FormMessage /></FormItem>)}/>
+
+        {/* SEO Settings Section */}
+        <div className="border border-muted/80 rounded-xl p-5 bg-card/40 backdrop-blur-sm shadow-sm space-y-4 hover:border-primary/20 transition-all duration-200">
+          <div className="flex items-center gap-2 border-b pb-3 mb-2">
+            <Wand2 className="h-5 w-5 text-purple-500" />
+            <h3 className="font-semibold text-base text-foreground">SEO Settings (Optional)</h3>
+          </div>
+          <FormDescription className="text-xs">Use placeholders like {"{{serviceName}}"} and {"{{categoryName}}"} for global patterns.</FormDescription>
+          <FormField control={form.control} name="h1_title" render={({ field }) => (<FormItem><FormLabel>H1 Title</FormLabel><FormControl><Input placeholder="e.g., Expert AC Servicing" {...field} value={field.value ?? ""} disabled={effectiveIsSubmitting} /></FormControl><FormMessage /></FormItem>)}/>
+          <FormField control={form.control} name="seo_title" render={({ field }) => (<FormItem><FormLabel>Meta Title</FormLabel><FormControl><Input placeholder="e.g., AC Servicing | Best AC Repair" {...field} value={field.value ?? ""} disabled={effectiveIsSubmitting} /></FormControl><FormMessage /></FormItem>)}/>
+          <FormField control={form.control} name="seo_description" render={({ field }) => (<FormItem><FormLabel>Meta Description</FormLabel><FormControl><Textarea placeholder="e.g., Get your AC serviced by professionals." {...field} value={field.value ?? ""} rows={3} disabled={effectiveIsSubmitting} /></FormControl><FormMessage /></FormItem>)}/>
+          <FormField control={form.control} name="seo_keywords" render={({ field }) => (<FormItem><FormLabel>Meta Keywords (comma-separated)</FormLabel><FormControl><Input placeholder="e.g., ac service, ac repair" {...field} value={field.value ?? ""} disabled={effectiveIsSubmitting} /></FormControl><FormMessage /></FormItem>)}/>
         </div>
 
         <div className="p-6 border-t sticky bottom-0 bg-background flex justify-end space-x-3">

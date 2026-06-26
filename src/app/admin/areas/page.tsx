@@ -243,7 +243,7 @@ export default function AdminAreasPage() {
       </Card>
 
       <Dialog open={isFormOpen} onOpenChange={(open) => { if (!isSubmitting) { setIsFormOpen(open); if (!open) setEditingArea(null); } }}>
-        <DialogContent className="w-full max-w-xs sm:max-w-md md:max-w-lg lg:max-w-xl max-h-[90vh] overflow-y-auto p-0">
+        <DialogContent className="w-[calc(100%-6px)] sm:max-w-md md:max-w-lg lg:max-w-xl max-h-[90vh] overflow-y-auto p-0">
            <DialogHeader className="p-6 pb-4 border-b sticky top-0 bg-background z-10">
             <DialogTitle>{editingArea ? 'Edit Area' : 'Add New Area'}</DialogTitle>
             <DialogDescription>

@@ -9,8 +9,8 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import type { FirestoreBlogPost, FirestoreCategory } from '@/types/firestore';
-import { useEffect, useState, useRef, useCallback } from "react";
-import { Loader2, Image as ImageIcon, Trash2, Wand2, Edit2, Lock } from "lucide-react";
+import { useEffect, useState, useRef, useCallback, useMemo } from "react";
+import { Loader2, Image as ImageIcon, Trash2, Wand2, Edit2, Lock, Search, Tags, CheckCircle } from "lucide-react";
 import NextImage from 'next/image';
 import { useToast } from "@/hooks/use-toast";
 import { storage, db } from '@/lib/firebase';
@@ -18,6 +18,9 @@ import { ref as storageRef, uploadBytesResumable, getDownloadURL, deleteObject }
 import { Progress } from "@/components/ui/progress";
 import { generateBlogContent } from "@/ai/flows/generateBlogContentFlow";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from "@/components/ui/dialog";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { cn } from "@/lib/utils";
 import { collection, query, where, getDocs, limit } from "firebase/firestore";
 
 const generateSlug = (title: string) => {
@@ -93,6 +96,20 @@ export default function BlogForm({ onSubmit: onSubmitProp, initialData, onCancel
   const watchedCategoryId = form.watch("categoryId");
   const watchedSlug = form.watch("slug");
 
+  const [isCategoryPickerOpen, setIsCategoryPickerOpen] = useState(false);
+  const [categorySearch, setCategorySearch] = useState("");
+
+  const selectedCategory = useMemo(() => {
+    if (watchedCategoryId === NO_CATEGORY_VALUE) return { name: "-- No Category --" };
+    if (watchedCategoryId === OTHER_CATEGORY_VALUE) return { name: "Other..." };
+    const cat = categories.find(c => c.id === watchedCategoryId);
+    return cat ? { name: cat.name } : null;
+  }, [categories, watchedCategoryId]);
+
+  const searchableCategories = useMemo(() => {
+    return categories.filter(c => c.name.toLowerCase().includes(categorySearch.toLowerCase()));
+  }, [categories, categorySearch]);
+
   const checkSlugUniqueness = useCallback(async (baseSlug: string, currentId?: string) => {
     let uniqueSlug = baseSlug;
     let counter = 1;
@@ -154,6 +171,8 @@ export default function BlogForm({ onSubmit: onSubmitProp, initialData, onCancel
       });
     }
     setIsSlugEditable(false);
+    setIsCategoryPickerOpen(false);
+    setCategorySearch("");
   }, [initialData, form]);
 
   useEffect(() => {
@@ -349,31 +368,124 @@ export default function BlogForm({ onSubmit: onSubmitProp, initialData, onCancel
             control={form.control}
             name="categoryId"
             render={({ field }) => (
-                <FormItem>
-                <FormLabel>Category (Optional)</FormLabel>
-                <Select 
-                    onValueChange={(value) => {
-                        field.onChange(value);
-                        if (value !== OTHER_CATEGORY_VALUE) {
-                            form.setValue('customCategory', '');
-                        }
-                    }} 
-                    value={field.value} 
-                    disabled={effectiveIsSubmitting}
-                >
-                    <FormControl>
-                    <SelectTrigger>
-                        <SelectValue placeholder="Select a category..." />
-                    </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                        <SelectItem value={NO_CATEGORY_VALUE}>-- No Category --</SelectItem>
-                        {categories.map(cat => (
-                            <SelectItem key={cat.id} value={cat.id}>{cat.name}</SelectItem>
-                        ))}
-                        <SelectItem value={OTHER_CATEGORY_VALUE}>Other...</SelectItem>
-                    </SelectContent>
-                </Select>
+                <FormItem className="flex flex-col">
+                <FormLabel className="mb-2">Category (Optional)</FormLabel>
+                <Dialog open={isCategoryPickerOpen} onOpenChange={setIsCategoryPickerOpen}>
+                  <DialogTrigger asChild>
+                    <Button
+                      variant="outline"
+                      role="combobox"
+                      className={cn(
+                        "w-full justify-between text-left font-normal h-10",
+                        !field.value && "text-muted-foreground"
+                      )}
+                      disabled={effectiveIsSubmitting}
+                      type="button"
+                    >
+                      {selectedCategory ? (
+                        <div className="flex items-center gap-2">
+                          <Tags className="h-4 w-4 text-primary" />
+                          <span>{selectedCategory.name}</span>
+                        </div>
+                      ) : (
+                        "Select a category..."
+                      )}
+                      <Search className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent className="w-[calc(100%-6px)] sm:max-w-[425px]">
+                    <DialogHeader>
+                      <DialogTitle>Select Category</DialogTitle>
+                      <DialogDescription>
+                        Search and select a category for this blog post.
+                      </DialogDescription>
+                    </DialogHeader>
+                    <div className="space-y-4 py-4">
+                      <div className="relative">
+                        <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+                        <Input
+                          placeholder="Type category name..."
+                          className="pl-8"
+                          value={categorySearch}
+                          onChange={(e) => setCategorySearch(e.target.value)}
+                        />
+                      </div>
+                      <ScrollArea className="h-[300px] rounded-md border p-2">
+                        <div className="space-y-1">
+                          <Button
+                            key={NO_CATEGORY_VALUE}
+                            variant={field.value === NO_CATEGORY_VALUE ? "secondary" : "ghost"}
+                            className="w-full justify-start text-left h-auto py-3 px-3 relative group"
+                            onClick={() => {
+                              field.onChange(NO_CATEGORY_VALUE);
+                              form.setValue('customCategory', '');
+                              setIsCategoryPickerOpen(false);
+                              setCategorySearch("");
+                            }}
+                            type="button"
+                          >
+                            <div className="flex items-center gap-2 pr-8">
+                              <Tags className="h-4 w-4 text-muted-foreground" />
+                              <span className="font-semibold text-sm">-- No Category --</span>
+                            </div>
+                            {field.value === NO_CATEGORY_VALUE && (
+                              <CheckCircle className="absolute right-3 top-3 h-4 w-4 text-green-500" />
+                            )}
+                          </Button>
+
+                          {searchableCategories.map((cat) => (
+                            <Button
+                              key={cat.id}
+                              variant={field.value === cat.id ? "secondary" : "ghost"}
+                              className="w-full justify-start text-left h-auto py-3 px-3 relative group"
+                              onClick={() => {
+                                field.onChange(cat.id);
+                                form.setValue('customCategory', '');
+                                setIsCategoryPickerOpen(false);
+                                setCategorySearch("");
+                              }}
+                              type="button"
+                            >
+                              <div className="flex items-center gap-2 pr-8">
+                                <Tags className="h-4 w-4 text-muted-foreground" />
+                                <span className="font-semibold text-sm">{cat.name}</span>
+                              </div>
+                              {field.value === cat.id && (
+                                <CheckCircle className="absolute right-3 top-3 h-4 w-4 text-green-500" />
+                              )}
+                            </Button>
+                          ))}
+
+                          {(categorySearch === "" || "other".includes(categorySearch.toLowerCase())) && (
+                            <Button
+                              key={OTHER_CATEGORY_VALUE}
+                              variant={field.value === OTHER_CATEGORY_VALUE ? "secondary" : "ghost"}
+                              className="w-full justify-start text-left h-auto py-3 px-3 relative group"
+                              onClick={() => {
+                                field.onChange(OTHER_CATEGORY_VALUE);
+                                setIsCategoryPickerOpen(false);
+                                setCategorySearch("");
+                              }}
+                              type="button"
+                            >
+                              <div className="flex items-center gap-2 pr-8">
+                                <Tags className="h-4 w-4 text-muted-foreground" />
+                                <span className="font-semibold text-sm">Other...</span>
+                              </div>
+                              {field.value === OTHER_CATEGORY_VALUE && (
+                                <CheckCircle className="absolute right-3 top-3 h-4 w-4 text-green-500" />
+                              )}
+                            </Button>
+                          )}
+
+                          {searchableCategories.length === 0 && !(categorySearch === "" || "other".includes(categorySearch.toLowerCase())) && (
+                            <p className="text-center py-4 text-sm text-muted-foreground">No categories found.</p>
+                          )}
+                        </div>
+                      </ScrollArea>
+                    </div>
+                  </DialogContent>
+                </Dialog>
                 <FormDescription>Selecting a category helps the AI generate more relevant SEO content.</FormDescription>
                 <FormMessage />
                 </FormItem>

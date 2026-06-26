@@ -416,7 +416,7 @@ export default function ChatWindow({ onClose }: ChatWindowProps) {
                   <h3 className="text-sm font-semibold text-foreground">Welcome to FixBro Support!</h3>
                   <p className="text-xs text-muted-foreground mt-1 max-w-[200px]">How can we help you with your bookings or services today?</p>
                 </div>
-                <div className="grid grid-cols-2 gap-2 w-full max-w-xs">
+                <div className="grid grid-cols-2 gap-2 w-[calc(100%-6px)]">
                     <Button variant="outline" size="sm" className="text-[10px] h-auto py-2 rounded-xl" onClick={() => setNewMessage("Hello! I need help with my booking.")}>Help with booking</Button>
                     <Button variant="outline" size="sm" className="text-[10px] h-auto py-2 rounded-xl" onClick={() => setNewMessage("Can you tell me more about services?")}>Service info</Button>
                 </div>

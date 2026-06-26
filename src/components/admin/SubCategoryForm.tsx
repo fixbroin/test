@@ -11,7 +11,10 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import type { FirestoreSubCategory, FirestoreCategory } from '@/types/firestore';
 import { useEffect, useState, useRef, useCallback, useMemo } from "react";
-import { Loader2, Image as ImageIcon, Trash2, Edit2, Lock } from "lucide-react";
+import { Loader2, Image as ImageIcon, Trash2, Edit2, Lock, Search, Tags, CheckCircle } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from "@/components/ui/dialog";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 import AppImage from '@/components/ui/AppImage';
 import { storage, db } from '@/lib/firebase';
@@ -82,6 +85,9 @@ export default function SubCategoryForm({ onSubmit: onSubmitProp, initialData, o
   const [statusMessage, setStatusMessage] = useState("");
   const [isSlugEditable, setIsSlugEditable] = useState(false);
 
+  const [isCategoryPickerOpen, setIsCategoryPickerOpen] = useState(false);
+  const [categorySearch, setCategorySearch] = useState("");
+
   const form = useForm<SubCategoryFormData>({
     resolver: zodResolver(subCategoryFormSchema),
     defaultValues: {
@@ -99,6 +105,12 @@ export default function SubCategoryForm({ onSubmit: onSubmitProp, initialData, o
   const watchedImageHint = form.watch("imageHint"); 
   const watchedSlug = form.watch("slug");
   const watchedParentId = form.watch("parentId");
+
+  const selectedParentCategory = useMemo(() => parentCategories.find(c => c.id === watchedParentId), [parentCategories, watchedParentId]);
+
+  const searchableCategories = useMemo(() => {
+    return parentCategories.filter(c => c.name.toLowerCase().includes(categorySearch.toLowerCase()));
+  }, [parentCategories, categorySearch]);
 
   const nextOrder = useMemo(() => {
     if (!watchedParentId) return 0;
@@ -166,6 +178,7 @@ export default function SubCategoryForm({ onSubmit: onSubmitProp, initialData, o
     setIsFormBusyForImage(false);
     setStatusMessage("");
     setIsSlugEditable(false);
+    setCategorySearch("");
     if (fileInputRef.current) {
       fileInputRef.current.value = "";
     }
@@ -383,27 +396,80 @@ export default function SubCategoryForm({ onSubmit: onSubmitProp, initialData, o
           control={form.control}
           name="parentId"
           render={({ field }) => (
-            <FormItem>
-              <FormLabel>Parent Category</FormLabel>
-              <Select
-                key={field.value || initialData?.id || 'new-subcat-parent-select'}
-                onValueChange={field.onChange}
-                value={field.value}
-                disabled={effectiveIsSubmitting}
-              >
-                <FormControl>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select a parent category" />
-                  </SelectTrigger>
-                </FormControl>
-                <SelectContent>
-                  {parentCategories.map(cat => (
-                    <SelectItem key={cat.id} value={cat.id}>
-                      {cat.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+            <FormItem className="flex flex-col">
+              <FormLabel className="mb-2">Parent Category</FormLabel>
+              <Dialog open={isCategoryPickerOpen} onOpenChange={setIsCategoryPickerOpen}>
+                <DialogTrigger asChild>
+                  <Button
+                    variant="outline"
+                    role="combobox"
+                    className={cn(
+                      "w-full justify-between text-left font-normal h-10",
+                      !field.value && "text-muted-foreground"
+                    )}
+                    disabled={effectiveIsSubmitting || parentCategories.length === 0}
+                    type="button"
+                  >
+                    {selectedParentCategory ? (
+                      <div className="flex items-center gap-2">
+                        <Tags className="h-4 w-4 text-primary" />
+                        <span>{selectedParentCategory.name}</span>
+                      </div>
+                    ) : (
+                      "Search and select category..."
+                    )}
+                    <Search className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                  </Button>
+                </DialogTrigger>
+                <DialogContent className="w-[calc(100%-6px)] sm:max-w-[425px]">
+                  <DialogHeader>
+                    <DialogTitle>Select Parent Category</DialogTitle>
+                    <DialogDescription>
+                      Search and select a parent category for this sub-category.
+                    </DialogDescription>
+                  </DialogHeader>
+                  <div className="space-y-4 py-4">
+                    <div className="relative">
+                      <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+                      <Input
+                        placeholder="Type category name..."
+                        className="pl-8"
+                        value={categorySearch}
+                        onChange={(e) => setCategorySearch(e.target.value)}
+                      />
+                    </div>
+                    <ScrollArea className="h-[300px] rounded-md border p-2">
+                      <div className="space-y-1">
+                        {searchableCategories.length === 0 ? (
+                          <p className="text-center py-4 text-sm text-muted-foreground">No categories found.</p>
+                        ) : (
+                          searchableCategories.map((cat) => (
+                            <Button
+                              key={cat.id}
+                              variant={field.value === cat.id ? "secondary" : "ghost"}
+                              className="w-full justify-start text-left h-auto py-3 px-3 relative group"
+                              onClick={() => {
+                                field.onChange(cat.id);
+                                setIsCategoryPickerOpen(false);
+                                setCategorySearch("");
+                              }}
+                              type="button"
+                            >
+                              <div className="flex items-center gap-2 pr-8">
+                                <Tags className="h-4 w-4 text-muted-foreground" />
+                                <span className="font-semibold text-sm">{cat.name}</span>
+                              </div>
+                              {field.value === cat.id && (
+                                <CheckCircle className="absolute right-3 top-3 h-4 w-4 text-green-500" />
+                              )}
+                            </Button>
+                          ))
+                        )}
+                      </div>
+                    </ScrollArea>
+                  </div>
+                </DialogContent>
+              </Dialog>
               <FormMessage />
             </FormItem>
           )}
