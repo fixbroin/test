@@ -11,10 +11,10 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from "@/components/ui/dialog";
 import { Card, CardContent, CardHeader, CardTitle, CardFooter, CardDescription } from "@/components/ui/card";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
-import { Loader2, ReceiptText, UserPlus, PlusCircle, Trash2, CalendarIcon, Save, Send, Download, UserCircle as UserIcon, XCircle } from "lucide-react";
+import { Loader2, ReceiptText, UserPlus, PlusCircle, Trash2, CalendarIcon, Save, Send, Download, UserCircle as UserIcon, XCircle, Check, ChevronsUpDown } from "lucide-react";
 import type { FirestoreUser, InvoiceItem, FirestoreInvoice, InvoicePaymentStatus, InvoicePaymentMode, CompanyDetailsForPdf } from '@/types/firestore';
 import { db, storage } from '@/lib/firebase';
 import { collection, getDocs, addDoc, Timestamp, query, orderBy, doc, setDoc, updateDoc, getDoc, where, documentId } from "firebase/firestore";
@@ -88,6 +88,8 @@ export default function CreateInvoiceForm({ initialData, onSaveSuccess }: Create
   const [userSearchTerm, setUserSearchTerm] = useState("");
   const [isUserSearchOpen, setIsUserSearchOpen] = useState(false);
   const [selectedUserForDisplay, setSelectedUserForDisplay] = useState<{name: string, email: string} | null>(null);
+  const [isStatusPickerOpen, setIsStatusPickerOpen] = useState(false);
+  const [isModePickerOpen, setIsModePickerOpen] = useState(false);
 
   const isEditing = !!initialData?.id;
 
@@ -389,8 +391,114 @@ export default function CreateInvoiceForm({ initialData, onSaveSuccess }: Create
                 <div className="text-lg font-bold text-primary">Grand Total: ₹{grandTotal.toFixed(2)}</div>
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-3">
-                <FormField control={form.control} name="paymentStatus" render={({ field }) => (<FormItem><FormLabel>Payment Status <span className="text-destructive">*</span></FormLabel><Select onValueChange={field.onChange} value={field.value} disabled={isSaving}><FormControl><SelectTrigger><SelectValue placeholder="Select status" /></SelectTrigger></FormControl><SelectContent>{paymentStatusOptions.map(s => (<SelectItem key={s} value={s}>{s}</SelectItem>))}</SelectContent></Select><FormMessage /></FormItem>)}/>
-                <FormField control={form.control} name="paymentMode" render={({ field }) => (<FormItem><FormLabel>Payment Mode (Optional)</FormLabel><Select onValueChange={field.onChange} value={field.value || ""} disabled={isSaving}><FormControl><SelectTrigger><SelectValue placeholder="Select mode" /></SelectTrigger></FormControl><SelectContent>{paymentModeOptions.map(m => (<SelectItem key={m} value={m}>{m}</SelectItem>))}</SelectContent></Select><FormMessage /></FormItem>)}/>
+                <FormField control={form.control} name="paymentStatus" render={({ field }) => (
+                  <FormItem className="flex flex-col">
+                    <FormLabel className="mb-2">Payment Status <span className="text-destructive">*</span></FormLabel>
+                    <Dialog open={isStatusPickerOpen} onOpenChange={setIsStatusPickerOpen}>
+                      <DialogTrigger asChild>
+                        <Button
+                          variant="outline"
+                          role="combobox"
+                          className={cn(
+                            "w-full justify-between text-left font-normal h-10",
+                            !field.value && "text-muted-foreground"
+                          )}
+                          disabled={isSaving}
+                          type="button"
+                        >
+                          {field.value || "Select status"}
+                          <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                        </Button>
+                      </DialogTrigger>
+                      <DialogContent className="w-[calc(100%-6px)] sm:max-w-[425px]">
+                        <DialogHeader>
+                          <DialogTitle>Select Payment Status</DialogTitle>
+                          <DialogDescription>
+                            Choose the payment status for this invoice.
+                          </DialogDescription>
+                        </DialogHeader>
+                        <div className="py-4">
+                          <ScrollArea className="h-[200px] rounded-md border p-2">
+                            <div className="space-y-1">
+                              {paymentStatusOptions.map((s) => (
+                                <Button
+                                  key={s}
+                                  variant={field.value === s ? "secondary" : "ghost"}
+                                  className="w-full justify-start text-left h-auto py-2.5 px-3 relative"
+                                  onClick={() => {
+                                    field.onChange(s);
+                                    setIsStatusPickerOpen(false);
+                                  }}
+                                  type="button"
+                                >
+                                  <span className="text-sm font-medium">{s}</span>
+                                  {field.value === s && (
+                                    <Check className="absolute right-3 top-3 h-4 w-4 text-green-500" />
+                                  )}
+                                </Button>
+                              ))}
+                            </div>
+                          </ScrollArea>
+                        </div>
+                      </DialogContent>
+                    </Dialog>
+                    <FormMessage />
+                  </FormItem>
+                )}/>
+                <FormField control={form.control} name="paymentMode" render={({ field }) => (
+                  <FormItem className="flex flex-col">
+                    <FormLabel className="mb-2">Payment Mode (Optional)</FormLabel>
+                    <Dialog open={isModePickerOpen} onOpenChange={setIsModePickerOpen}>
+                      <DialogTrigger asChild>
+                        <Button
+                          variant="outline"
+                          role="combobox"
+                          className={cn(
+                            "w-full justify-between text-left font-normal h-10",
+                            !field.value && "text-muted-foreground"
+                          )}
+                          disabled={isSaving}
+                          type="button"
+                        >
+                          {field.value || "Select mode"}
+                          <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                        </Button>
+                      </DialogTrigger>
+                      <DialogContent className="w-[calc(100%-6px)] sm:max-w-[425px]">
+                        <DialogHeader>
+                          <DialogTitle>Select Payment Mode</DialogTitle>
+                          <DialogDescription>
+                            Choose the payment mode used.
+                          </DialogDescription>
+                        </DialogHeader>
+                        <div className="py-4">
+                          <ScrollArea className="h-[200px] rounded-md border p-2">
+                            <div className="space-y-1">
+                              {paymentModeOptions.map((m) => (
+                                <Button
+                                  key={m}
+                                  variant={field.value === m ? "secondary" : "ghost"}
+                                  className="w-full justify-start text-left h-auto py-2.5 px-3 relative"
+                                  onClick={() => {
+                                    field.onChange(m);
+                                    setIsModePickerOpen(false);
+                                  }}
+                                  type="button"
+                                >
+                                  <span className="text-sm font-medium">{m}</span>
+                                  {field.value === m && (
+                                    <Check className="absolute right-3 top-3 h-4 w-4 text-green-500" />
+                                  )}
+                                </Button>
+                              ))}
+                            </div>
+                          </ScrollArea>
+                        </div>
+                      </DialogContent>
+                    </Dialog>
+                    <FormMessage />
+                  </FormItem>
+                )}/>
               </div>
               <FormField control={form.control} name="amountPaid" render={({ field }) => (
                 <FormItem><FormLabel>Amount Paid (₹) (Optional)</FormLabel><FormControl><Input type="number" step="0.01" placeholder="0.00" {...field} value={field.value ?? ""} disabled={isSaving} /></FormControl><FormMessage /></FormItem>

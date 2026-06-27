@@ -2,8 +2,9 @@
 "use client";
 
 import { useState, useEffect, useMemo } from 'react';
+import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card"; // Added CardFooter
-import { Loader2, Star, PackageSearch, Filter } from "lucide-react";
+import { Loader2, Star, PackageSearch, Filter, Check, ChevronsUpDown } from "lucide-react";
 import type { FirestoreReview, FirestoreBooking } from '@/types/firestore';
 import { db } from '@/lib/firebase';
 import { collection, query, where, onSnapshot, orderBy, getDocs, collectionGroup, limit } from "firebase/firestore";
@@ -11,7 +12,9 @@ import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { formatDistanceToNow } from 'date-fns';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from "@/components/ui/dialog";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { cn } from "@/lib/utils";
 import { getTimestampMillis } from '@/lib/utils';
 
 const formatReviewTimestamp = (timestamp?: any): string => {
@@ -26,6 +29,7 @@ export default function ProviderMyReviewsPage() {
   const [reviews, setReviews] = useState<FirestoreReview[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [filterRating, setFilterRating] = useState<number | "all">("all"); // "all" or 1-5
+  const [isFilterRatingPickerOpen, setIsFilterRatingPickerOpen] = useState(false);
 
   useEffect(() => {
     if (!providerUser || authIsLoading) {
@@ -137,18 +141,67 @@ export default function ProviderMyReviewsPage() {
         <CardContent>
             {reviews.length > 0 && (
                 <div className="mb-4 w-full sm:w-auto sm:max-w-xs">
-                    <Select 
-                        value={String(filterRating)} 
-                        onValueChange={(value) => setFilterRating(value === "all" ? "all" : parseInt(value))}
-                    >
-                        <SelectTrigger className="h-9 text-xs">
-                             <Filter className="mr-1.5 h-3.5 w-3.5"/> <SelectValue placeholder="Filter by rating" />
-                        </SelectTrigger>
-                        <SelectContent>
-                            <SelectItem value="all">All Ratings</SelectItem>
-                            {[5,4,3,2,1].map(r => <SelectItem key={r} value={String(r)}>{r} Star{r > 1 ? 's' : ''}</SelectItem>)}
-                        </SelectContent>
-                    </Select>
+                    <Dialog open={isFilterRatingPickerOpen} onOpenChange={setIsFilterRatingPickerOpen}>
+                      <DialogTrigger asChild>
+                        <Button
+                          variant="outline"
+                          role="combobox"
+                          className="w-full justify-between sm:max-w-xs h-9 text-xs font-normal"
+                          type="button"
+                        >
+                          <span className="flex items-center gap-1.5">
+                            <Filter className="h-3.5 w-3.5 text-muted-foreground" />
+                            {filterRating === "all" ? "All Ratings" : `${filterRating} Star${filterRating > 1 ? 's' : ''}`}
+                          </span>
+                          <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                        </Button>
+                      </DialogTrigger>
+                      <DialogContent className="w-[calc(100%-6px)] sm:max-w-[425px]">
+                        <DialogHeader>
+                          <DialogTitle>Filter by Rating</DialogTitle>
+                          <DialogDescription>
+                            Select a star rating to filter reviews.
+                          </DialogDescription>
+                        </DialogHeader>
+                        <div className="py-4">
+                          <ScrollArea className="h-[250px] rounded-md border p-2">
+                            <div className="space-y-1">
+                              <Button
+                                variant={filterRating === "all" ? "secondary" : "ghost"}
+                                className="w-full justify-start text-left h-auto py-2.5 px-3 relative"
+                                onClick={() => {
+                                  setFilterRating("all");
+                                  setIsFilterRatingPickerOpen(false);
+                                }}
+                                type="button"
+                              >
+                                <span className="text-sm font-medium">All Ratings</span>
+                                {filterRating === "all" && (
+                                  <Check className="absolute right-3 top-3 h-4 w-4 text-green-500" />
+                                )}
+                              </Button>
+                              {[5, 4, 3, 2, 1].map((r) => (
+                                <Button
+                                  key={r}
+                                  variant={filterRating === r ? "secondary" : "ghost"}
+                                  className="w-full justify-start text-left h-auto py-2.5 px-3 relative"
+                                  onClick={() => {
+                                    setFilterRating(r);
+                                    setIsFilterRatingPickerOpen(false);
+                                  }}
+                                  type="button"
+                                >
+                                  <span className="text-sm font-medium">{r} Star{r > 1 ? 's' : ''}</span>
+                                  {filterRating === r && (
+                                    <Check className="absolute right-3 top-3 h-4 w-4 text-green-500" />
+                                  )}
+                                </Button>
+                              ))}
+                            </div>
+                          </ScrollArea>
+                        </div>
+                      </DialogContent>
+                    </Dialog>
                 </div>
             )}
             {filteredReviews.length === 0 && !isLoading ? (

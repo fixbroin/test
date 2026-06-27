@@ -1,16 +1,17 @@
 
 "use client";
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose, DialogTrigger } from "@/components/ui/dialog";
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { cn } from "@/lib/utils";
 import { Input } from "@/components/ui/input";
-import { Loader2, Sparkles, Wand2 } from 'lucide-react';
+import { Loader2, Sparkles, Wand2, Search, Check, ChevronsUpDown } from 'lucide-react';
 import type { FirestoreService, FirestoreSubCategory, FirestoreCategory, FirestoreReview } from '@/types/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { generateBulkReviews } from '@/ai/flows/generateBulkReviewsFlow';
@@ -43,11 +44,24 @@ export default function BulkReviewGeneratorDialog({
 }: BulkReviewGeneratorDialogProps) {
   const { toast } = useToast();
   const [isGenerating, setIsGenerating] = useState(false);
+  const [isServicePickerOpen, setIsServicePickerOpen] = useState(false);
+  const [serviceSearch, setServiceSearch] = useState("");
 
   const form = useForm<BulkReviewFormData>({
     resolver: zodResolver(formSchema),
     defaultValues: { serviceId: undefined, numberOfReviews: 5 },
   });
+
+  const selectedService = services.find((s) => s.id === form.watch("serviceId"));
+  const filteredServices = services.filter((s) =>
+    s.name.toLowerCase().includes(serviceSearch.toLowerCase())
+  );
+
+  useEffect(() => {
+    if (!isServicePickerOpen) {
+      setServiceSearch("");
+    }
+  }, [isServicePickerOpen]);
 
   const onSubmit = async (data: BulkReviewFormData) => {
     setIsGenerating(true);
@@ -125,27 +139,74 @@ export default function BulkReviewGeneratorDialog({
               control={form.control}
               name="serviceId"
               render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Select Service</FormLabel>
-                  <Select onValueChange={field.onChange} defaultValue={field.value} disabled={isGenerating}>
-                    <FormControl>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Choose a service..." />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      {services.map(service => (
-                        <SelectItem key={service.id} value={service.id}>
-                          {service.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                <FormItem className="flex flex-col">
+                  <FormLabel className="mb-2">Select Service</FormLabel>
+                  <Dialog open={isServicePickerOpen} onOpenChange={setIsServicePickerOpen}>
+                    <DialogTrigger asChild>
+                      <Button
+                        variant="outline"
+                        role="combobox"
+                        className={cn(
+                          "w-full justify-between text-left font-normal h-10",
+                          !field.value && "text-muted-foreground"
+                        )}
+                        disabled={isGenerating}
+                        type="button"
+                      >
+                        {selectedService ? selectedService.name : "Choose a service..."}
+                        <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                      </Button>
+                    </DialogTrigger>
+                    <DialogContent className="w-[calc(100%-6px)] sm:max-w-[425px]">
+                      <DialogHeader>
+                        <DialogTitle>Select Service</DialogTitle>
+                        <DialogDescription>
+                          Search and select a service to generate reviews for.
+                        </DialogDescription>
+                      </DialogHeader>
+                      <div className="relative my-2">
+                        <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                        <Input
+                          placeholder="Search services..."
+                          className="pl-9 h-10"
+                          value={serviceSearch}
+                          onChange={(e) => setServiceSearch(e.target.value)}
+                        />
+                      </div>
+                      <div className="py-2">
+                        <ScrollArea className="h-[250px] rounded-md border p-2">
+                          <div className="space-y-1">
+                            {filteredServices.length === 0 ? (
+                              <p className="text-sm text-muted-foreground text-center py-4">No services found.</p>
+                            ) : (
+                              filteredServices.map((service) => (
+                                <Button
+                                  key={service.id}
+                                  variant={field.value === service.id ? "secondary" : "ghost"}
+                                  className="w-full justify-start text-left h-auto py-2.5 px-3 relative"
+                                  onClick={() => {
+                                    field.onChange(service.id);
+                                    setIsServicePickerOpen(false);
+                                  }}
+                                  type="button"
+                                >
+                                  <span className="text-sm font-medium">{service.name}</span>
+                                  {field.value === service.id && (
+                                    <Check className="absolute right-3 top-3 h-4 w-4 text-green-500" />
+                                  )}
+                                </Button>
+                              ))
+                            )}
+                          </div>
+                        </ScrollArea>
+                      </div>
+                    </DialogContent>
+                  </Dialog>
                   <FormMessage />
                 </FormItem>
               )}
             />
-             <FormField
+            <FormField
               control={form.control}
               name="numberOfReviews"
               render={({ field }) => (

@@ -5,13 +5,14 @@ import { useState, useEffect, useCallback } from 'react';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogClose } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogClose, DialogDescription, DialogTrigger } from "@/components/ui/dialog";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDescription } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { PlusCircle, Edit, Trash2, Loader2, Paperclip, PackageSearch, AlertTriangle, CheckCircle, XCircle } from "lucide-react";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { cn } from "@/lib/utils";
+import { PlusCircle, Edit, Trash2, Loader2, Paperclip, PackageSearch, AlertTriangle, CheckCircle, XCircle, Check, ChevronsUpDown } from "lucide-react";
 import type { AdditionalDocumentTypeOption } from '@/types/firestore';
 import { db } from '@/lib/firebase';
 import { doc, getDoc, setDoc, Timestamp } from "firebase/firestore";
@@ -48,6 +49,8 @@ export default function AdditionalDocTypeManager() {
   const [editingOption, setEditingOption] = useState<AdditionalDocumentTypeOption | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isSidePickerOpen, setIsSidePickerOpen] = useState(false);
+  const [isRulePickerOpen, setIsRulePickerOpen] = useState(false);
   const { toast } = useToast();
 
   const form = useForm<AdditionalDocTypeFormData>({
@@ -236,15 +239,56 @@ export default function AdditionalDocTypeManager() {
               
               <div className="grid grid-cols-2 gap-4">
                 <FormField control={form.control} name="imageCount" render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Required Images</FormLabel>
-                    <Select onValueChange={field.onChange} value={String(field.value)}>
-                      <FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl>
-                      <SelectContent>
-                        <SelectItem value="1">Single Image</SelectItem>
-                        <SelectItem value="2">Two Images (Front/Back)</SelectItem>
-                      </SelectContent>
-                    </Select>
+                  <FormItem className="flex flex-col">
+                    <FormLabel className="mb-2">Required Images</FormLabel>
+                    <Dialog open={isSidePickerOpen} onOpenChange={setIsSidePickerOpen}>
+                      <DialogTrigger asChild>
+                        <Button
+                          variant="outline"
+                          role="combobox"
+                          className={cn(
+                            "w-full justify-between text-left font-normal h-10",
+                            !field.value && "text-muted-foreground"
+                          )}
+                          type="button"
+                        >
+                          {String(field.value) === "1" ? "Single Image" : String(field.value) === "2" ? "Two Images (Front/Back)" : "Select count..."}
+                          <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                        </Button>
+                      </DialogTrigger>
+                      <DialogContent className="w-[calc(100%-6px)] sm:max-w-[425px]">
+                        <DialogHeader>
+                          <DialogTitle>Required Images</DialogTitle>
+                          <DialogDescription>
+                            Select how many images providers must upload for this document type.
+                          </DialogDescription>
+                        </DialogHeader>
+                        <div className="py-4">
+                          <div className="space-y-1">
+                            {[
+                              { value: "1", label: "Single Image" },
+                              { value: "2", label: "Two Images (Front/Back)" },
+                            ].map((opt) => (
+                              <Button
+                                key={opt.value}
+                                variant={String(field.value) === opt.value ? "secondary" : "ghost"}
+                                className="w-full justify-start text-left h-auto py-3 px-3 relative"
+                                onClick={() => {
+                                  field.onChange(Number(opt.value));
+                                  setIsSidePickerOpen(false);
+                                }}
+                                type="button"
+                              >
+                                <span className="text-sm font-medium">{opt.label}</span>
+                                {String(field.value) === opt.value && (
+                                  <Check className="absolute right-3 top-3 h-4 w-4 text-green-500" />
+                                )}
+                              </Button>
+                            ))}
+                          </div>
+                        </div>
+                      </DialogContent>
+                    </Dialog>
                     <FormMessage />
                   </FormItem>
                 )} />
@@ -254,17 +298,68 @@ export default function AdditionalDocTypeManager() {
               <div className="pt-4 border-t space-y-4">
                 <h4 className="text-sm font-bold">Document Number Validation</h4>
                 <FormField control={form.control} name="docNumberType" render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Allowed Characters</FormLabel>
-                    <Select onValueChange={field.onChange} value={field.value}>
-                      <FormControl><SelectTrigger><SelectValue placeholder="Select type" /></SelectTrigger></FormControl>
-                      <SelectContent>
-                        <SelectItem value="any">Any (No Restriction)</SelectItem>
-                        <SelectItem value="numeric">Numbers Only (0-9)</SelectItem>
-                        <SelectItem value="alphabetic">Alphabets Only (A-Z)</SelectItem>
-                        <SelectItem value="alphanumeric">Alphanumeric (A-Z, 0-9)</SelectItem>
-                      </SelectContent>
-                    </Select>
+                  <FormItem className="flex flex-col">
+                    <FormLabel className="mb-2">Allowed Characters</FormLabel>
+                    <Dialog open={isRulePickerOpen} onOpenChange={setIsRulePickerOpen}>
+                      <DialogTrigger asChild>
+                        <Button
+                          variant="outline"
+                          role="combobox"
+                          className={cn(
+                            "w-full justify-between text-left font-normal h-10",
+                            !field.value && "text-muted-foreground"
+                          )}
+                          type="button"
+                        >
+                          {field.value === "any"
+                            ? "Any (No Restriction)"
+                            : field.value === "numeric"
+                            ? "Numbers Only (0-9)"
+                            : field.value === "alphabetic"
+                            ? "Alphabets Only (A-Z)"
+                            : field.value === "alphanumeric"
+                            ? "Alphanumeric (A-Z, 0-9)"
+                            : "Select type..."}
+                          <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                        </Button>
+                      </DialogTrigger>
+                      <DialogContent className="w-[calc(100%-6px)] sm:max-w-[425px]">
+                        <DialogHeader>
+                          <DialogTitle>Allowed Characters</DialogTitle>
+                          <DialogDescription>
+                            Configure formatting constraints for this document number.
+                          </DialogDescription>
+                        </DialogHeader>
+                        <div className="py-4">
+                          <ScrollArea className="h-[200px] rounded-md border p-2">
+                            <div className="space-y-1">
+                              {[
+                                { value: "any", label: "Any (No Restriction)" },
+                                { value: "numeric", label: "Numbers Only (0-9)" },
+                                { value: "alphabetic", label: "Alphabets Only (A-Z)" },
+                                { value: "alphanumeric", label: "Alphanumeric (A-Z, 0-9)" },
+                              ].map((opt) => (
+                                <Button
+                                  key={opt.value}
+                                  variant={field.value === opt.value ? "secondary" : "ghost"}
+                                  className="w-full justify-start text-left h-auto py-3 px-3 relative"
+                                  onClick={() => {
+                                    field.onChange(opt.value);
+                                    setIsRulePickerOpen(false);
+                                  }}
+                                  type="button"
+                                >
+                                  <span className="text-sm font-medium">{opt.label}</span>
+                                  {field.value === opt.value && (
+                                    <Check className="absolute right-3 top-3 h-4 w-4 text-green-500" />
+                                  )}
+                                </Button>
+                              ))}
+                            </div>
+                          </ScrollArea>
+                        </div>
+                      </DialogContent>
+                    </Dialog>
                     <FormMessage />
                   </FormItem>
                 )} />

@@ -8,9 +8,11 @@ import * as z from "zod";
 import { Button } from "@/components/ui/button";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDescription } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from "@/components/ui/dialog";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { cn } from "@/lib/utils";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
-import { Loader2, Send, AlertTriangle, PackageSearch, History, Edit } from "lucide-react";
+import { Loader2, Send, AlertTriangle, PackageSearch, History, Edit, Check, ChevronsUpDown } from "lucide-react";
 import { useToast } from '@/hooks/use-toast';
 import { db } from '@/lib/firebase';
 import { collection, query, where, onSnapshot, orderBy, runTransaction, getDoc, addDoc, doc, Timestamp, getDocs, limit, updateDoc } from "firebase/firestore";
@@ -98,6 +100,7 @@ function WithdrawalPageContent() {
   const [editingRequest, setEditingRequest] = useState<WithdrawalRequest | null>(null);
 
   const [withdrawalSettings, setWithdrawalSettings] = useState<WithdrawalSettings | null>(null);
+  const [isMethodPickerOpen, setIsMethodPickerOpen] = useState(false);
   const [isLoadingSettings, setIsLoadingSettings] = useState(true);
 
   const withdrawableBalance = useMemo(() => {
@@ -354,12 +357,99 @@ function WithdrawalPageContent() {
                 <CardContent className="space-y-4">
                     {!editingRequest && firestoreUser?.withdrawalPending && <Alert variant="destructive"><AlertTriangle className="h-4 w-4" /><AlertTitle>Request Already Pending</AlertTitle><AlertDescription>You have a withdrawal request being processed.</AlertDescription></Alert>}
                     <FormField control={form.control} name="amount" render={({ field }) => (<FormItem><FormLabel>Amount to Withdraw (₹)</FormLabel><FormControl><Input type="number" placeholder={`Available: ₹${withdrawableBalance.toFixed(2)}`} {...field} value={field.value ?? ""} disabled={isSubmitting || (firestoreUser?.withdrawalPending && !editingRequest)} /></FormControl><FormMessage /></FormItem>)} />
-                    <FormField control={form.control} name="method" render={({ field }) => (<FormItem><FormLabel>Withdrawal Method</FormLabel><Select onValueChange={field.onChange} defaultValue={field.value} value={field.value} disabled={isSubmitting || (firestoreUser?.withdrawalPending && !editingRequest)}><FormControl><SelectTrigger><SelectValue placeholder="Select a method" /></SelectTrigger></FormControl><SelectContent>
-                        {withdrawalSettings?.enabledMethods?.bank_transfer && <SelectItem value="bank_transfer">Bank Transfer</SelectItem>}
-                        {withdrawalSettings?.enabledMethods?.upi && <SelectItem value="upi">UPI</SelectItem>}
-                        {withdrawalSettings?.enabledMethods?.amazon_gift_card && <SelectItem value="amazon_gift_card">Amazon Gift Card</SelectItem>}
-                        {Object.values(withdrawalSettings?.enabledMethods || {}).every(v => !v) && <div className="p-2 text-center text-sm text-muted-foreground">No methods enabled.</div>}
-                    </SelectContent></Select><FormMessage /></FormItem>)}/>
+                    <FormField control={form.control} name="method" render={({ field }) => (
+                      <FormItem className="flex flex-col">
+                        <FormLabel className="mb-2">Withdrawal Method</FormLabel>
+                        <Dialog open={isMethodPickerOpen} onOpenChange={setIsMethodPickerOpen}>
+                          <DialogTrigger asChild>
+                            <Button
+                              variant="outline"
+                              role="combobox"
+                              className={cn(
+                                "w-full justify-between text-left font-normal h-10",
+                                !field.value && "text-muted-foreground"
+                              )}
+                              disabled={isSubmitting || (firestoreUser?.withdrawalPending && !editingRequest)}
+                              type="button"
+                            >
+                              {field.value === "bank_transfer" && "Bank Transfer"}
+                              {field.value === "upi" && "UPI"}
+                              {field.value === "amazon_gift_card" && "Amazon Gift Card"}
+                              {!field.value && "Select a method"}
+                              <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                            </Button>
+                          </DialogTrigger>
+                          <DialogContent className="w-[calc(100%-6px)] sm:max-w-[425px]">
+                            <DialogHeader>
+                              <DialogTitle>Select Withdrawal Method</DialogTitle>
+                              <DialogDescription>
+                                Choose one of the enabled withdrawal methods.
+                              </DialogDescription>
+                            </DialogHeader>
+                            <div className="py-4">
+                              <ScrollArea className="h-[200px] rounded-md border p-2">
+                                <div className="space-y-1">
+                                  {withdrawalSettings?.enabledMethods?.bank_transfer && (
+                                    <Button
+                                      variant={field.value === "bank_transfer" ? "secondary" : "ghost"}
+                                      className="w-full justify-start text-left h-auto py-2.5 px-3 relative"
+                                      onClick={() => {
+                                        field.onChange("bank_transfer");
+                                        setIsMethodPickerOpen(false);
+                                      }}
+                                      type="button"
+                                    >
+                                      <span className="text-sm font-medium">Bank Transfer</span>
+                                      {field.value === "bank_transfer" && (
+                                        <Check className="absolute right-3 top-3 h-4 w-4 text-green-500" />
+                                      )}
+                                    </Button>
+                                  )}
+                                  {withdrawalSettings?.enabledMethods?.upi && (
+                                    <Button
+                                      variant={field.value === "upi" ? "secondary" : "ghost"}
+                                      className="w-full justify-start text-left h-auto py-2.5 px-3 relative"
+                                      onClick={() => {
+                                        field.onChange("upi");
+                                        setIsMethodPickerOpen(false);
+                                      }}
+                                      type="button"
+                                    >
+                                      <span className="text-sm font-medium">UPI</span>
+                                      {field.value === "upi" && (
+                                        <Check className="absolute right-3 top-3 h-4 w-4 text-green-500" />
+                                      )}
+                                    </Button>
+                                  )}
+                                  {withdrawalSettings?.enabledMethods?.amazon_gift_card && (
+                                    <Button
+                                      variant={field.value === "amazon_gift_card" ? "secondary" : "ghost"}
+                                      className="w-full justify-start text-left h-auto py-2.5 px-3 relative"
+                                      onClick={() => {
+                                        field.onChange("amazon_gift_card");
+                                        setIsMethodPickerOpen(false);
+                                      }}
+                                      type="button"
+                                    >
+                                      <span className="text-sm font-medium">Amazon Gift Card</span>
+                                      {field.value === "amazon_gift_card" && (
+                                        <Check className="absolute right-3 top-3 h-4 w-4 text-green-500" />
+                                      )}
+                                    </Button>
+                                  )}
+                                  {Object.values(withdrawalSettings?.enabledMethods || {}).every(v => !v) && (
+                                    <div className="p-4 text-center text-sm text-muted-foreground">
+                                      No withdrawal methods enabled.
+                                    </div>
+                                  )}
+                                </div>
+                              </ScrollArea>
+                            </div>
+                          </DialogContent>
+                        </Dialog>
+                        <FormMessage />
+                      </FormItem>
+                    )}/>
                     {watchedMethod && <div className="space-y-4 p-4 border rounded-md">{renderMethodFields()}</div>}
                 </CardContent>
                 <CardFooter className="flex-col items-start gap-4">

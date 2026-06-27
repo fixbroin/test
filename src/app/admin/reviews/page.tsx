@@ -5,9 +5,10 @@ import { useState, useEffect, useMemo } from 'react';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { PlusCircle, Edit, Trash2, Loader2, Star, MessageSquare, Filter, Wand2 } from "lucide-react"; 
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogTrigger } from "@/components/ui/dialog";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { cn } from "@/lib/utils";
+import { PlusCircle, Edit, Trash2, Loader2, Star, MessageSquare, Filter, Wand2, Check, ChevronsUpDown } from "lucide-react"; 
 import type { FirestoreReview, ReviewStatus, FirestoreService, FirestoreSubCategory, FirestoreCategory } from '@/types/firestore';
 import ReviewForm, { type ReviewFormData } from '@/components/admin/ReviewForm';
 import BulkReviewGeneratorDialog from '@/components/admin/BulkReviewGeneratorDialog';
@@ -45,6 +46,9 @@ export default function AdminReviewsPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [filterStatus, setFilterStatus] = useState<ReviewStatus | "All">("All");
+  const [isFilterStatusPickerOpen, setIsFilterStatusPickerOpen] = useState(false);
+  const [reviewToChangeStatus, setReviewToChangeStatus] = useState<FirestoreReview | null>(null);
+  const [isStatusDialogOpen, setIsStatusDialogOpen] = useState(false);
   const { toast } = useToast();
   const { adminPermissions } = useAuth();
 
@@ -215,18 +219,67 @@ export default function AdminReviewsPage() {
           </div>
           <div className="w-full sm:w-auto flex flex-col sm:flex-row gap-2">
             <div className="w-full sm:min-w-[180px]">
-                <Select value={filterStatus} onValueChange={(value) => setFilterStatus(value as ReviewStatus | "All")}>
-                    <SelectTrigger className="h-9 text-xs">
-                        <Filter className="mr-1.5 h-3.5 w-3.5"/>
-                        <SelectValue placeholder="Filter by status" />
-                    </SelectTrigger>
-                    <SelectContent>
-                        <SelectItem value="All">All Statuses</SelectItem>
-                        {reviewStatusOptions.map(status => (
-                        <SelectItem key={status} value={status}>{status}</SelectItem>
-                        ))}
-                    </SelectContent>
-                </Select>
+                <Dialog open={isFilterStatusPickerOpen} onOpenChange={setIsFilterStatusPickerOpen}>
+                  <DialogTrigger asChild>
+                    <Button
+                      variant="outline"
+                      role="combobox"
+                      className="w-full justify-between sm:min-w-[180px] h-9 text-xs font-normal"
+                      type="button"
+                    >
+                      <span className="flex items-center gap-1.5">
+                        <Filter className="h-3.5 w-3.5 text-muted-foreground"/>
+                        {filterStatus === "All" ? "All Statuses" : filterStatus}
+                      </span>
+                      <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent className="w-[calc(100%-6px)] sm:max-w-[425px]">
+                    <DialogHeader>
+                      <DialogTitle>Filter by Status</DialogTitle>
+                      <DialogDescription>
+                        Select a review status to filter by.
+                      </DialogDescription>
+                    </DialogHeader>
+                    <div className="py-4">
+                      <ScrollArea className="h-[250px] rounded-md border p-2">
+                        <div className="space-y-1">
+                          <Button
+                            variant={filterStatus === "All" ? "secondary" : "ghost"}
+                            className="w-full justify-start text-left h-auto py-2.5 px-3 relative"
+                            onClick={() => {
+                              setFilterStatus("All");
+                              setIsFilterStatusPickerOpen(false);
+                            }}
+                            type="button"
+                          >
+                            <span className="text-sm font-medium">All Statuses</span>
+                            {filterStatus === "All" && (
+                              <Check className="absolute right-3 top-3 h-4 w-4 text-green-500" />
+                            )}
+                          </Button>
+                          {reviewStatusOptions.map((status) => (
+                            <Button
+                              key={status}
+                              variant={filterStatus === status ? "secondary" : "ghost"}
+                              className="w-full justify-start text-left h-auto py-2.5 px-3 relative"
+                              onClick={() => {
+                                setFilterStatus(status);
+                                setIsFilterStatusPickerOpen(false);
+                              }}
+                              type="button"
+                            >
+                              <span className="text-sm font-medium">{status}</span>
+                              {filterStatus === status && (
+                                <Check className="absolute right-3 top-3 h-4 w-4 text-green-500" />
+                              )}
+                            </Button>
+                          ))}
+                        </div>
+                      </ScrollArea>
+                    </div>
+                  </DialogContent>
+                </Dialog>
             </div>
             <PermissionGuard moduleId="reviews" action="write">
               <Button onClick={handleOpenBulkGenerate} variant="outline" className="w-full sm:w-auto h-9" disabled={isPrerequisitesLoading}>
@@ -284,14 +337,18 @@ export default function AdminReviewsPage() {
                       </TableCell>
                       <TableCell>
                            {hasActionPermission(adminPermissions, 'reviews', 'write') ? (
-                             <Select value={review.status} onValueChange={(newStatus) => handleChangeStatus(review.id, newStatus as ReviewStatus)}>
-                                <SelectTrigger className="h-8 text-xs min-w-[100px] sm:min-w-[120px]">
-                                    <SelectValue placeholder="Set Status"/>
-                                </SelectTrigger>
-                                <SelectContent>
-                                    {reviewStatusOptions.map(s => <SelectItem key={s} value={s} className="text-xs">{s}</SelectItem>)}
-                                </SelectContent>
-                            </Select>
+                              <Button
+                                type="button"
+                                variant="outline"
+                                className="h-8 text-xs min-w-[100px] sm:min-w-[120px] justify-between font-normal"
+                                onClick={() => {
+                                  setReviewToChangeStatus(review);
+                                  setIsStatusDialogOpen(true);
+                                }}
+                              >
+                                <span>{review.status || "Set Status"}</span>
+                                <ChevronsUpDown className="ml-1 h-3.5 w-3.5 shrink-0 opacity-50" />
+                              </Button>
                            ) : (
                              <Badge variant="outline" className="text-[10px]">{review.status}</Badge>
                            )}
@@ -388,6 +445,42 @@ export default function AdminReviewsPage() {
         subCategories={subCategories}
         parentCategories={parentCategories}
       />
+      {reviewToChangeStatus && (
+        <Dialog open={isStatusDialogOpen} onOpenChange={setIsStatusDialogOpen}>
+          <DialogContent className="w-[calc(100%-6px)] sm:max-w-[425px]">
+            <DialogHeader>
+              <DialogTitle>Change Review Status</DialogTitle>
+              <DialogDescription>
+                Select status for review by {reviewToChangeStatus.userName}.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="py-4">
+              <ScrollArea className="h-[250px] rounded-md border p-2">
+                <div className="space-y-1">
+                  {reviewStatusOptions.map((s) => (
+                    <Button
+                      key={s}
+                      variant={reviewToChangeStatus.status === s ? "secondary" : "ghost"}
+                      className="w-full justify-start text-left h-auto py-2.5 px-3 relative"
+                      onClick={() => {
+                        handleChangeStatus(reviewToChangeStatus.id, s);
+                        setIsStatusDialogOpen(false);
+                        setReviewToChangeStatus(null);
+                      }}
+                      type="button"
+                    >
+                      <span className="text-sm font-medium">{s}</span>
+                      {reviewToChangeStatus.status === s && (
+                        <Check className="absolute right-3 top-3 h-4 w-4 text-green-500" />
+                      )}
+                    </Button>
+                  ))}
+                </div>
+              </ScrollArea>
+            </div>
+          </DialogContent>
+        </Dialog>
+      )}
     </div>
   );
 }

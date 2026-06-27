@@ -8,8 +8,10 @@ import * as z from "zod";
 import { Button } from "@/components/ui/button";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDescription } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Loader2, SendHorizonal, Trash2, PlusCircle, AlertTriangle } from "lucide-react"; 
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from "@/components/ui/dialog";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { cn } from "@/lib/utils";
+import { Loader2, SendHorizonal, Trash2, PlusCircle, AlertTriangle, Check, ChevronsUpDown, Search } from "lucide-react"; 
 import { useToast } from '@/hooks/use-toast';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 
@@ -32,6 +34,18 @@ const approvedTemplates = [
 export default function WhatsAppTestSenderForm() {
   const { toast } = useToast();
   const [isSending, setIsSending] = useState(false);
+  const [isTemplatePickerOpen, setIsTemplatePickerOpen] = useState(false);
+  const [templateSearch, setTemplateSearch] = useState("");
+
+  const filteredTemplates = approvedTemplates.filter((t) =>
+    t.name.toLowerCase().includes(templateSearch.toLowerCase())
+  );
+
+  useEffect(() => {
+    if (!isTemplatePickerOpen) {
+      setTemplateSearch("");
+    }
+  }, [isTemplatePickerOpen]);
 
   const form = useForm<TestSenderFormData>({
     resolver: zodResolver(testSenderFormSchema),
@@ -123,12 +137,67 @@ export default function WhatsAppTestSenderForm() {
           render={({ field }) => (
             <FormItem>
               <FormLabel>Select Template</FormLabel>
-              <Select onValueChange={field.onChange} defaultValue={field.value} disabled={isSending}>
-                <FormControl><SelectTrigger><SelectValue placeholder="Choose a template to test" /></SelectTrigger></FormControl>
-                <SelectContent>
-                  {approvedTemplates.map(t => <SelectItem key={t.name} value={t.name}>{t.name}</SelectItem>)}
-                </SelectContent>
-              </Select>
+              <Dialog open={isTemplatePickerOpen} onOpenChange={setIsTemplatePickerOpen}>
+                <DialogTrigger asChild>
+                  <Button
+                    variant="outline"
+                    role="combobox"
+                    className={cn(
+                      "w-full justify-between text-left font-normal h-10",
+                      !field.value && "text-muted-foreground"
+                    )}
+                    disabled={isSending}
+                    type="button"
+                  >
+                    {field.value ? field.value : "Choose a template to test"}
+                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                  </Button>
+                </DialogTrigger>
+                <DialogContent className="w-[calc(100%-6px)] sm:max-w-[425px]">
+                  <DialogHeader>
+                    <DialogTitle>Select Template</DialogTitle>
+                    <DialogDescription>
+                      Search and select an approved template to test.
+                    </DialogDescription>
+                  </DialogHeader>
+                  <div className="relative my-2">
+                    <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <Input
+                      placeholder="Search templates..."
+                      className="pl-9 h-10"
+                      value={templateSearch}
+                      onChange={(e) => setTemplateSearch(e.target.value)}
+                    />
+                  </div>
+                  <div className="py-2">
+                    <ScrollArea className="h-[250px] rounded-md border p-2">
+                      <div className="space-y-1">
+                        {filteredTemplates.length === 0 ? (
+                          <p className="text-sm text-muted-foreground text-center py-4">No templates found.</p>
+                        ) : (
+                          filteredTemplates.map((t) => (
+                            <Button
+                              key={t.name}
+                              variant={field.value === t.name ? "secondary" : "ghost"}
+                              className="w-full justify-start text-left h-auto py-2.5 px-3 relative"
+                              onClick={() => {
+                                field.onChange(t.name);
+                                setIsTemplatePickerOpen(false);
+                              }}
+                              type="button"
+                            >
+                              <span className="text-sm font-medium">{t.name}</span>
+                              {field.value === t.name && (
+                                <Check className="absolute right-3 top-3 h-4 w-4 text-green-500" />
+                              )}
+                            </Button>
+                          ))
+                        )}
+                      </div>
+                    </ScrollArea>
+                  </div>
+                </DialogContent>
+              </Dialog>
               <FormMessage />
             </FormItem>
           )}

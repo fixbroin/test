@@ -5,14 +5,16 @@ import { useState, useEffect, useCallback } from 'react';
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Loader2, Edit, Trash2, PackageSearch, AlertTriangle, FileText, MoreHorizontal, Send, Download } from "lucide-react";
+import { Loader2, Edit, Trash2, PackageSearch, AlertTriangle, FileText, MoreHorizontal, Send, Download, Check, ChevronsUpDown } from "lucide-react";
 import { db, storage } from '@/lib/firebase';
 import { collection, query, orderBy, onSnapshot, doc, deleteDoc, updateDoc, Timestamp, getDoc } from "firebase/firestore";
 import type { FirestoreInvoice, InvoicePaymentStatus, CompanyDetailsForPdf } from '@/types/firestore';
 import { useToast } from "@/hooks/use-toast";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from "@/components/ui/dialog";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { cn } from "@/lib/utils";
 import { Badge } from '@/components/ui/badge';
 import { generateInvoicePdf } from '@/lib/sriinvoiceGenerator';
 import { uploadPdfToStorage, triggerPdfDownload, dataUriToBlob } from '@/lib/pdfUtils';
@@ -31,6 +33,8 @@ export default function ManageInvoicesTab({ onEditInvoice }: ManageInvoicesTabPr
   const [isUpdating, setIsUpdating] = useState<string | null>(null); // For status updates or delete
   const [isSending, setIsSending] = useState<string | null>(null);
   const [isDownloading, setIsDownloading] = useState<string | null>(null);
+  const [invoiceToChangeStatus, setInvoiceToChangeStatus] = useState<FirestoreInvoice | null>(null);
+  const [isStatusDialogOpen, setIsStatusDialogOpen] = useState(false);
   const { toast } = useToast();
   const { settings: companySettings, isLoading: isLoadingCompanySettings } = useGlobalSettings();
 
@@ -181,20 +185,19 @@ export default function ManageInvoicesTab({ onEditInvoice }: ManageInvoicesTabPr
             </div>
             <div>
                 <p className="text-xs text-muted-foreground mb-1">Payment Status</p>
-                <Select
-                    value={invoice.paymentStatus}
-                    onValueChange={(newStatus) => handleUpdatePaymentStatus(invoice.id!, newStatus as InvoicePaymentStatus)}
+                <Button
+                    variant="outline"
+                    type="button"
+                    className="h-9 w-full justify-between text-xs font-normal"
                     disabled={isUpdating === invoice.id || isSending === invoice.id || isDownloading === invoice.id}
-                  >
-                    <SelectTrigger className="h-9 text-xs">
-                       <Badge variant={getStatusBadgeVariant(invoice.paymentStatus)} className="capitalize">{invoice.paymentStatus}</Badge>
-                    </SelectTrigger>
-                    <SelectContent>
-                      {paymentStatusOptions.map(status => (
-                        <SelectItem key={status} value={status} className="text-xs">{status}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                    onClick={() => {
+                        setInvoiceToChangeStatus(invoice);
+                        setIsStatusDialogOpen(true);
+                    }}
+                >
+                    <Badge variant={getStatusBadgeVariant(invoice.paymentStatus)} className="capitalize">{invoice.paymentStatus}</Badge>
+                    <ChevronsUpDown className="ml-1 h-3.5 w-3.5 shrink-0 opacity-50" />
+                </Button>
             </div>
             <div className="flex flex-wrap justify-end gap-2 pt-2 border-t mt-2">
                 <Button variant="outline" size="sm" className="text-xs h-8" onClick={() => onEditInvoice(invoice)} disabled={isUpdating === invoice.id || isSending === invoice.id || isDownloading === invoice.id}>
@@ -270,20 +273,19 @@ export default function ManageInvoicesTab({ onEditInvoice }: ManageInvoicesTabPr
                     <TableCell>{formatDate(invoice.invoiceDate)}</TableCell>
                     <TableCell className="text-right">{invoice.totalAmount.toFixed(2)}</TableCell>
                     <TableCell>
-                    <Select
-                        value={invoice.paymentStatus}
-                        onValueChange={(newStatus) => handleUpdatePaymentStatus(invoice.id!, newStatus as InvoicePaymentStatus)}
+                    <Button
+                        variant="outline"
+                        type="button"
+                        className="h-8 text-xs min-w-[100px] sm:min-w-[120px] justify-between font-normal"
                         disabled={isUpdating === invoice.id || isSending === invoice.id || isDownloading === invoice.id}
+                        onClick={() => {
+                            setInvoiceToChangeStatus(invoice);
+                            setIsStatusDialogOpen(true);
+                        }}
                     >
-                        <SelectTrigger className="h-8 text-xs min-w-[100px] sm:min-w-[120px]">
                         <Badge variant={getStatusBadgeVariant(invoice.paymentStatus)} className="capitalize">{invoice.paymentStatus}</Badge>
-                        </SelectTrigger>
-                        <SelectContent>
-                        {paymentStatusOptions.map(status => (
-                            <SelectItem key={status} value={status} className="text-xs">{status}</SelectItem>
-                        ))}
-                        </SelectContent>
-                    </Select>
+                        <ChevronsUpDown className="ml-1 h-3.5 w-3.5 shrink-0 opacity-50" />
+                    </Button>
                     </TableCell>
                     <TableCell className="text-right">
                       <div className="flex justify-end items-center gap-1.5">
@@ -326,6 +328,42 @@ export default function ManageInvoicesTab({ onEditInvoice }: ManageInvoicesTabPr
           {invoices.map(renderMobileCard)}
         </div>
 
+        {invoiceToChangeStatus && (
+          <Dialog open={isStatusDialogOpen} onOpenChange={setIsStatusDialogOpen}>
+            <DialogContent className="w-[calc(100%-6px)] sm:max-w-[425px]">
+              <DialogHeader>
+                <DialogTitle>Update Payment Status</DialogTitle>
+                <DialogDescription>
+                  Select payment status for Invoice {invoiceToChangeStatus.invoiceNumber}.
+                </DialogDescription>
+              </DialogHeader>
+              <div className="py-4">
+                <ScrollArea className="h-[250px] rounded-md border p-2">
+                  <div className="space-y-1">
+                    {paymentStatusOptions.map((s) => (
+                      <Button
+                        key={s}
+                        variant={invoiceToChangeStatus.paymentStatus === s ? "secondary" : "ghost"}
+                        className="w-full justify-start text-left h-auto py-2.5 px-3 relative"
+                        onClick={() => {
+                          handleUpdatePaymentStatus(invoiceToChangeStatus.id!, s);
+                          setIsStatusDialogOpen(false);
+                          setInvoiceToChangeStatus(null);
+                        }}
+                        type="button"
+                      >
+                        <span className="text-sm font-medium">{s}</span>
+                        {invoiceToChangeStatus.paymentStatus === s && (
+                          <Check className="absolute right-3 top-3 h-4 w-4 text-green-500" />
+                        )}
+                      </Button>
+                    ))}
+                  </div>
+                </ScrollArea>
+              </div>
+            </DialogContent>
+          </Dialog>
+        )}
       </CardContent>
     </Card>
   );

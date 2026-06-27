@@ -8,11 +8,10 @@ import { Button } from "@/components/ui/button";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDescription } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import type { HomepageAd, AdActionType, AdPlacement, FirestoreCategory, FirestoreService } from '@/types/firestore';
 import { useEffect, useState, useRef, useMemo, useCallback } from "react";
-import { Loader2, Image as ImageIconLucide, Trash2, ExternalLink, ListChecks, ShoppingBag, Search, Tags, CheckCircle } from "lucide-react";
+import { Loader2, Image as ImageIconLucide, Trash2, ExternalLink, ListChecks, ShoppingBag, Search, Tags, CheckCircle, Check, ChevronsUpDown } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from "@/components/ui/dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
@@ -78,6 +77,8 @@ export default function AdForm({ onSubmit: onSubmitProp, initialData, onCancel, 
   const watchedActionType = form.watch("actionType");
 
   const [isCategoryPickerOpen, setIsCategoryPickerOpen] = useState(false);
+  const [isActionTypePickerOpen, setIsActionTypePickerOpen] = useState(false);
+  const [isPlacementPickerOpen, setIsPlacementPickerOpen] = useState(false);
   const [categorySearch, setCategorySearch] = useState("");
   const [isServicePickerOpen, setIsServicePickerOpen] = useState(false);
   const [serviceSearch, setServiceSearch] = useState("");
@@ -214,7 +215,61 @@ export default function AdForm({ onSubmit: onSubmitProp, initialData, onCancel, 
         <FormField control={form.control} name="imageHint" render={({ field }) => (<FormItem><FormLabel>Image AI Hint</FormLabel><FormControl><Input placeholder="e.g., summer sale offer" {...field} disabled={effectiveIsSubmitting} /></FormControl><FormMessage /></FormItem>)}/>
         
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <FormField control={form.control} name="actionType" render={({ field }) => (<FormItem><FormLabel>Action Type</FormLabel><Select onValueChange={(value) => { field.onChange(value as AdActionType); form.setValue('targetValue', ''); }} value={field.value} disabled={effectiveIsSubmitting}><FormControl><SelectTrigger><SelectValue placeholder="Select action" /></SelectTrigger></FormControl><SelectContent>{adActionTypes.map(type => (<SelectItem key={type} value={type}>{type.charAt(0).toUpperCase() + type.slice(1)}</SelectItem>))}</SelectContent></Select><FormMessage /></FormItem>)}/>
+          <FormField control={form.control} name="actionType" render={({ field }) => (
+            <FormItem className="flex flex-col">
+              <FormLabel className="mb-2">Action Type</FormLabel>
+              <Dialog open={isActionTypePickerOpen} onOpenChange={setIsActionTypePickerOpen}>
+                <DialogTrigger asChild>
+                  <Button
+                    variant="outline"
+                    role="combobox"
+                    className={cn(
+                      "w-full justify-between text-left font-normal h-10",
+                      !field.value && "text-muted-foreground"
+                    )}
+                    disabled={effectiveIsSubmitting}
+                    type="button"
+                  >
+                    {field.value ? field.value.charAt(0).toUpperCase() + field.value.slice(1) : "Select action"}
+                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                  </Button>
+                </DialogTrigger>
+                <DialogContent className="w-[calc(100%-6px)] sm:max-w-[425px]">
+                  <DialogHeader>
+                    <DialogTitle>Select Action Type</DialogTitle>
+                    <DialogDescription>
+                      Choose the action triggered when clicking the ad.
+                    </DialogDescription>
+                  </DialogHeader>
+                  <div className="py-4">
+                    <ScrollArea className="h-[200px] rounded-md border p-2">
+                      <div className="space-y-1">
+                        {adActionTypes.map((type) => (
+                          <Button
+                            key={type}
+                            variant={field.value === type ? "secondary" : "ghost"}
+                            className="w-full justify-start text-left h-auto py-2.5 px-3 relative"
+                            onClick={() => {
+                              field.onChange(type as AdActionType);
+                              form.setValue('targetValue', '');
+                              setIsActionTypePickerOpen(false);
+                            }}
+                            type="button"
+                          >
+                            <span className="text-sm font-medium">{type.charAt(0).toUpperCase() + type.slice(1)}</span>
+                            {field.value === type && (
+                              <Check className="absolute right-3 top-3 h-4 w-4 text-green-500" />
+                            )}
+                          </Button>
+                        ))}
+                      </div>
+                    </ScrollArea>
+                  </div>
+                </DialogContent>
+              </Dialog>
+              <FormMessage />
+            </FormItem>
+          )}/>
           <FormField control={form.control} name="targetValue" render={({ field }) => (
             <FormItem>
               <FormLabel>Target Value <span className="text-destructive">*</span>
@@ -377,7 +432,62 @@ export default function AdForm({ onSubmit: onSubmitProp, initialData, onCancel, 
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <FormField control={form.control} name="placement" render={({ field }) => (<FormItem><FormLabel>Placement</FormLabel><Select onValueChange={field.onChange} value={field.value} disabled={effectiveIsSubmitting}><FormControl><SelectTrigger><SelectValue placeholder="Select placement" /></SelectTrigger></FormControl><SelectContent>{adPlacements.map(place => (<SelectItem key={place} value={place}>{place.replace(/_/g, ' ').toLowerCase().replace(/\b\w/g, l => l.toUpperCase())}</SelectItem>))}</SelectContent></Select><FormMessage /></FormItem>)}/>
+            <FormField control={form.control} name="placement" render={({ field }) => (
+              <FormItem className="flex flex-col">
+                <FormLabel className="mb-2">Placement</FormLabel>
+                <Dialog open={isPlacementPickerOpen} onOpenChange={setIsPlacementPickerOpen}>
+                  <DialogTrigger asChild>
+                    <Button
+                      variant="outline"
+                      role="combobox"
+                      className={cn(
+                        "w-full justify-between text-left font-normal h-10",
+                        !field.value && "text-muted-foreground"
+                      )}
+                      disabled={effectiveIsSubmitting}
+                      type="button"
+                    >
+                      {field.value ? field.value.replace(/_/g, ' ').toLowerCase().replace(/\b\w/g, l => l.toUpperCase()) : "Select placement"}
+                      <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent className="w-[calc(100%-6px)] sm:max-w-[425px]">
+                    <DialogHeader>
+                      <DialogTitle>Select Placement</DialogTitle>
+                      <DialogDescription>
+                        Choose where the ad will be placed on the home page.
+                      </DialogDescription>
+                    </DialogHeader>
+                    <div className="py-4">
+                      <ScrollArea className="h-[200px] rounded-md border p-2">
+                        <div className="space-y-1">
+                          {adPlacements.map((place) => (
+                            <Button
+                              key={place}
+                              variant={field.value === place ? "secondary" : "ghost"}
+                              className="w-full justify-start text-left h-auto py-2.5 px-3 relative"
+                              onClick={() => {
+                                field.onChange(place as AdPlacement);
+                                setIsPlacementPickerOpen(false);
+                              }}
+                              type="button"
+                            >
+                              <span className="text-sm font-medium">
+                                {place.replace(/_/g, ' ').toLowerCase().replace(/\b\w/g, l => l.toUpperCase())}
+                              </span>
+                              {field.value === place && (
+                                <Check className="absolute right-3 top-3 h-4 w-4 text-green-500" />
+                              )}
+                            </Button>
+                          ))}
+                        </div>
+                      </ScrollArea>
+                    </div>
+                  </DialogContent>
+                </Dialog>
+                <FormMessage />
+              </FormItem>
+            )}/>
             <FormField control={form.control} name="order" render={({ field }) => (<FormItem><FormLabel>Order</FormLabel><FormControl><Input type="number" placeholder="0" {...field} disabled={effectiveIsSubmitting} /></FormControl><FormDescription>Sort order within the same placement.</FormDescription><FormMessage /></FormItem>)}/>
         </div>
         <FormField control={form.control} name="isActive" render={({ field }) => (<FormItem className="flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm"><div className="space-y-0.5"><FormLabel>Ad Active</FormLabel><FormDescription>Enable this ad to be shown.</FormDescription></div><FormControl><Switch checked={field.value} onCheckedChange={field.onChange} disabled={effectiveIsSubmitting} /></FormControl></FormItem>)}/>

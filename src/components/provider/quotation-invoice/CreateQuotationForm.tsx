@@ -11,10 +11,10 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from "@/components/ui/dialog";
 import { Card, CardContent, CardHeader, CardTitle, CardFooter, CardDescription } from "@/components/ui/card";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
-import { Loader2, FileText, UserPlus, PlusCircle, Trash2, CalendarIcon, Save, Send, Download, UserCircle as UserIcon, XCircle } from "lucide-react";
+import { Loader2, FileText, UserPlus, PlusCircle, Trash2, CalendarIcon, Save, Send, Download, UserCircle as UserIcon, XCircle, Check, ChevronsUpDown } from "lucide-react";
 import type { FirestoreUser, QuotationItem, FirestoreQuotation, QuotationStatus, CompanyDetailsForPdf } from '@/types/firestore';
 import { db } from '@/lib/firebase';
 import { collection, getDocs, addDoc, Timestamp, query, orderBy, doc, setDoc, updateDoc, getDoc, where, documentId } from "firebase/firestore";
@@ -81,6 +81,7 @@ export default function CreateQuotationForm({ initialData, onSaveSuccess }: Crea
   const [userSearchTerm, setUserSearchTerm] = useState("");
   const [isUserSearchOpen, setIsUserSearchOpen] = useState(false);
   const [selectedUserForDisplay, setSelectedUserForDisplay] = useState<{name: string, email: string} | null>(null);
+  const [isStatusPickerOpen, setIsStatusPickerOpen] = useState(false);
 
   const isEditing = !!initialData?.id;
 
@@ -337,7 +338,62 @@ export default function CreateQuotationForm({ initialData, onSaveSuccess }: Crea
               </div>
               <FormField control={form.control} name="serviceTitle" render={({ field }) => (<FormItem><FormLabel>Service Title <span className="text-destructive">*</span></FormLabel><FormControl><Input placeholder="e.g., Full Home Interior Painting" {...field} disabled={isSaving} /></FormControl><FormMessage /></FormItem>)}/>
               <FormField control={form.control} name="serviceDescription" render={({ field }) => (<FormItem><FormLabel>Service Description (Optional)</FormLabel><FormControl><Textarea placeholder="Detailed scope of work..." {...field} rows={3} disabled={isSaving} /></FormControl><FormMessage /></FormItem>)}/>
-              {(isEditing || initialData?.status) && (<FormField control={form.control} name="status" render={({ field }) => (<FormItem><FormLabel>Status</FormLabel><Select onValueChange={field.onChange} value={field.value} disabled={isSaving}><FormControl><SelectTrigger><SelectValue placeholder="Select status" /></SelectTrigger></FormControl><SelectContent>{quotationStatusOptions.map(s => (<SelectItem key={s} value={s}>{s}</SelectItem>))}</SelectContent></Select><FormMessage /></FormItem>)}/>)}
+              {(isEditing || initialData?.status) && (
+                <FormField control={form.control} name="status" render={({ field }) => (
+                  <FormItem className="flex flex-col">
+                    <FormLabel className="mb-2">Status</FormLabel>
+                    <Dialog open={isStatusPickerOpen} onOpenChange={setIsStatusPickerOpen}>
+                      <DialogTrigger asChild>
+                        <Button
+                          variant="outline"
+                          role="combobox"
+                          className={cn(
+                            "w-full justify-between text-left font-normal h-10",
+                            !field.value && "text-muted-foreground"
+                          )}
+                          disabled={isSaving}
+                          type="button"
+                        >
+                          {field.value || "Select status"}
+                          <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                        </Button>
+                      </DialogTrigger>
+                      <DialogContent className="w-[calc(100%-6px)] sm:max-w-[425px]">
+                        <DialogHeader>
+                          <DialogTitle>Select Status</DialogTitle>
+                          <DialogDescription>
+                            Choose the current status for this quotation.
+                          </DialogDescription>
+                        </DialogHeader>
+                        <div className="py-4">
+                          <ScrollArea className="h-[200px] rounded-md border p-2">
+                            <div className="space-y-1">
+                              {quotationStatusOptions.map((s) => (
+                                <Button
+                                  key={s}
+                                  variant={field.value === s ? "secondary" : "ghost"}
+                                  className="w-full justify-start text-left h-auto py-2.5 px-3 relative"
+                                  onClick={() => {
+                                    field.onChange(s);
+                                    setIsStatusPickerOpen(false);
+                                  }}
+                                  type="button"
+                                >
+                                  <span className="text-sm font-medium">{s}</span>
+                                  {field.value === s && (
+                                    <Check className="absolute right-3 top-3 h-4 w-4 text-green-500" />
+                                  )}
+                                </Button>
+                              ))}
+                            </div>
+                          </ScrollArea>
+                        </div>
+                      </DialogContent>
+                    </Dialog>
+                    <FormMessage />
+                  </FormItem>
+                )}/>
+              )}
             </div>
             <div className="space-y-3 p-4 border rounded-md">
               <h3 className="text-lg font-medium">Items / Services</h3>

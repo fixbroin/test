@@ -8,11 +8,13 @@ import { Button } from "@/components/ui/button";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDescription } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from "@/components/ui/dialog";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { cn } from "@/lib/utils";
 import { Switch } from "@/components/ui/switch";
 import type { FirestoreSlide, SlideButtonLinkType, FirestoreCategory, FirestoreSubCategory, FirestoreService } from "@/types/firestore";
 import { useEffect, useState, useRef } from "react";
-import { Loader2, Image as ImageIconLucide, Trash2 } from "lucide-react";
+import { Loader2, Image as ImageIconLucide, Trash2, Check, ChevronsUpDown, Search } from "lucide-react";
 import NextImage from 'next/image';
 import { useToast } from "@/hooks/use-toast";
 import { storage } from '@/lib/firebase';
@@ -93,6 +95,9 @@ export default function SlideshowForm({
 
   const [isFormBusyForImage, setIsFormBusyForImage] = useState(false);
   const [statusMessage, setStatusMessage] = useState("");
+  const [isLinkTypePickerOpen, setIsLinkTypePickerOpen] = useState(false);
+  const [isValuePickerOpen, setIsValuePickerOpen] = useState(false);
+  const [valueSearch, setValueSearch] = useState("");
 
   const form = useForm<SlideFormData>({
     resolver: zodResolver(slideFormSchema),
@@ -111,6 +116,12 @@ export default function SlideshowForm({
 
   const watchedLinkType = form.watch("buttonLinkType");
   const watchedButtonText = form.watch("buttonText");
+
+  useEffect(() => {
+    if (!isValuePickerOpen) {
+      setValueSearch("");
+    }
+  }, [isValuePickerOpen]);
 
   useEffect(() => {
     if (initialData) {
@@ -288,6 +299,10 @@ export default function SlideshowForm({
   const effectiveIsSubmitting = isParentSubmitting || isFormBusyForImage;
   const showLinkRequiredAsterisk = !!watchedButtonText?.trim() || !!watchedLinkType;
 
+  const filteredCats = categories.filter(c => c.name.toLowerCase().includes(valueSearch.toLowerCase()));
+  const filteredSubs = subCategories.filter(sc => sc.name.toLowerCase().includes(valueSearch.toLowerCase()));
+  const filteredServs = services.filter(s => s.name.toLowerCase().includes(valueSearch.toLowerCase()));
+
   return (
     <Form {...form} key={initialData ? `slide-form-${initialData.id}` : 'new-slide-form'}>
       <form onSubmit={form.handleSubmit(handleSubmit)} className="flex-grow space-y-4 p-6 overflow-y-auto">
@@ -342,26 +357,69 @@ export default function SlideshowForm({
             control={form.control}
             name="buttonLinkType"
             render={({ field }) => (
-                <FormItem>
-                    <FormLabel>Link Type {showLinkRequiredAsterisk && <span className="text-destructive">*</span>}</FormLabel>
-                    <Select
-                        key={`link-type-select-${initialData?.id || 'new'}-${field.value}`}
-                        onValueChange={(value) => {
-                            field.onChange(value as SlideButtonLinkType | undefined); // Cast to allow undefined for reset
-                            form.setValue('buttonLinkValue', '');
-                            form.trigger('buttonLinkValue');
-                        }}
-                        value={field.value || undefined} // Ensure undefined is passed if field.value is null/empty for placeholder
-                        disabled={effectiveIsSubmitting}
-                    >
-                        <FormControl><SelectTrigger><SelectValue placeholder="Select link type (for image or button)" /></SelectTrigger></FormControl>
-                        <SelectContent>
-                            <SelectItem value="url">Custom URL</SelectItem>
-                            <SelectItem value="category">Category</SelectItem>
-                            <SelectItem value="subcategory">Sub-Category</SelectItem>
-                            <SelectItem value="service">Service</SelectItem>
-                        </SelectContent>
-                    </Select>
+                <FormItem className="flex flex-col">
+                    <FormLabel className="mb-2">Link Type {showLinkRequiredAsterisk && <span className="text-destructive">*</span>}</FormLabel>
+                    <Dialog open={isLinkTypePickerOpen} onOpenChange={setIsLinkTypePickerOpen}>
+                        <DialogTrigger asChild>
+                            <Button
+                                variant="outline"
+                                role="combobox"
+                                className={cn(
+                                    "w-full justify-between text-left font-normal h-10",
+                                    !field.value && "text-muted-foreground"
+                                )}
+                                disabled={effectiveIsSubmitting}
+                                type="button"
+                            >
+                                {field.value === "url"
+                                    ? "Custom URL"
+                                    : field.value === "category"
+                                    ? "Category"
+                                    : field.value === "subcategory"
+                                    ? "Sub-Category"
+                                    : field.value === "service"
+                                    ? "Service"
+                                    : "Select link type..."}
+                                <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                            </Button>
+                        </DialogTrigger>
+                        <DialogContent className="w-[calc(100%-6px)] sm:max-w-[425px]">
+                            <DialogHeader>
+                                <DialogTitle>Select Link Type</DialogTitle>
+                                <DialogDescription>
+                                    Choose where clicking this slide will redirect users.
+                                </DialogDescription>
+                            </DialogHeader>
+                            <div className="py-4">
+                                <div className="space-y-1">
+                                    {[
+                                        { value: "url", label: "Custom URL" },
+                                        { value: "category", label: "Category" },
+                                        { value: "subcategory", label: "Sub-Category" },
+                                        { value: "service", label: "Service" },
+                                    ].map((opt) => (
+                                        <Button
+                                            key={opt.value}
+                                            variant={field.value === opt.value ? "secondary" : "ghost"}
+                                            className="w-full justify-start text-left h-auto py-3 px-3 relative"
+                                            onClick={() => {
+                                                field.onChange(opt.value as SlideButtonLinkType);
+                                                form.setValue('buttonLinkValue', '');
+                                                form.trigger('buttonLinkValue');
+                                                setIsLinkTypePickerOpen(false);
+                                            }}
+                                            type="button"
+                                        >
+                                            <span className="text-sm font-medium">{opt.label}</span>
+                                            {field.value === opt.value && (
+                                                <Check className="absolute right-3 top-3 h-4 w-4 text-green-500" />
+                                            )}
+                                        </Button>
+                                    ))}
+                                </div>
+                            </div>
+                        </DialogContent>
+                    </Dialog>
                     <FormDescription>This link applies to the image if no button text is set.</FormDescription>
                     <FormMessage />
                 </FormItem>
@@ -370,47 +428,143 @@ export default function SlideshowForm({
         <FormField
             control={form.control}
             name="buttonLinkValue"
-            render={({ field }) => (
-                <FormItem>
-                    <FormLabel>Link Value {showLinkRequiredAsterisk && <span className="text-destructive">*</span>}</FormLabel>
-                    {watchedLinkType === 'url' && <FormControl><Input placeholder="https://example.com/offer" {...field} value={field.value || ""} disabled={effectiveIsSubmitting || !watchedLinkType} /></FormControl>}
-                    {watchedLinkType === 'category' && (
-                        <Select
-                            key={`link-value-cat-${initialData?.id || 'new'}-${field.value}-${categories.length}`}
-                            onValueChange={field.onChange}
-                            value={field.value || undefined}
-                            disabled={effectiveIsSubmitting || categories.length === 0 || !watchedLinkType}
-                        >
-                            <FormControl><SelectTrigger><SelectValue placeholder="Select a category" /></SelectTrigger></FormControl>
-                            <SelectContent>{categories.map(c => <SelectItem key={c.id} value={c.slug}>{c.name}</SelectItem>)}</SelectContent>
-                        </Select>
-                    )}
-                    {watchedLinkType === 'subcategory' && (
-                         <Select
-                            key={`link-value-subcat-${initialData?.id || 'new'}-${field.value}-${subCategories.length}`}
-                            onValueChange={field.onChange}
-                            value={field.value || undefined}
-                            disabled={effectiveIsSubmitting || subCategories.length === 0 || !watchedLinkType}
-                         >
-                            <FormControl><SelectTrigger><SelectValue placeholder="Select a sub-category" /></SelectTrigger></FormControl>
-                            <SelectContent>{subCategories.map(sc => <SelectItem key={sc.id} value={sc.slug}>{sc.name}</SelectItem>)}</SelectContent>
-                        </Select>
-                    )}
-                    {watchedLinkType === 'service' && (
-                        <Select
-                            key={`link-value-serv-${initialData?.id || 'new'}-${field.value}-${services.length}`}
-                            onValueChange={field.onChange}
-                            value={field.value || undefined}
-                            disabled={effectiveIsSubmitting || services.length === 0 || !watchedLinkType}
-                        >
-                            <FormControl><SelectTrigger><SelectValue placeholder="Select a service" /></SelectTrigger></FormControl>
-                            <SelectContent>{services.map(s => <SelectItem key={s.id} value={s.slug}>{s.name}</SelectItem>)}</SelectContent>
-                        </Select>
-                    )}
-                    {!watchedLinkType && <Input placeholder="Select Link Type first" disabled={true} />}
-                    <FormMessage />
-                </FormItem>
-            )}
+            render={({ field }) => {
+                const selectedCat = categories.find(c => c.slug === field.value);
+                const selectedSub = subCategories.find(sc => sc.slug === field.value);
+                const selectedServ = services.find(s => s.slug === field.value);
+                const placeholder = 
+                    watchedLinkType === 'category'
+                        ? (selectedCat ? selectedCat.name : "Select a category")
+                        : watchedLinkType === 'subcategory'
+                        ? (selectedSub ? selectedSub.name : "Select a sub-category")
+                        : watchedLinkType === 'service'
+                        ? (selectedServ ? selectedServ.name : "Select a service")
+                        : "Select value...";
+
+                return (
+                    <FormItem className="flex flex-col">
+                        <FormLabel className="mb-2">Link Value {showLinkRequiredAsterisk && <span className="text-destructive">*</span>}</FormLabel>
+                        {watchedLinkType === 'url' && (
+                            <FormControl>
+                                <Input placeholder="https://example.com/offer" {...field} value={field.value || ""} disabled={effectiveIsSubmitting || !watchedLinkType} />
+                            </FormControl>
+                        )}
+                        {(watchedLinkType === 'category' || watchedLinkType === 'subcategory' || watchedLinkType === 'service') && (
+                            <Dialog open={isValuePickerOpen} onOpenChange={setIsValuePickerOpen}>
+                                <DialogTrigger asChild>
+                                    <Button
+                                        variant="outline"
+                                        role="combobox"
+                                        className={cn(
+                                            "w-full justify-between text-left font-normal h-10",
+                                            !field.value && "text-muted-foreground"
+                                        )}
+                                        disabled={effectiveIsSubmitting || !watchedLinkType}
+                                        type="button"
+                                    >
+                                        <span>{placeholder}</span>
+                                        <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                                    </Button>
+                                </DialogTrigger>
+                                <DialogContent className="w-[calc(100%-6px)] sm:max-w-[425px]">
+                                    <DialogHeader>
+                                        <DialogTitle>Select {watchedLinkType === 'category' ? 'Category' : watchedLinkType === 'subcategory' ? 'Sub-Category' : 'Service'}</DialogTitle>
+                                        <DialogDescription>
+                                            Search and select an item to link this slide to.
+                                        </DialogDescription>
+                                    </DialogHeader>
+                                    <div className="relative my-2">
+                                        <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                                        <Input
+                                            placeholder="Search..."
+                                            className="pl-9 h-10"
+                                            value={valueSearch}
+                                            onChange={(e) => setValueSearch(e.target.value)}
+                                        />
+                                    </div>
+                                    <div className="py-2">
+                                        <ScrollArea className="h-[250px] rounded-md border p-2">
+                                            <div className="space-y-1">
+                                                {watchedLinkType === 'category' && (
+                                                    filteredCats.length === 0 ? (
+                                                        <p className="text-sm text-muted-foreground text-center py-4">No categories found.</p>
+                                                    ) : (
+                                                        filteredCats.map(c => (
+                                                            <Button
+                                                                key={c.id}
+                                                                variant={field.value === c.slug ? "secondary" : "ghost"}
+                                                                className="w-full justify-start text-left h-auto py-2.5 px-3 relative"
+                                                                onClick={() => {
+                                                                    field.onChange(c.slug);
+                                                                    setIsValuePickerOpen(false);
+                                                                }}
+                                                                type="button"
+                                                            >
+                                                                <span className="text-sm font-medium">{c.name}</span>
+                                                                {field.value === c.slug && (
+                                                                    <Check className="absolute right-3 top-3 h-4 w-4 text-green-500" />
+                                                                )}
+                                                            </Button>
+                                                        ))
+                                                    )
+                                                )}
+                                                {watchedLinkType === 'subcategory' && (
+                                                    filteredSubs.length === 0 ? (
+                                                        <p className="text-sm text-muted-foreground text-center py-4">No sub-categories found.</p>
+                                                    ) : (
+                                                        filteredSubs.map(sc => (
+                                                            <Button
+                                                                key={sc.id}
+                                                                variant={field.value === sc.slug ? "secondary" : "ghost"}
+                                                                className="w-full justify-start text-left h-auto py-2.5 px-3 relative"
+                                                                onClick={() => {
+                                                                    field.onChange(sc.slug);
+                                                                    setIsValuePickerOpen(false);
+                                                                }}
+                                                                type="button"
+                                                            >
+                                                                <span className="text-sm font-medium">{sc.name}</span>
+                                                                {field.value === sc.slug && (
+                                                                    <Check className="absolute right-3 top-3 h-4 w-4 text-green-500" />
+                                                                )}
+                                                            </Button>
+                                                        ))
+                                                    )
+                                                )}
+                                                {watchedLinkType === 'service' && (
+                                                    filteredServs.length === 0 ? (
+                                                        <p className="text-sm text-muted-foreground text-center py-4">No services found.</p>
+                                                    ) : (
+                                                        filteredServs.map(s => (
+                                                            <Button
+                                                                key={s.id}
+                                                                variant={field.value === s.slug ? "secondary" : "ghost"}
+                                                                className="w-full justify-start text-left h-auto py-2.5 px-3 relative"
+                                                                onClick={() => {
+                                                                    field.onChange(s.slug);
+                                                                    setIsValuePickerOpen(false);
+                                                                }}
+                                                                type="button"
+                                                            >
+                                                                <span className="text-sm font-medium">{s.name}</span>
+                                                                {field.value === s.slug && (
+                                                                    <Check className="absolute right-3 top-3 h-4 w-4 text-green-500" />
+                                                                )}
+                                                            </Button>
+                                                        ))
+                                                    )
+                                                )}
+                                            </div>
+                                        </ScrollArea>
+                                    </div>
+                                </DialogContent>
+                            </Dialog>
+                        )}
+                        {!watchedLinkType && <Input placeholder="Select Link Type first" disabled={true} />}
+                        <FormMessage />
+                    </FormItem>
+                );
+            }}
         />
         <FormField control={form.control} name="isActive" render={({ field }) => (
             <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm bg-background/50">

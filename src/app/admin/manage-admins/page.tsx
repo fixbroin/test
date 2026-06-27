@@ -29,13 +29,7 @@ import {
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { 
-  Select, 
-  SelectContent, 
-  SelectItem, 
-  SelectTrigger, 
-  SelectValue 
-} from "@/components/ui/select";
+import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 import PermissionGuard from '@/components/admin/PermissionGuard';
 import { 
@@ -50,7 +44,9 @@ import {
   Eye,
   EyeOff,
   Settings2,
-  Edit
+  Edit,
+  Check,
+  ChevronsUpDown
 } from "lucide-react";
 import { AdminPermissions, PERMISSION_MODULES, DEFAULT_PERMISSIONS } from '@/config/rbac';
 import { ADMIN_EMAIL } from '@/contexts/AuthContext';
@@ -72,6 +68,7 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
+  DialogTrigger,
 } from "@/components/ui/dialog";
 import { Checkbox } from "@/components/ui/checkbox";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -127,6 +124,7 @@ export default function ManageAdminsPage() {
   const [editingAdmin, setEditingAdmin] = useState<AdminUser | null>(null);
   const [isUpdating, setIsUpdating] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [isRolePickerOpen, setIsRolePickerOpen] = useState(false);
 
   useEffect(() => {
     if (!isSuperAdmin) return;
@@ -379,19 +377,66 @@ export default function ManageAdminsPage() {
                         )}
                     </div>
                     <div className="space-y-2">
-                        <label className="text-xs font-black uppercase tracking-widest text-muted-foreground">Base Role</label>
-                        <Select 
-                            value={newAdmin.role} 
-                            onValueChange={(value) => setNewAdmin({...newAdmin, role: value})}
-                        >
-                            <SelectTrigger className="rounded-xl bg-muted/30 border-none h-12">
-                                <SelectValue placeholder="Select Role" />
-                            </SelectTrigger>
-                            <SelectContent className="rounded-xl border-none shadow-2xl">
-                                <SelectItem value="staff_admin">Staff Admin (Custom Permissions)</SelectItem>
-                                <SelectItem value="super_admin">Super Admin (All Permissions)</SelectItem>
-                            </SelectContent>
-                        </Select>
+                        <label className="text-xs font-black uppercase tracking-widest text-muted-foreground mb-1 block">Base Role</label>
+                        <Dialog open={isRolePickerOpen} onOpenChange={setIsRolePickerOpen}>
+                            <DialogTrigger asChild>
+                                <Button
+                                    variant="outline"
+                                    role="combobox"
+                                    className="w-full justify-between text-left font-normal h-12 rounded-xl bg-muted/30 border-none px-4"
+                                    type="button"
+                                >
+                                    <span>
+                                        {newAdmin.role === "staff_admin" 
+                                            ? "Staff Admin (Custom Permissions)" 
+                                            : newAdmin.role === "super_admin" 
+                                            ? "Super Admin (All Permissions)" 
+                                            : "Select Role..."}
+                                    </span>
+                                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                                </Button>
+                            </DialogTrigger>
+                            <DialogContent className="w-[calc(100%-6px)] sm:max-w-[425px]">
+                                <DialogHeader>
+                                    <DialogTitle>Select Role</DialogTitle>
+                                    <DialogDescription>
+                                        Choose the base administrative role.
+                                    </DialogDescription>
+                                </DialogHeader>
+                                <div className="py-4">
+                                    <div className="space-y-1">
+                                        <Button
+                                            variant={newAdmin.role === "staff_admin" ? "secondary" : "ghost"}
+                                            className="w-full justify-start text-left h-auto py-3 px-3 relative"
+                                            onClick={() => {
+                                                setNewAdmin({...newAdmin, role: "staff_admin"});
+                                                setIsRolePickerOpen(false);
+                                            }}
+                                            type="button"
+                                        >
+                                            <span className="text-sm font-medium">Staff Admin (Custom Permissions)</span>
+                                            {newAdmin.role === "staff_admin" && (
+                                                <Check className="absolute right-3 top-3 h-4 w-4 text-green-500" />
+                                            )}
+                                        </Button>
+                                        <Button
+                                            variant={newAdmin.role === "super_admin" ? "secondary" : "ghost"}
+                                            className="w-full justify-start text-left h-auto py-3 px-3 relative"
+                                            onClick={() => {
+                                                setNewAdmin({...newAdmin, role: "super_admin"});
+                                                setIsRolePickerOpen(false);
+                                            }}
+                                            type="button"
+                                        >
+                                            <span className="text-sm font-medium">Super Admin (All Permissions)</span>
+                                            {newAdmin.role === "super_admin" && (
+                                                <Check className="absolute right-3 top-3 h-4 w-4 text-green-500" />
+                                            )}
+                                        </Button>
+                                    </div>
+                                </div>
+                            </DialogContent>
+                        </Dialog>
                     </div>
                 </CardContent>
             </Card>

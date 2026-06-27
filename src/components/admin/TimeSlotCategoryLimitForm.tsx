@@ -7,10 +7,12 @@ import * as z from "zod";
 import { Button } from "@/components/ui/button";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDescription } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from "@/components/ui/dialog";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { cn } from "@/lib/utils";
 import type { FirestoreCategory, TimeSlotCategoryLimit } from '@/types/firestore';
 import { useEffect, useState } from "react";
-import { Loader2 } from "lucide-react";
+import { Loader2, Check, ChevronsUpDown, Search } from "lucide-react";
 import { db } from '@/lib/firebase';
 import { doc, setDoc, Timestamp } from "firebase/firestore";
 import { useToast } from "@/hooks/use-toast";
@@ -45,6 +47,14 @@ export default function TimeSlotCategoryLimitForm({
   const { toast } = useToast();
   const [isFormBusy, setIsFormBusy] = useState(false);
   const [selectedCategoryName, setSelectedCategoryName] = useState<string | undefined>(undefined);
+  const [isCategoryPickerOpen, setIsCategoryPickerOpen] = useState(false);
+  const [categorySearch, setCategorySearch] = useState("");
+
+  useEffect(() => {
+    if (!isCategoryPickerOpen) {
+      setCategorySearch("");
+    }
+  }, [isCategoryPickerOpen]);
 
   const form = useForm<TimeSlotLimitFormData>({
     resolver: zodResolver(timeSlotLimitFormSchema),
@@ -111,6 +121,10 @@ export default function TimeSlotCategoryLimitForm({
     ? categories // If editing, show all categories (dropdown will be disabled for categoryId)
     : categories.filter(cat => !existingLimitCategoryIds.includes(cat.id));
 
+  const filteredCategories = availableCategoriesForNewLimit.filter(cat =>
+    cat.name.toLowerCase().includes(categorySearch.toLowerCase())
+  );
+
   const effectiveIsSubmitting = isParentSubmitting || isFormBusy;
 
   return (
@@ -122,29 +136,69 @@ export default function TimeSlotCategoryLimitForm({
           render={({ field }) => (
             <FormItem>
               <FormLabel>Category</FormLabel>
-              <Select
-                onValueChange={field.onChange}
-                value={field.value}
-                disabled={effectiveIsSubmitting || !!initialData} // Disable if editing existing limit
-              >
-                <FormControl>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select a category" />
-                  </SelectTrigger>
-                </FormControl>
-                <SelectContent>
-                  {availableCategoriesForNewLimit.map(cat => (
-                    <SelectItem key={cat.id} value={cat.id}>
-                      {cat.name}
-                    </SelectItem>
-                  ))}
-                  {availableCategoriesForNewLimit.length === 0 && !initialData && (
-                    <div className="p-2 text-center text-sm text-muted-foreground">
-                        All categories have limits.
-                    </div>
-                  )}
-                </SelectContent>
-              </Select>
+              <Dialog open={isCategoryPickerOpen} onOpenChange={setIsCategoryPickerOpen}>
+                <DialogTrigger asChild>
+                  <Button
+                    variant="outline"
+                    role="combobox"
+                    className={cn(
+                      "w-full justify-between text-left font-normal h-10",
+                      !field.value && "text-muted-foreground"
+                    )}
+                    disabled={effectiveIsSubmitting || !!initialData}
+                    type="button"
+                  >
+                    {selectedCategoryName ? selectedCategoryName : "Select a category"}
+                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                  </Button>
+                </DialogTrigger>
+                <DialogContent className="w-[calc(100%-6px)] sm:max-w-[425px]">
+                  <DialogHeader>
+                    <DialogTitle>Select Category</DialogTitle>
+                    <DialogDescription>
+                      Search and select a category.
+                    </DialogDescription>
+                  </DialogHeader>
+                  <div className="relative my-2">
+                    <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <Input
+                      placeholder="Search categories..."
+                      className="pl-9 h-10"
+                      value={categorySearch}
+                      onChange={(e) => setCategorySearch(e.target.value)}
+                    />
+                  </div>
+                  <div className="py-2">
+                    <ScrollArea className="h-[250px] rounded-md border p-2">
+                      <div className="space-y-1">
+                        {filteredCategories.length === 0 ? (
+                          <p className="text-sm text-muted-foreground text-center py-4">
+                            {availableCategoriesForNewLimit.length === 0 && !initialData ? "All categories have limits." : "No categories found."}
+                          </p>
+                        ) : (
+                          filteredCategories.map((cat) => (
+                            <Button
+                              key={cat.id}
+                              variant={field.value === cat.id ? "secondary" : "ghost"}
+                              className="w-full justify-start text-left h-auto py-2.5 px-3 relative"
+                              onClick={() => {
+                                field.onChange(cat.id);
+                                setIsCategoryPickerOpen(false);
+                              }}
+                              type="button"
+                            >
+                              <span className="text-sm font-medium">{cat.name}</span>
+                              {field.value === cat.id && (
+                                <Check className="absolute right-3 top-3 h-4 w-4 text-green-500" />
+                              )}
+                            </Button>
+                          ))
+                        )}
+                      </div>
+                    </ScrollArea>
+                  </div>
+                </DialogContent>
+              </Dialog>
               {!!initialData && <FormDescription>Category cannot be changed for an existing limit.</FormDescription>}
               <FormMessage />
             </FormItem>

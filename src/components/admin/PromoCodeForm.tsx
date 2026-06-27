@@ -8,13 +8,13 @@ import { Button } from "@/components/ui/button";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDescription } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import { Switch } from "@/components/ui/switch";
 import { Calendar } from "@/components/ui/calendar";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose, DialogTrigger } from "@/components/ui/dialog";
 import type { FirestorePromoCode, DiscountType } from '@/types/firestore';
 import { useEffect, useState } from "react";
-import { Loader2, CalendarIcon } from "lucide-react";
+import { Loader2, CalendarIcon, Check, ChevronsUpDown } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { VisuallyHidden } from "@radix-ui/react-visually-hidden";
 import { getTimestampMillis } from "@/lib/utils";
@@ -78,6 +78,7 @@ export default function PromoCodeForm({
 }: PromoCodeFormProps) {
   const [isFromCalendarOpen, setIsFromCalendarOpen] = useState(false);
   const [isUntilCalendarOpen, setIsUntilCalendarOpen] = useState(false);
+  const [isTypePickerOpen, setIsTypePickerOpen] = useState(false);
   
   const form = useForm<PromoCodeFormData>({
     resolver: zodResolver(promoCodeFormSchema),
@@ -172,11 +173,64 @@ export default function PromoCodeForm({
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <FormField control={form.control} name="discountType" render={({ field }) => (
-                    <FormItem><FormLabel>Discount Type</FormLabel>
-                    <Select onValueChange={field.onChange} value={field.value} disabled={isSubmitting}>
-                        <FormControl><SelectTrigger><SelectValue placeholder="Select type" /></SelectTrigger></FormControl>
-                        <SelectContent><SelectItem value="percentage">Percentage (%)</SelectItem><SelectItem value="fixed">Fixed Amount (₹)</SelectItem></SelectContent>
-                    </Select>
+                    <FormItem className="flex flex-col"><FormLabel className="mb-2">Discount Type</FormLabel>
+                    <Dialog open={isTypePickerOpen} onOpenChange={setIsTypePickerOpen}>
+                        <DialogTrigger asChild>
+                            <Button
+                                variant="outline"
+                                role="combobox"
+                                className={cn(
+                                    "w-full justify-between text-left font-normal h-10",
+                                    !field.value && "text-muted-foreground"
+                                )}
+                                disabled={isSubmitting}
+                                type="button"
+                            >
+                                {field.value === "percentage" ? "Percentage (%)" : field.value === "fixed" ? "Fixed Amount (₹)" : "Select type..."}
+                                <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                            </Button>
+                        </DialogTrigger>
+                        <DialogContent className="w-[calc(100%-6px)] sm:max-w-[425px]">
+                            <DialogHeader>
+                                <DialogTitle>Select Discount Type</DialogTitle>
+                                <DialogDescription>
+                                    Choose how the promo code discount is calculated.
+                                </DialogDescription>
+                            </DialogHeader>
+                            <div className="py-4">
+                                <div className="space-y-1">
+                                    <Button
+                                        variant={field.value === "percentage" ? "secondary" : "ghost"}
+                                        className="w-full justify-start text-left h-auto py-3 px-3 relative"
+                                        onClick={() => {
+                                            field.onChange("percentage");
+                                            setIsTypePickerOpen(false);
+                                        }}
+                                        type="button"
+                                    >
+                                        <span className="text-sm font-medium">Percentage (%)</span>
+                                        {field.value === "percentage" && (
+                                            <Check className="absolute right-3 top-3 h-4 w-4 text-green-500" />
+                                        )}
+                                    </Button>
+                                    <Button
+                                        variant={field.value === "fixed" ? "secondary" : "ghost"}
+                                        className="w-full justify-start text-left h-auto py-3 px-3 relative"
+                                        onClick={() => {
+                                            field.onChange("fixed");
+                                            setIsTypePickerOpen(false);
+                                        }}
+                                        type="button"
+                                    >
+                                        <span className="text-sm font-medium">Fixed Amount (₹)</span>
+                                        {field.value === "fixed" && (
+                                            <Check className="absolute right-3 top-3 h-4 w-4 text-green-500" />
+                                        )}
+                                    </Button>
+                                </div>
+                            </div>
+                        </DialogContent>
+                    </Dialog>
                     <FormMessage /></FormItem>
                 )}/>
                 <FormField control={form.control} name="discountValue" render={({ field }) => (

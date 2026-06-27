@@ -5,14 +5,16 @@ import { useState, useEffect } from 'react';
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Loader2, Edit, Trash2, PackageSearch, MoreHorizontal, Send, Download } from "lucide-react";
+import { Loader2, Edit, Trash2, PackageSearch, MoreHorizontal, Send, Download, Check, ChevronsUpDown } from "lucide-react";
 import { db } from '@/lib/firebase';
 import { collection, query, orderBy, onSnapshot, doc, deleteDoc, updateDoc, Timestamp, where } from "firebase/firestore";
 import type { FirestoreQuotation, QuotationStatus, CompanyDetailsForPdf } from '@/types/firestore';
 import { useToast } from "@/hooks/use-toast";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from "@/components/ui/dialog";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { cn } from "@/lib/utils";
 import { Badge } from '@/components/ui/badge';
 import { generateQuotationPdf } from '@/lib/quotationGenerator';
 import { uploadPdfToStorage, triggerPdfDownload, dataUriToBlob } from '@/lib/pdfUtils';
@@ -32,6 +34,8 @@ export default function ManageQuotationsTab({ onEditQuotation }: ManageQuotation
   const [isUpdating, setIsUpdating] = useState<string | null>(null);
   const [isSending, setIsSending] = useState<string | null>(null);
   const [isDownloading, setIsDownloading] = useState<string | null>(null);
+  const [quotationToChangeStatus, setQuotationToChangeStatus] = useState<FirestoreQuotation | null>(null);
+  const [isStatusDialogOpen, setIsStatusDialogOpen] = useState(false);
   const { toast } = useToast();
   const { user: providerUser } = useAuth();
   const { settings: companySettings, isLoading: isLoadingCompanySettings } = useGlobalSettings();
@@ -115,10 +119,19 @@ export default function ManageQuotationsTab({ onEditQuotation }: ManageQuotation
             </div>
             <div>
                 <p className="text-xs text-muted-foreground mb-1">Status</p>
-                <Select value={quotation.status} onValueChange={(s) => handleUpdateStatus(quotation.id!, s as QuotationStatus)} disabled={isUpdating === quotation.id || isSending === quotation.id || isDownloading === quotation.id}>
-                    <SelectTrigger className="h-9 text-xs"><Badge variant={getStatusBadgeVariant(quotation.status) as any} className={`capitalize ${quotation.status === 'Accepted' ? 'bg-green-500' : ''}`}>{quotation.status}</Badge></SelectTrigger>
-                    <SelectContent>{quotationStatusOptions.map(s => (<SelectItem key={s} value={s} className="text-xs">{s}</SelectItem>))}</SelectContent>
-                </Select>
+                <Button
+                    variant="outline"
+                    type="button"
+                    className="h-9 w-full justify-between text-xs font-normal"
+                    disabled={isUpdating === quotation.id || isSending === quotation.id || isDownloading === quotation.id}
+                    onClick={() => {
+                        setQuotationToChangeStatus(quotation);
+                        setIsStatusDialogOpen(true);
+                    }}
+                >
+                    <Badge variant={getStatusBadgeVariant(quotation.status) as any} className={`capitalize ${quotation.status === 'Accepted' ? 'bg-green-500' : ''}`}>{quotation.status}</Badge>
+                    <ChevronsUpDown className="ml-1 h-3.5 w-3.5 shrink-0 opacity-50" />
+                </Button>
             </div>
             <div className="flex flex-wrap justify-end gap-2 pt-2 border-t mt-2">
                 <Button variant="outline" size="sm" className="text-xs h-8" onClick={() => onEditQuotation(quotation)} disabled={isUpdating === quotation.id || isSending === quotation.id || isDownloading === quotation.id}>
@@ -169,12 +182,19 @@ export default function ManageQuotationsTab({ onEditQuotation }: ManageQuotation
                     <TableCell>{formatDate(quotation.quotationDate)}</TableCell>
                     <TableCell className="text-right">{quotation.totalAmount.toFixed(2)}</TableCell>
                     <TableCell>
-                    <Select value={quotation.status} onValueChange={(s) => handleUpdateStatus(quotation.id!, s as QuotationStatus)} disabled={isUpdating === quotation.id || isSending === quotation.id || isDownloading === quotation.id}>
-                        <SelectTrigger className="h-8 text-xs min-w-[120px]">
-                            <Badge variant={getStatusBadgeVariant(quotation.status) as any} className={`capitalize ${quotation.status === 'Accepted' ? 'bg-green-500' : ''}`}>{quotation.status}</Badge>
-                        </SelectTrigger>
-                        <SelectContent>{quotationStatusOptions.map(s => (<SelectItem key={s} value={s} className="text-xs">{s}</SelectItem>))}</SelectContent>
-                    </Select>
+                    <Button
+                        variant="outline"
+                        type="button"
+                        className="h-8 text-xs min-w-[120px] justify-between font-normal"
+                        disabled={isUpdating === quotation.id || isSending === quotation.id || isDownloading === quotation.id}
+                        onClick={() => {
+                            setQuotationToChangeStatus(quotation);
+                            setIsStatusDialogOpen(true);
+                        }}
+                    >
+                        <Badge variant={getStatusBadgeVariant(quotation.status) as any} className={`capitalize ${quotation.status === 'Accepted' ? 'bg-green-500' : ''}`}>{quotation.status}</Badge>
+                        <ChevronsUpDown className="ml-1 h-3.5 w-3.5 shrink-0 opacity-50" />
+                    </Button>
                     </TableCell>
                     <TableCell className="text-right">
                       <div className="flex justify-end items-center gap-1.5">
@@ -209,6 +229,42 @@ export default function ManageQuotationsTab({ onEditQuotation }: ManageQuotation
         <div className="md:hidden">
             {quotations.map(renderMobileCard)}
         </div>
+        {quotationToChangeStatus && (
+          <Dialog open={isStatusDialogOpen} onOpenChange={setIsStatusDialogOpen}>
+            <DialogContent className="w-[calc(100%-6px)] sm:max-w-[425px]">
+              <DialogHeader>
+                <DialogTitle>Update Status</DialogTitle>
+                <DialogDescription>
+                  Select status for Quotation {quotationToChangeStatus.quotationNumber}.
+                </DialogDescription>
+              </DialogHeader>
+              <div className="py-4">
+                <ScrollArea className="h-[250px] rounded-md border p-2">
+                  <div className="space-y-1">
+                    {quotationStatusOptions.map((s) => (
+                      <Button
+                        key={s}
+                        variant={quotationToChangeStatus.status === s ? "secondary" : "ghost"}
+                        className="w-full justify-start text-left h-auto py-2.5 px-3 relative"
+                        onClick={() => {
+                          handleUpdateStatus(quotationToChangeStatus.id!, s);
+                          setIsStatusDialogOpen(false);
+                          setQuotationToChangeStatus(null);
+                        }}
+                        type="button"
+                      >
+                        <span className="text-sm font-medium">{s}</span>
+                        {quotationToChangeStatus.status === s && (
+                          <Check className="absolute right-3 top-3 h-4 w-4 text-green-500" />
+                        )}
+                      </Button>
+                    ))}
+                  </div>
+                </ScrollArea>
+              </div>
+            </DialogContent>
+          </Dialog>
+        )}
       </CardContent>
     </Card>
   );

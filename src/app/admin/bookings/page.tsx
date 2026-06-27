@@ -6,9 +6,9 @@ import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose } from "@/components/ui/dialog";
-import { Tag, Eye, Loader2, PackageSearch, XCircle, Edit, Trash2, CalendarDays, Clock, UserCheck2, MoreHorizontal, Users, ListOrdered, ChevronDown, Search, MapPin, Phone, Mail, IndianRupee, History, PlusCircle, ShieldCheck, AlertTriangle } from "lucide-react"; 
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose, DialogTrigger } from "@/components/ui/dialog";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Tag, Eye, Loader2, PackageSearch, XCircle, Edit, Trash2, CalendarDays, Clock, UserCheck2, MoreHorizontal, Users, ListOrdered, ChevronDown, Search, MapPin, Phone, Mail, IndianRupee, History, PlusCircle, ShieldCheck, AlertTriangle, Check, ChevronsUpDown } from "lucide-react"; 
 import type { FirestoreBooking, BookingStatus, BookingServiceItem, AppSettings, ProviderApplication, FirestoreNotification, MarketingAutomationSettings, ReferralSettings, FirestoreUser, Referral, DayAvailability } from '@/types/firestore';
 import { db } from '@/lib/firebase';
 import { triggerPushNotification } from '@/lib/fcmUtils';
@@ -157,6 +157,9 @@ export default function AdminBookingsPage() {
 
   const [isRescheduleDialogOpen, setIsRescheduleDialogOpen] = useState(false);
   const [bookingToReschedule, setBookingToReschedule] = useState<FirestoreBooking | null>(null);
+  const [bookingToChangeStatus, setBookingToChangeStatus] = useState<FirestoreBooking | null>(null);
+  const [isStatusDialogOpen, setIsStatusDialogOpen] = useState(false);
+  const [isFilterStatusPickerOpen, setIsFilterStatusPickerOpen] = useState(false);
 
   const handleInitialize = async () => {
     setIsInitializing(true);
@@ -522,10 +525,23 @@ export default function AdminBookingsPage() {
               <Badge className={cn("capitalize px-4 py-0.5 font-bold", getStatusBadgeClass(booking.status))}>{booking.status}</Badge>
             </div>
           }>
-            <Select value={booking.status} onValueChange={(s) => handleStatusChange(booking, s as BookingStatus)} disabled={isUpdatingStatus === booking.id}>
-                <SelectTrigger className="w-full h-10 font-bold shadow-sm bg-background border-muted"><div className="flex-1 flex justify-center"><Badge className={cn("capitalize px-4 py-0.5 font-bold", getStatusBadgeClass(booking.status))}>{isUpdatingStatus === booking.id ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-2" /> : booking.status}</Badge></div></SelectTrigger>
-                <SelectContent>{statusOptions.map(opt => <SelectItem key={opt} value={opt} className="font-medium">{opt}</SelectItem>)}</SelectContent>
-            </Select>
+            <Button
+              type="button"
+              variant="outline"
+              className="w-full h-10 font-bold shadow-sm bg-background border-muted justify-between"
+              onClick={() => {
+                setBookingToChangeStatus(booking);
+                setIsStatusDialogOpen(true);
+              }}
+              disabled={isUpdatingStatus === booking.id}
+            >
+              <div className="flex-1 flex justify-center">
+                <Badge className={cn("capitalize px-4 py-0.5 font-bold", getStatusBadgeClass(booking.status))}>
+                  {isUpdatingStatus === booking.id ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-2" /> : booking.status}
+                </Badge>
+              </div>
+              <ChevronsUpDown className="h-4 w-4 shrink-0 opacity-50 ml-2" />
+            </Button>
           </PermissionGuard>
         </div>
       </CardContent>
@@ -585,7 +601,64 @@ export default function AdminBookingsPage() {
               </Button>
             )}
           </div>
-          <Select value={filterStatus} onValueChange={(v) => setFilterStatus(v as BookingStatus | "All")}><SelectTrigger className="h-10 sm:w-44 bg-background font-bold"><SelectValue placeholder="All Statuses" /></SelectTrigger><SelectContent><SelectItem value="All">All Statuses</SelectItem>{statusOptions.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}</SelectContent></Select></div>
+          <Dialog open={isFilterStatusPickerOpen} onOpenChange={setIsFilterStatusPickerOpen}>
+            <DialogTrigger asChild>
+              <Button
+                variant="outline"
+                className="h-10 sm:w-44 bg-background font-bold justify-between"
+                type="button"
+              >
+                <span>{filterStatus === "All" ? "All Statuses" : filterStatus}</span>
+                <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="w-[calc(100%-6px)] sm:max-w-[425px]">
+              <DialogHeader>
+                <DialogTitle>Filter Status</DialogTitle>
+                <DialogDescription>
+                  Filter bookings list by their current status.
+                </DialogDescription>
+              </DialogHeader>
+              <div className="py-4">
+                <ScrollArea className="h-[300px] rounded-md border p-2">
+                  <div className="space-y-1">
+                    <Button
+                      variant={filterStatus === "All" ? "secondary" : "ghost"}
+                      className="w-full justify-start text-left h-auto py-2.5 px-3 relative"
+                      onClick={() => {
+                        setFilterStatus("All");
+                        setIsFilterStatusPickerOpen(false);
+                      }}
+                      type="button"
+                    >
+                      <span className="text-sm font-medium">All Statuses</span>
+                      {filterStatus === "All" && (
+                        <Check className="absolute right-3 top-3 h-4 w-4 text-green-500" />
+                      )}
+                    </Button>
+                    {statusOptions.map((s) => (
+                      <Button
+                        key={s}
+                        variant={filterStatus === s ? "secondary" : "ghost"}
+                        className="w-full justify-start text-left h-auto py-2.5 px-3 relative"
+                        onClick={() => {
+                          setFilterStatus(s as BookingStatus);
+                          setIsFilterStatusPickerOpen(false);
+                        }}
+                        type="button"
+                      >
+                        <span className="text-sm font-medium">{s}</span>
+                        {filterStatus === s && (
+                          <Check className="absolute right-3 top-3 h-4 w-4 text-green-500" />
+                        )}
+                      </Button>
+                    ))}
+                  </div>
+                </ScrollArea>
+              </div>
+            </DialogContent>
+          </Dialog>
+        </div>
       </div>
 
       <Card><CardContent className="p-0">
@@ -647,12 +720,19 @@ export default function AdminBookingsPage() {
                                   <Badge className={cn("capitalize px-3 py-0.5", getStatusBadgeClass(b.status))}>{b.status}</Badge>
                                 </div>
                               }>
-                                <Select value={b.status} onValueChange={(s) => handleStatusChange(b, s as BookingStatus)} disabled={isUpdatingStatus === b.id}>
-                                  <SelectTrigger className="h-9 w-44 bg-background font-bold text-xs shadow-sm">
-                                    <Badge className={cn("capitalize px-3 py-0.5", getStatusBadgeClass(b.status))}>{b.status}</Badge>
-                                  </SelectTrigger>
-                                  <SelectContent>{statusOptions.map(s => (<SelectItem key={s} value={s}>{s}</SelectItem>))}</SelectContent>
-                                </Select>
+                                <Button
+                                  type="button"
+                                  variant="outline"
+                                  className="h-9 w-44 bg-background font-bold text-xs shadow-sm justify-between"
+                                  onClick={() => {
+                                    setBookingToChangeStatus(b);
+                                    setIsStatusDialogOpen(true);
+                                  }}
+                                  disabled={isUpdatingStatus === b.id}
+                                >
+                                  <Badge className={cn("capitalize px-3 py-0.5", getStatusBadgeClass(b.status))}>{b.status}</Badge>
+                                  <ChevronsUpDown className="h-3 w-3 shrink-0 opacity-50 ml-1" />
+                                </Button>
                               </PermissionGuard>
                               <PermissionGuard moduleId="bookings" action="write">
                                 <Button variant="default" size="sm" className="h-9 px-4 font-bold shadow-sm" onClick={() => { setBookingToAssign(b); setIsAssignModalOpen(true); }} disabled={["Completed", "Cancelled"].includes(b.status)}>
@@ -713,6 +793,42 @@ export default function AdminBookingsPage() {
       {bookingToAssign && (<AssignProviderModal isOpen={isAssignModalOpen} onClose={() => { setIsAssignModalOpen(false); setBookingToAssign(null); }} booking={bookingToAssign} onAssignConfirm={handleConfirmAssignment} />)}
       {bookingToComplete && (<CompleteBookingDialog isOpen={isCompleteDialogOpen} onClose={() => { setIsCompleteDialogOpen(false); setBookingToComplete(null); }} onConfirm={(charges, pMethod) => handleStatusChange(bookingToComplete, 'Completed', charges, pMethod)} originalAmount={bookingToComplete.totalAmount} currentPaymentMethod={bookingToComplete.paymentMethod || "Cash"} isProcessing={isUpdatingStatus === bookingToComplete.id} />)}
       {bookingToReschedule && (<RescheduleBookingDialog isOpen={isRescheduleDialogOpen} onClose={() => { setIsRescheduleDialogOpen(false); setBookingToReschedule(null); }} booking={bookingToReschedule} onRescheduleComplete={(newDate, newSlot, newEndTime) => handleRescheduleConfirm(newDate, newSlot, newEndTime)} />)}
+      {bookingToChangeStatus && (
+        <Dialog open={isStatusDialogOpen} onOpenChange={setIsStatusDialogOpen}>
+          <DialogContent className="w-[calc(100%-6px)] sm:max-w-[425px]">
+            <DialogHeader>
+              <DialogTitle>Change Booking Status</DialogTitle>
+              <DialogDescription>
+                Select a new status for Booking ID: {bookingToChangeStatus.bookingId}
+              </DialogDescription>
+            </DialogHeader>
+            <div className="py-4">
+              <ScrollArea className="h-[300px] rounded-md border p-2">
+                <div className="space-y-1">
+                  {statusOptions.map((s) => (
+                    <Button
+                      key={s}
+                      variant={bookingToChangeStatus.status === s ? "secondary" : "ghost"}
+                      className="w-full justify-start text-left h-auto py-2.5 px-3 relative"
+                      onClick={() => {
+                        handleStatusChange(bookingToChangeStatus, s as BookingStatus);
+                        setIsStatusDialogOpen(false);
+                        setBookingToChangeStatus(null);
+                      }}
+                      type="button"
+                    >
+                      <span className="text-sm font-medium">{s}</span>
+                      {bookingToChangeStatus.status === s && (
+                        <Check className="absolute right-3 top-3 h-4 w-4 text-green-500" />
+                      )}
+                    </Button>
+                  ))}
+                </div>
+              </ScrollArea>
+            </div>
+          </DialogContent>
+        </Dialog>
+      )}
     </div>
   );
 }

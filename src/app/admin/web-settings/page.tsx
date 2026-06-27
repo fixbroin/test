@@ -17,7 +17,7 @@ import { ref as storageRefStandard, uploadBytesResumable, getDownloadURL, delete
 import type { GlobalWebSettings, ContentPage } from '@/types/firestore';
 import NextImage from 'next/image';
 import { Progress } from '@/components/ui/progress';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
 import { zodResolver } from "@hookform/resolvers/zod";

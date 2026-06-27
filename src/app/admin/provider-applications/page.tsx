@@ -5,8 +5,10 @@ import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Users2, Eye, Edit, Trash2, CheckCircle, XCircle, AlertTriangle, Loader2, PackageSearch, UserCircle } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from "@/components/ui/dialog";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { cn } from "@/lib/utils";
+import { Users2, Eye, Edit, Trash2, CheckCircle, XCircle, AlertTriangle, Loader2, PackageSearch, UserCircle, Check, ChevronsUpDown } from "lucide-react";
 import type { ProviderApplication, ProviderApplicationStatus, FirestoreNotification } from '@/types/firestore';
 import { db } from '@/lib/firebase';
 import { triggerPushNotification } from '@/lib/fcmUtils';
@@ -40,6 +42,7 @@ export default function AdminProviderApplicationsPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [isUpdating, setIsUpdating] = useState<string | null>(null); 
   const [filterStatus, setFilterStatus] = useState<ProviderApplicationStatus | "all">("all");
+  const [isFilterStatusPickerOpen, setIsFilterStatusPickerOpen] = useState(false);
   const { toast } = useToast();
   const router = useRouter();
 
@@ -331,15 +334,64 @@ export default function AdminProviderApplicationsPage() {
             </CardDescription>
           </div>
           <div className="mt-4 sm:mt-0 w-full sm:w-auto sm:min-w-[200px]">
-            <Select value={filterStatus} onValueChange={(value) => setFilterStatus(value as ProviderApplicationStatus | "all")}>
-              <SelectTrigger><SelectValue placeholder="Filter by status" /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Statuses</SelectItem>
-                {applicationStatusOptions.map(status => (
-                  <SelectItem key={status} value={status} className="capitalize">{status.replace(/_/g, ' ')}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <Dialog open={isFilterStatusPickerOpen} onOpenChange={setIsFilterStatusPickerOpen}>
+              <DialogTrigger asChild>
+                <Button
+                  variant="outline"
+                  role="combobox"
+                  className="w-full sm:w-[200px] justify-between text-left font-normal h-10 capitalize"
+                  type="button"
+                >
+                  <span>{filterStatus === "all" ? "All Statuses" : filterStatus.replace(/_/g, ' ')}</span>
+                  <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="w-[calc(100%-6px)] sm:max-w-[425px]">
+                <DialogHeader>
+                  <DialogTitle>Filter by Status</DialogTitle>
+                  <DialogDescription>
+                    Choose an application status to filter the list.
+                  </DialogDescription>
+                </DialogHeader>
+                <div className="py-4">
+                  <ScrollArea className="h-[250px] rounded-md border p-2">
+                    <div className="space-y-1">
+                      <Button
+                        variant={filterStatus === "all" ? "secondary" : "ghost"}
+                        className="w-full justify-start text-left h-auto py-2.5 px-3 relative"
+                        onClick={() => {
+                          setFilterStatus("all");
+                          setIsFilterStatusPickerOpen(false);
+                        }}
+                        type="button"
+                      >
+                        <span className="text-sm font-medium">All Statuses</span>
+                        {filterStatus === "all" && (
+                          <Check className="absolute right-3 top-3 h-4 w-4 text-green-500" />
+                        )}
+                      </Button>
+                      {applicationStatusOptions.map((status) => (
+                        <Button
+                          key={status}
+                          variant={filterStatus === status ? "secondary" : "ghost"}
+                          className="w-full justify-start text-left h-auto py-2.5 px-3 relative capitalize"
+                          onClick={() => {
+                            setFilterStatus(status as ProviderApplicationStatus);
+                            setIsFilterStatusPickerOpen(false);
+                          }}
+                          type="button"
+                        >
+                          <span className="text-sm font-medium">{status.replace(/_/g, ' ')}</span>
+                          {filterStatus === status && (
+                            <Check className="absolute right-3 top-3 h-4 w-4 text-green-500" />
+                          )}
+                        </Button>
+                      ))}
+                    </div>
+                  </ScrollArea>
+                </div>
+              </DialogContent>
+            </Dialog>
           </div>
         </CardHeader>
         <CardContent className="pt-6">

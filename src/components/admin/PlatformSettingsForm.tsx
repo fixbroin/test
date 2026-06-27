@@ -1,17 +1,18 @@
 
 "use client";
 
-import { useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { useForm, useFieldArray, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { Button } from "@/components/ui/button";
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from "@/components/ui/dialog";
+import { cn } from "@/lib/utils";
 import { Switch } from "@/components/ui/switch";
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
-import { Trash2, PlusCircle, Percent, Save, Loader2 } from "lucide-react";
+import { Trash2, PlusCircle, Percent, Save, Loader2, Check, ChevronsUpDown } from "lucide-react";
 import type { PlatformFeeSetting } from '@/types/firestore';
 import { nanoid } from 'nanoid'; // For generating unique IDs for new fees
 
@@ -49,6 +50,7 @@ interface PlatformSettingsFormProps {
 }
 
 export default function PlatformSettingsForm({ initialFees, onSave, isSaving }: PlatformSettingsFormProps) {
+  const [openTypePickerIndex, setOpenTypePickerIndex] = useState<number | null>(null);
   const form = useForm<PlatformSettingsFormData>({
     resolver: zodResolver(platformSettingsFormSchema),
     defaultValues: {
@@ -121,15 +123,65 @@ export default function PlatformSettingsForm({ initialFees, onSave, isSaving }: 
                       control={form.control}
                       name={`platformFees.${index}.type`}
                       render={({ field: itemField }) => (
-                        <FormItem>
-                          <FormLabel>Fee Type</FormLabel>
-                          <Select onValueChange={itemField.onChange} value={itemField.value} disabled={isSaving}>
-                            <FormControl><SelectTrigger><SelectValue placeholder="Select type" /></SelectTrigger></FormControl>
-                            <SelectContent>
-                              <SelectItem value="fixed">Fixed Amount (₹)</SelectItem>
-                              <SelectItem value="percentage">Percentage (%)</SelectItem>
-                            </SelectContent>
-                          </Select>
+                        <FormItem className="flex flex-col">
+                          <FormLabel className="mb-2">Fee Type</FormLabel>
+                          <Dialog open={openTypePickerIndex === index} onOpenChange={(open) => setOpenTypePickerIndex(open ? index : null)}>
+                            <DialogTrigger asChild>
+                              <Button
+                                variant="outline"
+                                role="combobox"
+                                className={cn(
+                                  "w-full justify-between text-left font-normal h-10",
+                                  !itemField.value && "text-muted-foreground"
+                                )}
+                                disabled={isSaving}
+                                type="button"
+                              >
+                                {itemField.value === "fixed" ? "Fixed Amount (₹)" : itemField.value === "percentage" ? "Percentage (%)" : "Select type..."}
+                                <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                              </Button>
+                            </DialogTrigger>
+                            <DialogContent className="w-[calc(100%-6px)] sm:max-w-[425px]">
+                              <DialogHeader>
+                                <DialogTitle>Select Fee Type</DialogTitle>
+                                <DialogDescription>
+                                  Choose how this platform fee is calculated.
+                                </DialogDescription>
+                              </DialogHeader>
+                              <div className="py-4">
+                                <div className="space-y-1">
+                                  <Button
+                                    variant={itemField.value === "fixed" ? "secondary" : "ghost"}
+                                    className="w-full justify-start text-left h-auto py-3 px-3 relative"
+                                    onClick={() => {
+                                      itemField.onChange("fixed");
+                                      setOpenTypePickerIndex(null);
+                                    }}
+                                    type="button"
+                                  >
+                                    <span className="text-sm font-medium">Fixed Amount (₹)</span>
+                                    {itemField.value === "fixed" && (
+                                      <Check className="absolute right-3 top-3 h-4 w-4 text-green-500" />
+                                    )}
+                                  </Button>
+                                  <Button
+                                    variant={itemField.value === "percentage" ? "secondary" : "ghost"}
+                                    className="w-full justify-start text-left h-auto py-3 px-3 relative"
+                                    onClick={() => {
+                                      itemField.onChange("percentage");
+                                      setOpenTypePickerIndex(null);
+                                    }}
+                                    type="button"
+                                  >
+                                    <span className="text-sm font-medium">Percentage (%)</span>
+                                    {itemField.value === "percentage" && (
+                                      <Check className="absolute right-3 top-3 h-4 w-4 text-green-500" />
+                                    )}
+                                  </Button>
+                                </div>
+                              </div>
+                            </DialogContent>
+                          </Dialog>
                           <FormMessage />
                         </FormItem>
                       )}

@@ -20,7 +20,7 @@ import type { FirestoreUser, FirestoreService, FirestoreCategory } from '@/types
 import { useGlobalSettings } from '@/hooks/useGlobalSettings';
 import { sendBulkMarketingEmail } from '@/ai/flows/sendBulkMarketingEmailFlow';
 import { getBaseUrl } from '@/lib/config';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
 

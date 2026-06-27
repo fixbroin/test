@@ -11,10 +11,12 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Calendar } from '@/components/ui/calendar';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from "@/components/ui/dialog";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { cn } from "@/lib/utils";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
-import { Loader2, ArrowLeft, Save, User, Mail, Phone, MapPin, Edit, Clock, Globe, CalendarDays } from 'lucide-react';
+import { Loader2, ArrowLeft, Save, User, Mail, Phone, MapPin, Edit, Clock, Globe, CalendarDays, Check, ChevronsUpDown } from 'lucide-react';
 import type { FirestoreBooking, BookingStatus } from '@/types/firestore';
 import { db } from '@/lib/firebase';
 import { doc, getDoc, updateDoc, Timestamp, addDoc, collection } from "firebase/firestore";
@@ -76,6 +78,8 @@ export default function EditBookingPageClient() {
   const [calendarDate, setCalendarDate] = useState<Date | undefined>(undefined);
 
   const [isRescheduleDialogOpen, setIsRescheduleDialogOpen] = useState(false);
+  const [isTimeSlotPickerOpen, setIsTimeSlotPickerOpen] = useState(false);
+  const [isStatusPickerOpen, setIsStatusPickerOpen] = useState(false);
 
   const form = useForm<BookingEditFormData>({
     resolver: zodResolver(bookingEditSchema),
@@ -405,16 +409,56 @@ export default function EditBookingPageClient() {
                         control={form.control}
                         name="scheduledTimeSlot"
                         render={({ field }) => (
-                            <FormItem>
-                            <FormLabel>Scheduled Time Slot</FormLabel>
-                            <Select onValueChange={field.onChange} defaultValue={field.value} value={field.value}>
-                                <FormControl>
-                                <SelectTrigger><SelectValue placeholder="Select time slot" /></SelectTrigger>
-                                </FormControl>
-                                <SelectContent>
-                                {allTimeSlots.map(slot => <SelectItem key={slot} value={slot}>{slot}</SelectItem>)}
-                                </SelectContent>
-                            </Select>
+                            <FormItem className="flex flex-col">
+                            <FormLabel className="mb-2">Scheduled Time Slot</FormLabel>
+                            <Dialog open={isTimeSlotPickerOpen} onOpenChange={setIsTimeSlotPickerOpen}>
+                              <DialogTrigger asChild>
+                                <Button
+                                  variant="outline"
+                                  role="combobox"
+                                  className={cn(
+                                    "w-full justify-between text-left font-normal h-10",
+                                    !field.value && "text-muted-foreground"
+                                  )}
+                                  disabled={isSubmitting}
+                                  type="button"
+                                >
+                                  {field.value || "Select time slot..."}
+                                  <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                                </Button>
+                              </DialogTrigger>
+                              <DialogContent className="w-[calc(100%-6px)] sm:max-w-[425px]">
+                                <DialogHeader>
+                                  <DialogTitle>Select Time Slot</DialogTitle>
+                                  <DialogDescription>
+                                    Choose a preferred time slot for the booking.
+                                  </DialogDescription>
+                                </DialogHeader>
+                                <div className="py-4">
+                                  <ScrollArea className="h-[250px] rounded-md border p-2">
+                                    <div className="space-y-1">
+                                      {allTimeSlots.map((slot) => (
+                                        <Button
+                                          key={slot}
+                                          variant={field.value === slot ? "secondary" : "ghost"}
+                                          className="w-full justify-start text-left h-auto py-2.5 px-3 relative"
+                                          onClick={() => {
+                                            field.onChange(slot);
+                                            setIsTimeSlotPickerOpen(false);
+                                          }}
+                                          type="button"
+                                        >
+                                          <span className="text-sm font-medium">{slot}</span>
+                                          {field.value === slot && (
+                                            <Check className="absolute right-3 top-3 h-4 w-4 text-green-500" />
+                                          )}
+                                        </Button>
+                                      ))}
+                                    </div>
+                                  </ScrollArea>
+                                </div>
+                              </DialogContent>
+                            </Dialog>
                             <FormMessage />
                             </FormItem>
                         )}
@@ -423,25 +467,59 @@ export default function EditBookingPageClient() {
                         control={form.control}
                         name="status"
                         render={({ field }) => (
-                            <FormItem>
-                            <FormLabel>Booking Status</FormLabel>
-                            <Select 
-                              onValueChange={(val) => {
-                                field.onChange(val);
-                                if (val === 'Rescheduled' && booking) {
-                                  setIsRescheduleDialogOpen(true);
-                                }
-                              }} 
-                              defaultValue={field.value} 
-                              value={field.value}
-                            >
-                                <FormControl>
-                                <SelectTrigger><SelectValue placeholder="Select status" /></SelectTrigger>
-                                </FormControl>
-                                <SelectContent>
-                                {statusOptions.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}
-                                </SelectContent>
-                            </Select>
+                            <FormItem className="flex flex-col">
+                            <FormLabel className="mb-2">Booking Status</FormLabel>
+                            <Dialog open={isStatusPickerOpen} onOpenChange={setIsStatusPickerOpen}>
+                              <DialogTrigger asChild>
+                                <Button
+                                  variant="outline"
+                                  role="combobox"
+                                  className={cn(
+                                    "w-full justify-between text-left font-normal h-10",
+                                    !field.value && "text-muted-foreground"
+                                  )}
+                                  disabled={isSubmitting}
+                                  type="button"
+                                >
+                                  {field.value || "Select status..."}
+                                  <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                                </Button>
+                              </DialogTrigger>
+                              <DialogContent className="w-[calc(100%-6px)] sm:max-w-[425px]">
+                                <DialogHeader>
+                                  <DialogTitle>Select Booking Status</DialogTitle>
+                                  <DialogDescription>
+                                    Update the current status of this booking.
+                                  </DialogDescription>
+                                </DialogHeader>
+                                <div className="py-4">
+                                  <ScrollArea className="h-[300px] rounded-md border p-2">
+                                    <div className="space-y-1">
+                                      {statusOptions.map((s) => (
+                                        <Button
+                                          key={s}
+                                          variant={field.value === s ? "secondary" : "ghost"}
+                                          className="w-full justify-start text-left h-auto py-2.5 px-3 relative"
+                                          onClick={() => {
+                                            field.onChange(s);
+                                            setIsStatusPickerOpen(false);
+                                            if (s === 'Rescheduled' && booking) {
+                                              setIsRescheduleDialogOpen(true);
+                                            }
+                                          }}
+                                          type="button"
+                                        >
+                                          <span className="text-sm font-medium">{s}</span>
+                                          {field.value === s && (
+                                            <Check className="absolute right-3 top-3 h-4 w-4 text-green-500" />
+                                          )}
+                                        </Button>
+                                      ))}
+                                    </div>
+                                  </ScrollArea>
+                                </div>
+                              </DialogContent>
+                            </Dialog>
                             <FormMessage />
                             </FormItem>
                         )}

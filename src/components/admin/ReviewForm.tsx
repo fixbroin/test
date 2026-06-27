@@ -8,10 +8,12 @@ import { Button } from "@/components/ui/button";
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from "@/components/ui/dialog";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { cn } from "@/lib/utils";
 import type { FirestoreReview, FirestoreService, ReviewStatus } from "@/types/firestore";
 import { useEffect, useState } from "react";
-import { Loader2, Star } from "lucide-react";
+import { Loader2, Star, Check, ChevronsUpDown, Search } from "lucide-react";
 
 const reviewStatusOptions: [string, ...string[]] = ["Pending", "Approved", "Rejected", "Flagged"];
 
@@ -35,6 +37,19 @@ interface ReviewFormProps {
 
 export default function ReviewForm({ onSubmit: onSubmitProp, initialData, services, onCancel, isSubmitting = false }: ReviewFormProps) {
   const [selectedServiceName, setSelectedServiceName] = useState<string>("");
+  const [isServicePickerOpen, setIsServicePickerOpen] = useState(false);
+  const [serviceSearch, setServiceSearch] = useState("");
+  const [isStatusPickerOpen, setIsStatusPickerOpen] = useState(false);
+
+  const filteredServices = services.filter((s) =>
+    s.name.toLowerCase().includes(serviceSearch.toLowerCase())
+  );
+
+  useEffect(() => {
+    if (!isServicePickerOpen) {
+      setServiceSearch("");
+    }
+  }, [isServicePickerOpen]);
 
   const form = useForm<ReviewFormData>({
     resolver: zodResolver(reviewFormSchema),
@@ -102,27 +117,70 @@ export default function ReviewForm({ onSubmit: onSubmitProp, initialData, servic
             control={form.control}
             name="serviceId"
             render={({ field }) => (
-                <FormItem>
-                <FormLabel>Service</FormLabel>
-                <Select 
-                    onValueChange={field.onChange} 
-                    defaultValue={field.value} 
-                    value={field.value} 
-                    disabled={isSubmitting || !!initialData} 
-                >
-                    <FormControl>
-                    <SelectTrigger>
-                        <SelectValue placeholder="Select a service for the review" />
-                    </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                    {services.map(service => (
-                        <SelectItem key={service.id} value={service.id}>
-                        {service.name}
-                        </SelectItem>
-                    ))}
-                    </SelectContent>
-                </Select>
+                <FormItem className="flex flex-col">
+                <FormLabel className="mb-2">Service</FormLabel>
+                <Dialog open={isServicePickerOpen} onOpenChange={setIsServicePickerOpen}>
+                  <DialogTrigger asChild>
+                    <Button
+                      variant="outline"
+                      role="combobox"
+                      className={cn(
+                        "w-full justify-between text-left font-normal h-10",
+                        !field.value && "text-muted-foreground"
+                      )}
+                      disabled={isSubmitting || !!initialData}
+                      type="button"
+                    >
+                      {selectedServiceName ? selectedServiceName : "Select a service for the review"}
+                      <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent className="w-[calc(100%-6px)] sm:max-w-[425px]">
+                    <DialogHeader>
+                      <DialogTitle>Select Service</DialogTitle>
+                      <DialogDescription>
+                        Search and select a service.
+                      </DialogDescription>
+                    </DialogHeader>
+                    <div className="relative my-2">
+                      <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                      <Input
+                        placeholder="Search services..."
+                        className="pl-9 h-10"
+                        value={serviceSearch}
+                        onChange={(e) => setServiceSearch(e.target.value)}
+                      />
+                    </div>
+                    <div className="py-2">
+                      <ScrollArea className="h-[250px] rounded-md border p-2">
+                        <div className="space-y-1">
+                          {filteredServices.length === 0 ? (
+                            <p className="text-sm text-muted-foreground text-center py-4">No services found.</p>
+                          ) : (
+                            filteredServices.map((service) => (
+                              <Button
+                                key={service.id}
+                                variant={field.value === service.id ? "secondary" : "ghost"}
+                                className="w-full justify-start text-left h-auto py-2.5 px-3 relative"
+                                onClick={() => {
+                                  field.onChange(service.id);
+                                  setSelectedServiceName(service.name);
+                                  setIsServicePickerOpen(false);
+                                }}
+                                type="button"
+                              >
+                                <span className="text-sm font-medium">{service.name}</span>
+                                {field.value === service.id && (
+                                  <Check className="absolute right-3 top-3 h-4 w-4 text-green-500" />
+                                )}
+                              </Button>
+                            ))
+                          )}
+                        </div>
+                      </ScrollArea>
+                    </div>
+                  </DialogContent>
+                </Dialog>
                 {initialData && <FormDescription>Service cannot be changed for an existing review.</FormDescription>}
                 <FormMessage />
                 </FormItem>
@@ -185,22 +243,56 @@ export default function ReviewForm({ onSubmit: onSubmitProp, initialData, servic
             control={form.control}
             name="status"
             render={({ field }) => (
-                <FormItem>
-                <FormLabel>Status</FormLabel>
-                <Select onValueChange={field.onChange} defaultValue={field.value} value={field.value} disabled={isSubmitting}>
-                    <FormControl>
-                    <SelectTrigger>
-                        <SelectValue placeholder="Select review status" />
-                    </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                    {reviewStatusOptions.map(status => (
-                        <SelectItem key={status} value={status}>
-                        {status}
-                        </SelectItem>
-                    ))}
-                    </SelectContent>
-                </Select>
+                <FormItem className="flex flex-col">
+                <FormLabel className="mb-2">Status</FormLabel>
+                <Dialog open={isStatusPickerOpen} onOpenChange={setIsStatusPickerOpen}>
+                  <DialogTrigger asChild>
+                    <Button
+                      variant="outline"
+                      role="combobox"
+                      className={cn(
+                        "w-full justify-between text-left font-normal h-10",
+                        !field.value && "text-muted-foreground"
+                      )}
+                      disabled={isSubmitting}
+                      type="button"
+                    >
+                      {field.value || "Select review status"}
+                      <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent className="w-[calc(100%-6px)] sm:max-w-[425px]">
+                    <DialogHeader>
+                      <DialogTitle>Select Status</DialogTitle>
+                      <DialogDescription>
+                        Choose the publication status for this review.
+                      </DialogDescription>
+                    </DialogHeader>
+                    <div className="py-4">
+                      <ScrollArea className="h-[200px] rounded-md border p-2">
+                        <div className="space-y-1">
+                          {reviewStatusOptions.map((status) => (
+                            <Button
+                              key={status}
+                              variant={field.value === status ? "secondary" : "ghost"}
+                              className="w-full justify-start text-left h-auto py-2.5 px-3 relative"
+                              onClick={() => {
+                                field.onChange(status);
+                                setIsStatusPickerOpen(false);
+                              }}
+                              type="button"
+                            >
+                              <span className="text-sm font-medium">{status}</span>
+                              {field.value === status && (
+                                <Check className="absolute right-3 top-3 h-4 w-4 text-green-500" />
+                              )}
+                            </Button>
+                          ))}
+                        </div>
+                      </ScrollArea>
+                    </div>
+                  </DialogContent>
+                </Dialog>
                 <FormMessage />
                 </FormItem>
             )}
