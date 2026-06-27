@@ -4,10 +4,10 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Settings, Save, Loader2, AlertCircle, MapPin as MapIcon, MailIcon, PlaySquare, Percent, Ban, Users, Clock, DollarSign, CreditCard, Bell } from "lucide-react";
+import { Settings, Save, Loader2, AlertCircle, MapPin as MapIcon, MailIcon, PlaySquare, Percent, Ban, Users, Clock, DollarSign, CreditCard, Bell, Plus, Trash2, CalendarDays, Edit3 } from "lucide-react";
 import { useToast } from '@/hooks/use-toast';
 import { db } from '@/lib/firebase';
-import { doc, getDoc, setDoc, Timestamp } from "firebase/firestore";
+import { doc, getDoc, setDoc, Timestamp, collection, getDocs, addDoc, deleteDoc, query, orderBy } from "firebase/firestore";
 import { cn, formatDateInTimezone, formatTimeInTimezone } from '@/lib/utils';
 import { triggerRefresh } from '@/lib/revalidateUtils';
 import type { AppSettings, DayAvailability } from '@/types/firestore'; 
@@ -88,6 +88,20 @@ export default function AdminSettingsPage() {
   const [isVcTaxPickerOpen, setIsVcTaxPickerOpen] = useState(false);
   const [isCancelFeeTypePickerOpen, setIsCancelFeeTypePickerOpen] = useState(false);
 
+  // Leaves & Holidays States
+  const [leaves, setLeaves] = useState<any[]>([]);
+  const [isLoadingLeaves, setIsLoadingLeaves] = useState(true);
+  const [isAddLeaveDialogOpen, setIsAddLeaveDialogOpen] = useState(false);
+  const [leaveStartDate, setLeaveStartDate] = useState("");
+  const [leaveEndDate, setLeaveEndDate] = useState("");
+  const [leaveType, setLeaveType] = useState<'full_day' | 'partial_day'>("full_day");
+  const [leaveStartTime, setLeaveStartTime] = useState("09:00");
+  const [leaveEndTime, setLeaveEndTime] = useState("17:00");
+  const [leaveReason, setLeaveReason] = useState("");
+  const [isSavingLeave, setIsSavingLeave] = useState(false);
+  const [isLeaveTypePickerOpen, setIsLeaveTypePickerOpen] = useState(false);
+  const [editingLeaveId, setEditingLeaveId] = useState<string | null>(null);
+
   const filteredTimezones = useMemo(() => {
     if (!timezoneSearch) return ALL_TIMEZONES;
     const search = timezoneSearch.toLowerCase().replace(/\//g, ' ').trim();
@@ -123,6 +137,13 @@ export default function AdminSettingsPage() {
           maxProviderRadiusKm: firestoreData.maxProviderRadiusKm ?? defaultAppSettings.maxProviderRadiusKm, // Merge new field
           autoDispatchRadiusKm: firestoreData.autoDispatchRadiusKm ?? defaultAppSettings.autoDispatchRadiusKm, // Merge auto dispatch field
         };
+        const daysKeys = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'] as const;
+        daysKeys.forEach(day => {
+            const dayAvail = mergedSettings.timeSlotSettings.weeklyAvailability[day];
+            if (!dayAvail.intervals || dayAvail.intervals.length === 0) {
+                dayAvail.intervals = [{ startTime: dayAvail.startTime || "09:00", endTime: dayAvail.endTime || "17:00" }];
+            }
+        });
         setSettings(mergedSettings);
       } else {
         setSettings(defaultAppSettings);
@@ -139,6 +160,113 @@ export default function AdminSettingsPage() {
   useEffect(() => {
     loadSettingsFromFirestore();
   }, [loadSettingsFromFirestore]);
+
+  const loadLeavesFromFirestore = useCallback(async () => {
+    setIsLoadingLeaves(true);
+    try {
+      const leavesRef = collection(db, "leaves");
+      const q = query(leavesRef, orderBy("startDate", "desc"));
+      const querySnapshot = await getDocs(q);
+      const fetchedLeaves = querySnapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      }));
+      setLeaves(fetchedLeaves);
+    } catch (e) {
+      console.error("Failed to load leaves", e);
+      toast({ title: "Error Loading Leaves", description: "Could not load leaves list.", variant: "destructive" });
+    } finally {
+      setIsLoadingLeaves(false);
+    }
+  }, [toast]);
+
+  useEffect(() => {
+    loadLeavesFromFirestore();
+  }, [loadLeavesFromFirestore]);
+
+  const handleEditLeaveClick = (leave: any) => {
+    setEditingLeaveId(leave.id);
+    setLeaveStartDate(leave.startDate);
+    setLeaveEndDate(leave.endDate);
+    setLeaveType(leave.leaveType);
+    setLeaveReason(leave.reason || "");
+    if (leave.leaveType === "partial_day") {
+      setLeaveStartTime(leave.startTime || "09:00");
+      setLeaveEndTime(leave.endTime || "17:00");
+    } else {
+      setLeaveStartTime("09:00");
+      setLeaveEndTime("17:00");
+    }
+    setIsAddLeaveDialogOpen(true);
+  };
+
+  const handleSaveLeave = async () => {
+    if (!leaveStartDate || !leaveEndDate) {
+      toast({ title: "Invalid Input", description: "Start Date and End Date are required.", variant: "destructive" });
+      return;
+    }
+    if (leaveEndDate < leaveStartDate) {
+      toast({ title: "Invalid Date Range", description: "End Date cannot be before Start Date.", variant: "destructive" });
+      return;
+    }
+    if (leaveType === "partial_day" && leaveEndTime <= leaveStartTime) {
+      toast({ title: "Invalid Time Range", description: "End Time must be after Start Time.", variant: "destructive" });
+      return;
+    }
+
+    setIsSavingLeave(true);
+    try {
+      const leaveData: any = {
+        startDate: leaveStartDate,
+        endDate: leaveEndDate,
+        leaveType,
+        reason: leaveReason || "Scheduled Provider Leave / Holiday",
+        createdAt: Timestamp.now()
+      };
+      if (leaveType === "partial_day") {
+        leaveData.startTime = leaveStartTime;
+        leaveData.endTime = leaveEndTime;
+      }
+      
+      if (editingLeaveId) {
+        const docRef = doc(db, "leaves", editingLeaveId);
+        await setDoc(docRef, leaveData, { merge: true });
+        toast({ title: "Leave / Holiday Updated", description: "Successfully updated leave slot." });
+      } else {
+        const leavesRef = collection(db, "leaves");
+        await addDoc(leavesRef, leaveData);
+        toast({ title: "Leave / Holiday Added", description: "Successfully saved leave slot." });
+      }
+      
+      setEditingLeaveId(null);
+      setLeaveStartDate("");
+      setLeaveEndDate("");
+      setLeaveType("full_day");
+      setLeaveStartTime("09:00");
+      setLeaveEndTime("17:00");
+      setLeaveReason("");
+      setIsAddLeaveDialogOpen(false);
+      
+      loadLeavesFromFirestore();
+    } catch (e) {
+      console.error("Failed to save leave", e);
+      toast({ title: "Error Saving Leave", description: "Could not save leave configuration.", variant: "destructive" });
+    } finally {
+      setIsSavingLeave(false);
+    }
+  };
+
+  const handleDeleteLeave = async (id: string) => {
+    try {
+      const docRef = doc(db, "leaves", id);
+      await deleteDoc(docRef);
+      toast({ title: "Leave Deleted", description: "The leave configuration was successfully removed." });
+      loadLeavesFromFirestore();
+    } catch (e) {
+      console.error("Failed to delete leave", e);
+      toast({ title: "Error Deleting Leave", description: "Could not delete the leave document.", variant: "destructive" });
+    }
+  };
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value, type } = e.target;
@@ -215,6 +343,59 @@ export default function AdminSettingsPage() {
     }));
   };
 
+  const handleIntervalChange = (day: keyof AppSettings['timeSlotSettings']['weeklyAvailability'], index: number, field: 'startTime' | 'endTime', value: string) => {
+    setSettings(prev => {
+        const newSettings = JSON.parse(JSON.stringify(prev));
+        const dayAvail = newSettings.timeSlotSettings.weeklyAvailability[day];
+        if (!dayAvail.intervals) dayAvail.intervals = [];
+        if (dayAvail.intervals[index]) {
+            dayAvail.intervals[index][field] = value;
+        }
+        // Also update fallback startTime and endTime
+        if (dayAvail.intervals.length > 0) {
+            dayAvail.startTime = dayAvail.intervals[0].startTime;
+            dayAvail.endTime = dayAvail.intervals[dayAvail.intervals.length - 1].endTime;
+        }
+        return newSettings;
+    });
+  };
+
+  const addInterval = (day: keyof AppSettings['timeSlotSettings']['weeklyAvailability']) => {
+    setSettings(prev => {
+        const newSettings = JSON.parse(JSON.stringify(prev));
+        const dayAvail = newSettings.timeSlotSettings.weeklyAvailability[day];
+        if (!dayAvail.intervals) dayAvail.intervals = [];
+        
+        let newStart = "09:00";
+        let newEnd = "17:00";
+        if (dayAvail.intervals.length > 0) {
+            const lastEnd = dayAvail.intervals[dayAvail.intervals.length - 1].endTime;
+            newStart = lastEnd;
+            const [h, m] = lastEnd.split(':').map(Number);
+            const nextH = Math.min(23, h + 2);
+            newEnd = `${String(nextH).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+        }
+        
+        dayAvail.intervals.push({ startTime: newStart, endTime: newEnd });
+        dayAvail.startTime = dayAvail.intervals[0].startTime;
+        dayAvail.endTime = dayAvail.intervals[dayAvail.intervals.length - 1].endTime;
+        return newSettings;
+    });
+  };
+
+  const deleteInterval = (day: keyof AppSettings['timeSlotSettings']['weeklyAvailability'], index: number) => {
+    setSettings(prev => {
+        const newSettings = JSON.parse(JSON.stringify(prev));
+        const dayAvail = newSettings.timeSlotSettings.weeklyAvailability[day];
+        if (dayAvail.intervals && dayAvail.intervals.length > 1) {
+            dayAvail.intervals.splice(index, 1);
+            dayAvail.startTime = dayAvail.intervals[0].startTime;
+            dayAvail.endTime = dayAvail.intervals[dayAvail.intervals.length - 1].endTime;
+        }
+        return newSettings;
+    });
+  };
+
 
   const handleSaveSettings = async (sectionName: string) => {
     setIsSaving(true);
@@ -274,42 +455,89 @@ export default function AdminSettingsPage() {
   const renderWeeklyAvailability = () => {
     const days: (keyof AppSettings['timeSlotSettings']['weeklyAvailability'])[] = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
     
-    return days.map(day => (
-      <div key={day} className="p-4 border rounded-lg space-y-3">
-        <div className="flex justify-between items-center">
-          <Label className="capitalize text-lg font-medium">{day}</Label>
-          <Switch
-            checked={settings.timeSlotSettings.weeklyAvailability[day].isEnabled}
-            onCheckedChange={(checked) => handleSwitchChange(`weeklyAvailability.${day}.isEnabled`, checked)}
-            disabled={isSaving}
-          />
-        </div>
-        <div className={`grid grid-cols-1 sm:grid-cols-2 gap-4 ${!settings.timeSlotSettings.weeklyAvailability[day].isEnabled ? 'opacity-50' : ''}`}>
-          <div>
-            <Label htmlFor={`${day}-startTime`}>Start Time</Label>
-            <Input
-              id={`${day}-startTime`}
-              name={`weeklyAvailability.${day}.startTime`}
-              type="time"
-              value={settings.timeSlotSettings.weeklyAvailability[day].startTime}
-              onChange={handleInputChange}
-              disabled={isSaving || !settings.timeSlotSettings.weeklyAvailability[day].isEnabled}
+    return days.map(day => {
+      const dayAvail = settings.timeSlotSettings.weeklyAvailability[day];
+      const intervals = dayAvail.intervals || [{ startTime: dayAvail.startTime || "09:00", endTime: dayAvail.endTime || "17:00" }];
+      
+      return (
+        <div key={day} className="p-4 border rounded-lg space-y-3">
+          <div className="flex justify-between items-center">
+            <Label className="capitalize text-lg font-medium">{day}</Label>
+            <Switch
+              checked={dayAvail.isEnabled}
+              onCheckedChange={(checked) => handleSwitchChange(`weeklyAvailability.${day}.isEnabled`, checked)}
+              disabled={isSaving}
             />
           </div>
-          <div>
-            <Label htmlFor={`${day}-endTime`}>End Time</Label>
-            <Input
-              id={`${day}-endTime`}
-              name={`weeklyAvailability.${day}.endTime`}
-              type="time"
-              value={settings.timeSlotSettings.weeklyAvailability[day].endTime}
-              onChange={handleInputChange}
-              disabled={isSaving || !settings.timeSlotSettings.weeklyAvailability[day].isEnabled}
-            />
-          </div>
+          
+          {dayAvail.isEnabled && (
+            <div className="space-y-3 pt-2">
+              <Label className="text-xs text-muted-foreground">Time Slot Intervals</Label>
+              {intervals.map((interval, index) => (
+                <div key={index} className="flex items-center gap-3 bg-muted/30 p-2.5 rounded-lg border">
+                  <div className="grid grid-cols-2 gap-3 flex-1">
+                    <div>
+                      <Label htmlFor={`${day}-interval-${index}-startTime`} className="text-xs text-muted-foreground">Start Time</Label>
+                      <Input
+                        id={`${day}-interval-${index}-startTime`}
+                        type="time"
+                        value={interval.startTime}
+                        onChange={(e) => handleIntervalChange(day, index, 'startTime', e.target.value)}
+                        disabled={isSaving}
+                        className="h-9 text-xs"
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor={`${day}-interval-${index}-endTime`} className="text-xs text-muted-foreground">End Time</Label>
+                      <Input
+                        id={`${day}-interval-${index}-endTime`}
+                        type="time"
+                        value={interval.endTime}
+                        onChange={(e) => handleIntervalChange(day, index, 'endTime', e.target.value)}
+                        disabled={isSaving}
+                        className="h-9 text-xs"
+                      />
+                    </div>
+                  </div>
+                  
+                  {intervals.length > 1 && (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => deleteInterval(day, index)}
+                      disabled={isSaving}
+                      className="mt-4 h-9 w-9 text-destructive hover:text-destructive hover:bg-destructive/10"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  )}
+                </div>
+              ))}
+              
+              <div className="pt-1 flex justify-end">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => addInterval(day)}
+                  disabled={isSaving}
+                  className="text-xs h-8"
+                >
+                  <Plus className="h-3.5 w-3.5 mr-1" /> Add Time Slot
+                </Button>
+              </div>
+            </div>
+          )}
+          
+          {!dayAvail.isEnabled && (
+            <div className="py-4 text-center text-sm text-muted-foreground italic">
+              Shop Closed / Offline
+            </div>
+          )}
         </div>
-      </div>
-    ));
+      );
+    });
   };
 
 
@@ -374,6 +602,12 @@ export default function AdminSettingsPage() {
               className="relative h-12 rounded-none border-b-2 border-transparent bg-transparent px-4 pb-3 pt-2 font-semibold text-muted-foreground shadow-none transition-none data-[state=active]:border-primary data-[state=active]:text-primary data-[state=active]:shadow-none whitespace-nowrap"
             >
               <Bell className="mr-2 h-4 w-4" /> Notifications
+            </TabsTrigger>
+            <TabsTrigger 
+              value="leaves"
+              className="relative h-12 rounded-none border-b-2 border-transparent bg-transparent px-4 pb-3 pt-2 font-semibold text-muted-foreground shadow-none transition-none data-[state=active]:border-primary data-[state=active]:text-primary data-[state=active]:shadow-none whitespace-nowrap"
+            >
+              <CalendarDays className="mr-2 h-4 w-4" /> Leaves & Holidays
             </TabsTrigger>
           </TabsList>
         </div>
@@ -1124,6 +1358,244 @@ export default function AdminSettingsPage() {
                 </Button>
               </PermissionGuard>
             </CardFooter>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="leaves">
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
+              <div>
+                <CardTitle>Leaves & Holidays</CardTitle>
+                <CardDescription>Configure leaves and holidays to block service bookings during specific periods.</CardDescription>
+              </div>
+              <Dialog open={isAddLeaveDialogOpen} onOpenChange={(open) => {
+                setIsAddLeaveDialogOpen(open);
+                if (!open) {
+                  setEditingLeaveId(null);
+                  setLeaveStartDate("");
+                  setLeaveEndDate("");
+                  setLeaveType("full_day");
+                  setLeaveStartTime("09:00");
+                  setLeaveEndTime("17:00");
+                  setLeaveReason("");
+                }
+              }}>
+                <Button 
+                  type="button" 
+                  size="sm" 
+                  className="h-9"
+                  onClick={() => {
+                    setEditingLeaveId(null);
+                    setLeaveStartDate("");
+                    setLeaveEndDate("");
+                    setLeaveType("full_day");
+                    setLeaveStartTime("09:00");
+                    setLeaveEndTime("17:00");
+                    setLeaveReason("");
+                    setIsAddLeaveDialogOpen(true);
+                  }}
+                >
+                  <Plus className="h-4 w-4 mr-2" /> Add Leave / Holiday
+                </Button>
+                <DialogContent className="w-[calc(100%-6px)] sm:max-w-[425px]">
+                  <DialogHeader>
+                    <DialogTitle>{editingLeaveId ? "Edit Leave / Holiday" : "Add Leave / Holiday"}</DialogTitle>
+                    <DialogDescription>
+                      {editingLeaveId ? "Modify this schedule blockout." : "Create a new schedule blockout. Bookings will be prevented during this time."}
+                    </DialogDescription>
+                  </DialogHeader>
+                  <div className="space-y-4 py-3">
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="space-y-1">
+                        <Label htmlFor="leaveStartDate">Start Date</Label>
+                        <Input
+                          id="leaveStartDate"
+                          type="date"
+                          value={leaveStartDate}
+                          onChange={(e) => setLeaveStartDate(e.target.value)}
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <Label htmlFor="leaveEndDate">End Date</Label>
+                        <Input
+                          id="leaveEndDate"
+                          type="date"
+                          value={leaveEndDate}
+                          onChange={(e) => setLeaveEndDate(e.target.value)}
+                        />
+                      </div>
+                    </div>
+
+                    <div className="space-y-1 flex flex-col">
+                      <Label className="mb-2">Leave Type</Label>
+                      <Dialog open={isLeaveTypePickerOpen} onOpenChange={setIsLeaveTypePickerOpen}>
+                        <DialogTrigger asChild>
+                          <Button
+                            variant="outline"
+                            role="combobox"
+                            className="w-full justify-between text-left font-normal h-10"
+                            type="button"
+                          >
+                            <span>{leaveType === 'full_day' ? 'Full Day Leave' : 'Partial Day (Custom Hours)'}</span>
+                            <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                          </Button>
+                        </DialogTrigger>
+                        <DialogContent className="w-[calc(100%-6px)] sm:max-w-[425px]">
+                          <DialogHeader>
+                            <DialogTitle>Select Leave Type</DialogTitle>
+                            <DialogDescription>Choose if the entire day or specific hours are blocked.</DialogDescription>
+                          </DialogHeader>
+                          <div className="py-4">
+                            <ScrollArea className="h-[150px] rounded-md border p-2">
+                              <div className="space-y-1">
+                                <Button
+                                  variant={leaveType === 'full_day' ? "secondary" : "ghost"}
+                                  className="w-full justify-start text-left h-auto py-3 px-3 relative"
+                                  onClick={() => {
+                                    setLeaveType('full_day');
+                                    setIsLeaveTypePickerOpen(false);
+                                  }}
+                                  type="button"
+                                >
+                                  <span className="font-semibold text-sm">Full Day Leave</span>
+                                  {leaveType === 'full_day' && (
+                                    <Check className="absolute right-3 top-3 h-4 w-4 text-green-500" />
+                                  )}
+                                </Button>
+                                <Button
+                                  variant={leaveType === 'partial_day' ? "secondary" : "ghost"}
+                                  className="w-full justify-start text-left h-auto py-3 px-3 relative"
+                                  onClick={() => {
+                                    setLeaveType('partial_day');
+                                    setIsLeaveTypePickerOpen(false);
+                                  }}
+                                  type="button"
+                                >
+                                  <span className="font-semibold text-sm">Partial Day (Custom Hours)</span>
+                                  {leaveType === 'partial_day' && (
+                                    <Check className="absolute right-3 top-3 h-4 w-4 text-green-500" />
+                                  )}
+                                </Button>
+                              </div>
+                            </ScrollArea>
+                          </div>
+                        </DialogContent>
+                      </Dialog>
+                    </div>
+
+                    {leaveType === 'partial_day' && (
+                      <div className="grid grid-cols-2 gap-3 p-3 bg-muted/40 rounded-lg border">
+                        <div className="space-y-1">
+                          <Label htmlFor="leaveStartTime">Start Time</Label>
+                          <Input
+                            id="leaveStartTime"
+                            type="time"
+                            value={leaveStartTime}
+                            onChange={(e) => setLeaveStartTime(e.target.value)}
+                          />
+                        </div>
+                        <div className="space-y-1">
+                          <Label htmlFor="leaveEndTime">End Time</Label>
+                          <Input
+                            id="leaveEndTime"
+                            type="time"
+                            value={leaveEndTime}
+                            onChange={(e) => setLeaveEndTime(e.target.value)}
+                          />
+                        </div>
+                      </div>
+                    )}
+
+                    <div className="space-y-1">
+                      <Label htmlFor="leaveReason">Reason / Holiday Name</Label>
+                      <Input
+                        id="leaveReason"
+                        placeholder="e.g. Independence Day, Annual Maintenance"
+                        value={leaveReason}
+                        onChange={(e) => setLeaveReason(e.target.value)}
+                      />
+                    </div>
+                  </div>
+                  <div className="flex justify-end gap-3 pt-3 border-t">
+                    <Button type="button" variant="outline" onClick={() => setIsAddLeaveDialogOpen(false)}>Cancel</Button>
+                    <Button type="button" onClick={handleSaveLeave} disabled={isSavingLeave}>
+                      {isSavingLeave ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
+                      {editingLeaveId ? "Update Leave" : "Save Leave"}
+                    </Button>
+                  </div>
+                </DialogContent>
+              </Dialog>
+            </CardHeader>
+            <CardContent>
+              {isLoadingLeaves ? (
+                <div className="flex flex-col items-center justify-center py-10 space-y-3">
+                  <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                  <p className="text-sm text-muted-foreground">Loading leaves and holidays...</p>
+                </div>
+              ) : leaves.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-12 text-center border border-dashed rounded-xl bg-muted/10">
+                  <CalendarDays className="h-12 w-12 text-muted-foreground/40 mb-3" />
+                  <h3 className="text-base font-semibold">No leaves or holidays configured</h3>
+                  <p className="text-sm text-muted-foreground max-w-xs mt-1">Configure holidays or staff leaves to block checkout slots.</p>
+                </div>
+              ) : (
+                <div className="overflow-x-auto border rounded-lg">
+                  <table className="w-full text-sm text-left border-collapse">
+                    <thead className="bg-muted text-muted-foreground text-xs uppercase font-semibold">
+                      <tr>
+                        <th className="p-3">Date Range</th>
+                        <th className="p-3">Type</th>
+                        <th className="p-3">Hours blocked</th>
+                        <th className="p-3">Reason</th>
+                        <th className="p-3 text-right">Action</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y">
+                      {leaves.map((leave) => (
+                        <tr key={leave.id} className="hover:bg-muted/20">
+                          <td className="p-3 font-medium">
+                            {leave.startDate === leave.endDate 
+                              ? leave.startDate 
+                              : `${leave.startDate} to ${leave.endDate}`}
+                          </td>
+                          <td className="p-3">
+                            <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${leave.leaveType === 'full_day' ? 'bg-red-100 text-red-800' : 'bg-amber-100 text-amber-800'}`}>
+                              {leave.leaveType === 'full_day' ? 'Full Day' : 'Partial Day'}
+                            </span>
+                          </td>
+                          <td className="p-3 text-muted-foreground">
+                            {leave.leaveType === 'full_day' 
+                              ? 'All Day (Full Block)' 
+                              : `${leave.startTime} - ${leave.endTime}`}
+                          </td>
+                          <td className="p-3 font-medium">{leave.reason}</td>
+                          <td className="p-3 text-right flex items-center justify-end gap-2">
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => handleEditLeaveClick(leave)}
+                              className="h-8 w-8 text-primary hover:text-primary hover:bg-primary/10"
+                            >
+                              <Edit3 className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => handleDeleteLeave(leave.id)}
+                              className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </CardContent>
           </Card>
         </TabsContent>
 

@@ -15,6 +15,26 @@ import { getActiveCheckoutEntries } from '@/lib/cartManager';
 import { Badge } from '@/components/ui/badge';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Separator } from '@/components/ui/separator';
+import type { AppSettings, LeaveRequest } from '@/types/firestore';
+
+const parseTimeToMinutes = (timeStr: string): number => {
+    if (!timeStr || !timeStr.includes(':')) return 0;
+    const timeMatch = timeStr.match(/(\d{1,2}):(\d{2})\s*(AM|PM)/i);
+    if (timeMatch) {
+      let hours = parseInt(timeMatch[1], 10);
+      const minutes = parseInt(timeMatch[2], 10);
+      const period = timeMatch[3].toUpperCase();
+      if (period === 'PM' && hours < 12) hours += 12;
+      if (period === 'AM' && hours === 12) hours = 0;
+      return hours * 60 + minutes;
+    }
+    const [hours, minutes] = timeStr.split(':').map(Number);
+    return hours * 60 + minutes;
+};
+
+const getDayName = (date: Date, timeZone: string = 'Asia/Kolkata'): keyof AppSettings['timeSlotSettings']['weeklyAvailability'] => {
+    return new Intl.DateTimeFormat('en-US', { weekday: 'long', timeZone }).format(date).toLowerCase() as any;
+};
 
 interface ScheduleSelectionProps {
   onSelect: (date: Date, slot: string, endTime: string) => void;
@@ -32,13 +52,127 @@ export default function ScheduleSelection({ onSelect, initialDate, initialSlot }
   const [isSearchingForNextDay, setIsSearchingForNextDay] = useState(false);
   const [dataFetchError, setDataFetchError] = useState<string | null>(null);
   const [totalCartDuration, setTotalCartDuration] = useState(0);
+  const [leavesList, setLeavesList] = useState<any[]>([]);
+  const [leaveReason, setLeaveReason] = useState<string | null>(null);
+  const [isDateLeave, setIsDateLeave] = useState<boolean>(false);
 
   const { toast } = useToast();
   const { config: appConfig, isLoading: isLoadingAppSettings } = useApplicationConfig();
 
+  useEffect(() => {
+    const fetchLeaves = async () => {
+      try {
+        const res = await fetch("/api/checkout/leaves");
+        if (!res.ok) throw new Error("Failed to fetch leaves");
+        const fetched = await res.json();
+        setLeavesList(fetched);
+      } catch (e) {
+        console.error("Failed to fetch leaves in checkout scheduler", e);
+      }
+    };
+    fetchLeaves();
+  }, []);
+
+  const leaveModifiers = useMemo(() => {
+    return {
+      holiday: (date: Date) => {
+        const dateISO = formatZonedDateToISO(date, appConfig?.timezone);
+        return leavesList.some(leave => leave.startDate <= dateISO && leave.endDate >= dateISO && leave.leaveType === 'full_day');
+      },
+      partialLeave: (date: Date) => {
+        const dateISO = formatZonedDateToISO(date, appConfig?.timezone);
+        return leavesList.some(leave => leave.startDate <= dateISO && leave.endDate >= dateISO && leave.leaveType === 'partial_day');
+      }
+    };
+  }, [leavesList, appConfig?.timezone]);
+
+  const leaveModifiersStyles = {
+    holiday: {
+      color: '#ef4444',
+      backgroundColor: '#fef2f2',
+      fontWeight: 'bold' as const,
+      border: '1px dashed #fca5a5',
+      borderRadius: '8px'
+    },
+    partialLeave: {
+      color: '#f59e0b',
+      backgroundColor: '#fffbeb',
+      fontWeight: 'bold' as const,
+      border: '1px dashed #fde68a',
+      borderRadius: '8px'
+    }
+  };
+
   const selectedSlotData = useMemo(() => {
     return availableTimeSlots.find(s => s.slot === selectedTimeSlot);
   }, [availableTimeSlots, selectedTimeSlot]);
+
+  const interveningBreaksAndHolidays = useMemo(() => {
+    if (!selectedDate || !selectedTimeSlot || !selectedSlotData) return [];
+    
+    const start = new Date(selectedDate);
+    const startMin = parseTimeToMinutes(selectedTimeSlot);
+    start.setHours(Math.floor(startMin / 60), startMin % 60, 0, 0);
+    
+    const end = new Date(selectedSlotData.endDateTime);
+    
+    const list: { type: 'holiday' | 'partial' | 'gap', dateLabel: string, timeLabel?: string, reason?: string }[] = [];
+    
+    const temp = new Date(start);
+    temp.setHours(12, 0, 0, 0);
+    
+    const endTemp = new Date(end);
+    endTemp.setHours(12, 0, 0, 0);
+    
+    while (temp <= endTemp) {
+      const dateISO = formatZonedDateToISO(temp, appConfig?.timezone);
+      const displayDateStr = temp.toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short' });
+      
+      const dayLeaves = leavesList.filter(l => l.startDate <= dateISO && l.endDate >= dateISO);
+      
+      let isFullDayHoliday = false;
+      for (const leave of dayLeaves) {
+        if (leave.leaveType === 'full_day') {
+          list.push({
+            type: 'holiday',
+            dateLabel: displayDateStr,
+            reason: (leave.reason && leave.reason.trim() !== '') ? leave.reason : "Provider Leave / Holiday"
+          });
+          isFullDayHoliday = true;
+          break;
+        } else if (leave.leaveType === 'partial_day') {
+          list.push({
+            type: 'partial',
+            dateLabel: displayDateStr,
+            timeLabel: `${leave.startTime} - ${leave.endTime}`,
+            reason: (leave.reason && leave.reason.trim() !== '') ? leave.reason : "Provider on Leave / Custom Gaps"
+          });
+        }
+      }
+      
+      if (!isFullDayHoliday) {
+        const dayName = getDayName(temp, appConfig?.timezone);
+        const dayAvail = (appConfig?.timeSlotSettings?.weeklyAvailability as any)?.[dayName];
+        if (dayAvail && dayAvail.isEnabled && dayAvail.intervals && dayAvail.intervals.length > 1) {
+          const sorted = [...dayAvail.intervals].sort((a, b) => parseTimeToMinutes(a.startTime) - parseTimeToMinutes(b.startTime));
+          for (let i = 0; i < sorted.length - 1; i++) {
+            const currentEnd = sorted[i].endTime;
+            const nextStart = sorted[i + 1].startTime;
+            list.push({
+              type: 'gap',
+              dateLabel: displayDateStr,
+              timeLabel: `${currentEnd} - ${nextStart}`,
+              reason: "Scheduled Shop Break"
+            });
+          }
+        }
+      }
+      
+      temp.setDate(temp.getDate() + 1);
+    }
+    
+    return list;
+  }, [selectedDate, selectedTimeSlot, selectedSlotData, leavesList, appConfig]);
 
   const fetchAvailableSlots = useCallback(async (date: Date) => {
     try {
@@ -58,7 +192,15 @@ export default function ScheduleSelection({ onSelect, initialDate, initialSlot }
 
         const data = await response.json();
         setTotalCartDuration(data.totalCartDuration);
-        return data.availableTimeSlots;
+        if (data.isLeave) {
+            setIsDateLeave(true);
+            setLeaveReason(data.leaveReason);
+            return { slots: [], isLeave: true, leaveReason: data.leaveReason };
+        } else {
+            setIsDateLeave(false);
+            setLeaveReason(null);
+            return { slots: data.availableTimeSlots, isLeave: false, leaveReason: null };
+        }
     } catch (error) {
         console.error("Error fetching available slots from API:", error);
         throw error;
@@ -71,10 +213,10 @@ export default function ScheduleSelection({ onSelect, initialDate, initialSlot }
     const runSlotCalculation = async () => {
         setIsLoadingSlots(true);
         try {
-            const slots = await fetchAvailableSlots(selectedDate);
-            setAvailableTimeSlots(slots);
+            const res = await fetchAvailableSlots(selectedDate);
+            setAvailableTimeSlots(res.slots);
 
-            if (slots.length === 0 && !isSearchingForNextDay) {
+            if (res.slots.length === 0 && !res.isLeave && !isSearchingForNextDay) {
                 toast({
                     variant: "destructive",
                     title: "No Slots Available",
@@ -89,12 +231,12 @@ export default function ScheduleSelection({ onSelect, initialDate, initialSlot }
 
                 for (let i = 0; i < 30; i++) {
                     nextDay.setDate(nextDay.getDate() + 1);
-                    const nextDaySlots = await fetchAvailableSlots(nextDay);
-                    if (nextDaySlots.length > 0) {
+                    const nextDayRes = await fetchAvailableSlots(nextDay);
+                    if (nextDayRes.slots.length > 0 && !nextDayRes.isLeave) {
                         const nextAvailableDate = new Date(nextDay);
                         setSelectedDate(nextAvailableDate);
                         setDisplayMonth(nextAvailableDate); 
-                        setAvailableTimeSlots(nextDaySlots);
+                        setAvailableTimeSlots(nextDayRes.slots);
                         
                         toast({
                             variant: "success" as any,
@@ -169,6 +311,8 @@ export default function ScheduleSelection({ onSelect, initialDate, initialSlot }
               month={displayMonth}
               onMonthChange={setDisplayMonth}
               disabled={(date) => date < today}
+              modifiers={leaveModifiers}
+              modifiersStyles={leaveModifiersStyles}
               className="rounded-md"
             />
           </div>
@@ -270,18 +414,50 @@ export default function ScheduleSelection({ onSelect, initialDate, initialSlot }
                            <Separator className="bg-primary/10" />
 
                            <div className="flex items-center gap-3">
-                             <Clock className="h-5 w-5 text-green-500" />
-                             <div>
-                               <p className="text-xs text-muted-foreground uppercase font-bold">Estimated Completion</p>
-                               <p className="text-sm font-bold">
-                                 {selectedSlotData && (
-                                   `Ends at ${new Date(selectedSlotData.endDateTime).toLocaleTimeString('en-IN', { timeZone: appConfig.timezone, hour: '2-digit', minute: '2-digit', hour12: true })}`
-                                 )}
-                               </p>
-                             </div>
-                           </div>
+                              <Clock className="h-5 w-5 text-green-500" />
+                              <div>
+                                <p className="text-xs text-muted-foreground uppercase font-bold">Estimated Completion</p>
+                                <p className="text-sm font-bold">
+                                  {selectedSlotData && (
+                                    `Ends on ${new Date(selectedSlotData.endDateTime).toLocaleDateString('en-IN', { timeZone: appConfig?.timezone, weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' })} at ${new Date(selectedSlotData.endDateTime).toLocaleTimeString('en-IN', { timeZone: appConfig?.timezone, hour: '2-digit', minute: '2-digit', hour12: true })}`
+                                  )}
+                                </p>
+                              </div>
+                            </div>
+
+                            {interveningBreaksAndHolidays.length > 0 && (
+                              <>
+                                <Separator className="bg-primary/10" />
+                                <div className="space-y-2 pt-1">
+                                  <p className="text-[10px] text-muted-foreground uppercase tracking-wider font-bold flex items-center gap-1.5">
+                                    <AlertTriangle className="h-3.5 w-3.5 text-amber-500" />
+                                    Includes Gaps / Holidays
+                                  </p>
+                                  <div className="space-y-1 pl-1">
+                                    {interveningBreaksAndHolidays.map((item, idx) => (
+                                      <div key={idx} className="flex items-start gap-2 text-xs">
+                                        <div className={`mt-1.5 h-1.5 w-1.5 rounded-full ${item.type === 'holiday' ? 'bg-red-500' : item.type === 'partial' ? 'bg-amber-500' : 'bg-blue-500'}`} />
+                                        <div className="text-muted-foreground">
+                                          <span className="font-semibold text-foreground/80">{item.dateLabel}</span>
+                                          {item.timeLabel && <span className="ml-1">({item.timeLabel})</span>}
+                                          <span className="ml-1.5 font-medium text-muted-foreground/80">— {item.reason}</span>
+                                        </div>
+                                      </div>
+                                    ))}
+                                  </div>
+                                </div>
+                              </>
+                            )}
                          </motion.div>
                       )}
+                    </div>
+                  ) : isDateLeave ? (
+                    <div className="flex flex-col items-center justify-center py-12 px-6 text-center border-2 border-dashed rounded-2xl bg-red-500/5 border-red-500/20">
+                      <CalendarDays className="h-10 w-10 text-destructive mb-4" />
+                      <h4 className="font-bold text-lg mb-1 text-destructive">Holiday / Provider Leave</h4>
+                      <p className="text-muted-foreground text-sm max-w-xs font-medium">
+                        {leaveReason || "Provider Leave / Holiday. Please select another date."}
+                      </p>
                     </div>
                   ) : (
                     <div className="flex flex-col items-center justify-center py-12 px-6 text-center border-2 border-dashed rounded-2xl bg-muted/5">

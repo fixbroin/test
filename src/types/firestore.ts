@@ -537,10 +537,27 @@ export interface PlatformFeeSetting {
 export type ProviderFeeType = 'fixed' | 'percentage';
 
 // Application Settings Type
-export interface DayAvailability {
-    isEnabled: boolean;
+export interface TimeInterval {
     startTime: string; // HH:MM
     endTime: string;   // HH:MM
+}
+
+export interface DayAvailability {
+    isEnabled: boolean;
+    startTime: string; // HH:MM (fallback)
+    endTime: string;   // HH:MM (fallback)
+    intervals?: TimeInterval[]; // Array of custom time intervals
+}
+
+export interface LeaveRequest {
+    id?: string;
+    startDate: string; // YYYY-MM-DD
+    endDate: string;   // YYYY-MM-DD
+    leaveType: 'full_day' | 'partial_day';
+    startTime?: string; // HH:MM (if partial_day)
+    endTime?: string;   // HH:MM (if partial_day)
+    reason: string;
+    createdAt: any;
 }
 
 export type LoginMethod = 'email' | 'otp' | 'google';

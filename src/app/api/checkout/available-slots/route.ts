@@ -1,7 +1,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { adminDb } from '@/lib/firebaseAdmin';
-import { AppSettings, FirestoreService, FirestoreSubCategory, TimeSlotCategoryLimit, FirestoreBooking } from '@/types/firestore';
+import { AppSettings, FirestoreService, FirestoreSubCategory, TimeSlotCategoryLimit, FirestoreBooking, LeaveRequest } from '@/types/firestore';
 import { defaultAppSettings } from '@/config/appDefaults';
 import { getZonedDate, formatZonedDateToISO, convertWallClockToUTC } from '@/lib/utils';
 
@@ -61,6 +61,72 @@ const getDayName = (date: Date, timeZone: string = 'Asia/Kolkata'): keyof AppSet
 
 const getSlotKey = (dateISO: string, minutes: number) => `${dateISO}:${minutes}`;
 
+interface Interval {
+  startMin: number;
+  endMin: number;
+}
+
+function subtractInterval(work: Interval[], leave: Interval): Interval[] {
+  const result: Interval[] = [];
+  for (const w of work) {
+    if (leave.startMin >= w.endMin || leave.endMin <= w.startMin) {
+      result.push(w);
+    } else {
+      if (leave.startMin > w.startMin) {
+        result.push({ startMin: w.startMin, endMin: leave.startMin });
+      }
+      if (leave.endMin < w.endMin) {
+        result.push({ startMin: leave.endMin, endMin: w.endMin });
+      }
+    }
+  }
+  return result;
+}
+
+function getDayActiveIntervals(
+  dateISO: string,
+  appConfig: AppSettings,
+  leaves: LeaveRequest[]
+): Interval[] {
+  const timezone = appConfig.timezone || 'Asia/Kolkata';
+  const [y, m, d] = dateISO.split('-').map(Number);
+  const currentDate = new Date(Date.UTC(y, m - 1, d, 12, 0, 0));
+  const dayName = getDayName(currentDate, timezone);
+  
+  const dayAvailability = appConfig.timeSlotSettings?.weeklyAvailability[dayName] || defaultAppSettings.timeSlotSettings.weeklyAvailability[dayName];
+  if (!dayAvailability || !dayAvailability.isEnabled) {
+    return [];
+  }
+  
+  let workingIntervals: Interval[] = [];
+  if (dayAvailability.intervals && Array.isArray(dayAvailability.intervals) && dayAvailability.intervals.length > 0) {
+    workingIntervals = dayAvailability.intervals.map(i => ({
+      startMin: parseTimeToMinutes(i.startTime),
+      endMin: parseTimeToMinutes(i.endTime)
+    }));
+  } else {
+    workingIntervals = [{
+      startMin: parseTimeToMinutes(dayAvailability.startTime),
+      endMin: parseTimeToMinutes(dayAvailability.endTime)
+    }];
+  }
+  
+  const activeLeaves = leaves.filter(leave => leave.startDate <= dateISO && leave.endDate >= dateISO);
+  for (const leave of activeLeaves) {
+    if (leave.leaveType === 'full_day') {
+      return [];
+    } else if (leave.leaveType === 'partial_day') {
+      const leaveStart = parseTimeToMinutes(leave.startTime || "09:00");
+      const leaveEnd = parseTimeToMinutes(leave.endTime || "17:00");
+      workingIntervals = subtractInterval(workingIntervals, { startMin: leaveStart, endMin: leaveEnd });
+    }
+  }
+  
+  return workingIntervals
+    .filter(i => i.endMin > i.startMin)
+    .sort((a, b) => a.startMin - b.startMin);
+}
+
 /**
  * Calculates the EXACT end date and time for a booking,
  * respecting working hours and multi-day spillovers.
@@ -70,63 +136,50 @@ function calculateEndDateTime(
     startMinutes: number,
     workDuration: number,
     bufferDuration: number,
-    appConfig: AppSettings
+    appConfig: AppSettings,
+    leaves: LeaveRequest[]
 ): string {
     const timezone = appConfig.timezone || 'Asia/Kolkata';
     let remainingMinutes = workDuration + bufferDuration;
     let currentMinutes = startMinutes;
     
-    // Parse the date as UTC midnight to start, then we'll advance it
     const [y, m, d] = startDateISO.split('-').map(Number);
     const currentDate = new Date(Date.UTC(y, m - 1, d, 0, 0, 0)); 
     
     let daysSearched = 0;
     while (remainingMinutes > 0 && daysSearched < 30) {
-        // We use a date at 12:00 UTC to safely get the day name in the target timezone without DST or offset overlap issues
-        const sampleDate = new Date(currentDate.getTime() + (12 * 60 * 60 * 1000));
-        let dayName = getDayName(sampleDate, timezone);
-        let dayAvailability = appConfig.timeSlotSettings?.weeklyAvailability[dayName] || defaultAppSettings.timeSlotSettings.weeklyAvailability[dayName];
+        const dateISO = currentDate.toISOString().split('T')[0];
+        const intervals = getDayActiveIntervals(dateISO, appConfig, leaves);
 
-        let loopGuard = 0;
-        while (!dayAvailability.isEnabled && loopGuard < 7) {
+        if (intervals.length === 0) {
             currentDate.setUTCDate(currentDate.getUTCDate() + 1);
-            const nextSample = new Date(currentDate.getTime() + (12 * 60 * 60 * 1000));
-            dayName = getDayName(nextSample, timezone);
-            dayAvailability = appConfig.timeSlotSettings?.weeklyAvailability[dayName] || defaultAppSettings.timeSlotSettings.weeklyAvailability[dayName];
-            currentMinutes = parseTimeToMinutes(dayAvailability.startTime);
-            loopGuard++;
-        }
-        if (loopGuard >= 7) break; 
-
-        const dayStart = parseTimeToMinutes(dayAvailability.startTime);
-        const dayEnd = parseTimeToMinutes(dayAvailability.endTime);
-
-        if (currentMinutes < dayStart) currentMinutes = dayStart;
-
-        const minutesAvailableToday = dayEnd - currentMinutes;
-
-        if (minutesAvailableToday <= 0) {
-            currentDate.setUTCDate(currentDate.getUTCDate() + 1);
-            const nextSample = new Date(currentDate.getTime() + (12 * 60 * 60 * 1000));
-            const nextDayName = getDayName(nextSample, timezone);
-            const nextDayAvail = appConfig.timeSlotSettings?.weeklyAvailability[nextDayName] || defaultAppSettings.timeSlotSettings.weeklyAvailability[nextDayName];
-            currentMinutes = parseTimeToMinutes(nextDayAvail.startTime);
+            currentMinutes = 0;
             daysSearched++;
             continue;
         }
 
-        if (remainingMinutes <= minutesAvailableToday) {
+        const interval = intervals.find(i => i.endMin > currentMinutes);
+
+        if (!interval) {
+            currentDate.setUTCDate(currentDate.getUTCDate() + 1);
+            currentMinutes = 0;
+            daysSearched++;
+            continue;
+        }
+
+        if (currentMinutes < interval.startMin) {
+            currentMinutes = interval.startMin;
+        }
+
+        const minutesAvailable = interval.endMin - currentMinutes;
+
+        if (remainingMinutes <= minutesAvailable) {
             currentMinutes += remainingMinutes;
             remainingMinutes = 0;
         } else {
-            remainingMinutes -= minutesAvailableToday;
-            currentDate.setUTCDate(currentDate.getUTCDate() + 1);
-            const nextSample = new Date(currentDate.getTime() + (12 * 60 * 60 * 1000));
-            const nextDayName = getDayName(nextSample, timezone);
-            const nextDayAvail = appConfig.timeSlotSettings?.weeklyAvailability[nextDayName] || defaultAppSettings.timeSlotSettings.weeklyAvailability[nextDayName];
-            currentMinutes = parseTimeToMinutes(nextDayAvail.startTime);
+            remainingMinutes -= minutesAvailable;
+            currentMinutes = interval.endMin;
         }
-        daysSearched++;
     }
     
     // Construct final result by combining the date components and the final minutes
@@ -149,7 +202,8 @@ function* simulateProgression(
     startMinutes: number,
     workDuration: number,
     bufferDuration: number,
-    appConfig: AppSettings
+    appConfig: AppSettings,
+    leaves: LeaveRequest[]
 ) {
     const timezone = appConfig.timezone || 'Asia/Kolkata';
     let remainingMinutesToBlock = workDuration;
@@ -165,44 +219,35 @@ function* simulateProgression(
     let daysSearched = 0;
     while (remainingMinutesToBlock > 0 && daysSearched < 30) {
         let dateISO = currentDate.toISOString().split('T')[0];
-        const sampleDate = new Date(currentDate.getTime() + (12 * 60 * 60 * 1000));
-        let dayName = getDayName(sampleDate, timezone);
-        let dayAvailability = appConfig.timeSlotSettings?.weeklyAvailability[dayName] || defaultAppSettings.timeSlotSettings.weeklyAvailability[dayName];
+        const intervals = getDayActiveIntervals(dateISO, appConfig, leaves);
 
-        let loopGuard = 0;
-        while (!dayAvailability.isEnabled && loopGuard < 7) {
+        if (intervals.length === 0) {
             currentDate.setUTCDate(currentDate.getUTCDate() + 1);
-            dateISO = currentDate.toISOString().split('T')[0];
-            const nextSample = new Date(currentDate.getTime() + (12 * 60 * 60 * 1000));
-            dayName = getDayName(nextSample, timezone);
-            dayAvailability = appConfig.timeSlotSettings?.weeklyAvailability[dayName] || defaultAppSettings.timeSlotSettings.weeklyAvailability[dayName];
-            currentMinutes = parseTimeToMinutes(dayAvailability.startTime);
-            loopGuard++;
-        }
-        if (loopGuard >= 7) break;
-
-        const dayStart = parseTimeToMinutes(dayAvailability.startTime);
-        const dayEnd = parseTimeToMinutes(dayAvailability.endTime);
-
-        if (currentMinutes < dayStart) currentMinutes = dayStart;
-
-        if (currentMinutes >= dayEnd) {
-            currentDate.setUTCDate(currentDate.getUTCDate() + 1);
-            const nextSample = new Date(currentDate.getTime() + (12 * 60 * 60 * 1000));
-            const nextDayName = getDayName(nextSample, timezone);
-            const nextDayAvail = appConfig.timeSlotSettings?.weeklyAvailability[nextDayName] || defaultAppSettings.timeSlotSettings.weeklyAvailability[nextDayName];
-            currentMinutes = parseTimeToMinutes(nextDayAvail.startTime);
+            currentMinutes = 0;
             daysSearched++;
             continue;
         }
 
-        const minutesAvailableToday = dayEnd - currentMinutes;
-        const minutesToConsumeToday = Math.min(minutesAvailableToday, remainingMinutesToBlock);
+        const interval = intervals.find(i => i.endMin > currentMinutes);
+
+        if (!interval) {
+            currentDate.setUTCDate(currentDate.getUTCDate() + 1);
+            currentMinutes = 0;
+            daysSearched++;
+            continue;
+        }
+
+        if (currentMinutes < interval.startMin) {
+            currentMinutes = interval.startMin;
+        }
+
+        const minutesAvailable = interval.endMin - currentMinutes;
+        const consume = Math.min(minutesAvailable, remainingMinutesToBlock);
         
         const segmentStart = currentMinutes;
-        const segmentEnd = currentMinutes + minutesToConsumeToday;
+        const segmentEnd = currentMinutes + consume;
 
-        let slotStart = dayStart;
+        let slotStart = interval.startMin;
         while (slotStart < segmentEnd) {
             if (slotStart + slotInterval > segmentStart) {
                 yield { dateISO, minutes: slotStart };
@@ -210,32 +255,37 @@ function* simulateProgression(
             slotStart += slotInterval;
         }
 
-        // Move time forward
-        remainingMinutesToBlock -= minutesToConsumeToday;
-        currentMinutes += minutesToConsumeToday;
+        remainingMinutesToBlock -= consume;
+        currentMinutes += consume;
 
         if (!isWorkCompleted && remainingMinutesToBlock <= 0) {
             isWorkCompleted = true;
-            const minutesLeftToday = dayEnd - currentMinutes;
-            if (minutesLeftToday > 0) {
-                remainingMinutesToBlock = Math.min(bufferRemaining, minutesLeftToday);
+            const bufferSpaceLeftInInterval = interval.endMin - currentMinutes;
+            if (bufferSpaceLeftInInterval > 0) {
+                remainingMinutesToBlock = Math.min(bufferRemaining, bufferSpaceLeftInInterval);
             } else {
-                remainingMinutesToBlock = 0;
+                const nextInterval = intervals.find(i => i.startMin >= currentMinutes);
+                if (nextInterval) {
+                    currentMinutes = nextInterval.startMin;
+                    const nextSpace = nextInterval.endMin - currentMinutes;
+                    remainingMinutesToBlock = Math.min(bufferRemaining, nextSpace);
+                } else {
+                    remainingMinutesToBlock = 0;
+                }
             }
         }
 
-        if (currentMinutes >= dayEnd) {
-            if (isWorkCompleted) {
-                remainingMinutesToBlock = 0; 
+        if (currentMinutes >= interval.endMin) {
+            if (isWorkCompleted && remainingMinutesToBlock <= 0) {
                 break;
             }
 
-            currentDate.setUTCDate(currentDate.getUTCDate() + 1);
-            const nextSample = new Date(currentDate.getTime() + (12 * 60 * 60 * 1000));
-            const nextDayName = getDayName(nextSample, timezone);
-            const nextDayAvail = appConfig.timeSlotSettings?.weeklyAvailability[nextDayName] || defaultAppSettings.timeSlotSettings.weeklyAvailability[nextDayName];
-            currentMinutes = parseTimeToMinutes(nextDayAvail.startTime);
-            daysSearched++;
+            const hasMoreToday = intervals.some(i => i.startMin >= currentMinutes);
+            if (!hasMoreToday) {
+                currentDate.setUTCDate(currentDate.getUTCDate() + 1);
+                currentMinutes = 0;
+                daysSearched++;
+            }
         }
     }
 }
@@ -279,13 +329,16 @@ export async function POST(req: NextRequest) {
         lookBackDate.setDate(lookBackDate.getDate() - 7);
         const lookBackISO = formatZonedDateToISO(lookBackDate, timezone);
 
-        const [limitsSnap, servicesSnap, subCatsSnap, bookingsSnap] = await Promise.all([
+        const [limitsSnap, servicesSnap, subCatsSnap, bookingsSnap, leavesSnap] = await Promise.all([
             adminDb.collection("timeSlotCategoryLimits").get(),
             adminDb.collection("adminServices").get(),
             adminDb.collection("adminSubCategories").get(),
             adminDb.collection("bookings")
                 .where("scheduledDate", ">=", lookBackISO)
                 .where("scheduledDate", "<=", dateISO) 
+                .get(),
+            adminDb.collection("leaves")
+                .where("endDate", ">=", lookBackISO)
                 .get()
         ]);
 
@@ -293,12 +346,12 @@ export async function POST(req: NextRequest) {
         const servicesData = Object.fromEntries(servicesSnap.docs.map(doc => [doc.id, { id: doc.id, ...doc.data() } as FirestoreService]));
         const subCatsData = Object.fromEntries(subCatsSnap.docs.map(doc => [doc.id, { id: doc.id, ...doc.data() } as FirestoreSubCategory]));
         const existingBookings = bookingsSnap.docs.map(doc => doc.data() as FirestoreBooking);
+        const leavesData = leavesSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as LeaveRequest));
 
         const slotInterval = appConfig.timeSlotSettings?.slotIntervalMinutes || DEFAULT_SLOT_INTERVAL_MINUTES;
         const breakTimeMinutes = appConfig.timeSlotSettings?.breakTimeMinutes || 0;
         const enableLimitLateBookings = appConfig.enableLimitLateBookings ?? DEFAULT_ENABLE_LIMIT_LATE_BOOKINGS;
         const limitLateBookingHours = enableLimitLateBookings ? (appConfig.limitLateBookingHours ?? DEFAULT_HOURS_WHEN_LIMIT_ENABLED) : 0;
-        const weeklyAvailability = appConfig.timeSlotSettings?.weeklyAvailability || defaultAppSettings.timeSlotSettings.weeklyAvailability;
 
         const uniqueCartCategoryIds = new Set<string>();
         let totalCartDuration = 0;
@@ -313,7 +366,6 @@ export async function POST(req: NextRequest) {
         const cartCategoryIds = Array.from(uniqueCartCategoryIds);
 
         // --- Cache Logic Start ---
-        // Generate a composite hash to invalidate cache if any relevant data changes
         const bookingsHash = bookingsSnap.docs
             .map(doc => `${doc.id}_${doc.updateTime?.toMillis() || 0}`)
             .sort()
@@ -331,7 +383,6 @@ export async function POST(req: NextRequest) {
         if (BUSY_MAP_CACHE.has(cacheKey)) {
             globalBusyMap = BUSY_MAP_CACHE.get(cacheKey)!;
         } else {
-            // Cache Miss: Run Simulation
             globalBusyMap = new Map<string, Record<string, number>>();
 
             existingBookings.forEach(booking => {
@@ -352,8 +403,9 @@ export async function POST(req: NextRequest) {
                     booking.scheduledDate,
                     startMin,
                     bookingWorkDuration,
-                    breakTimeMinutes, // ✅ Restore buffer blocking for existing bookings
-                    appConfig
+                    breakTimeMinutes,
+                    appConfig,
+                    leavesData
                 );
 
                 for (const step of progression) {
@@ -368,9 +420,8 @@ export async function POST(req: NextRequest) {
                 }
             });
 
-            // Store in cache
             if (BUSY_MAP_CACHE.size >= MAX_CACHE_SIZE) {
-                const firstKey = BUSY_MAP_CACHE.keys().next().value; // Simple eviction: clear all if too big 
+                const firstKey = BUSY_MAP_CACHE.keys().next().value;
                 if (firstKey !== undefined) {
                     BUSY_MAP_CACHE.delete(firstKey);
                 }
@@ -379,92 +430,102 @@ export async function POST(req: NextRequest) {
         }
         // --- Cache Logic End ---
 
-        const selectedDayName = getDayName(dateObj, timezone);
-        const selectedDayAvail = weeklyAvailability[selectedDayName];
-        if (!selectedDayAvail?.isEnabled) {
+        // Check if selected date is fully blocked by a leave
+        const selectedDateActiveLeaves = leavesData.filter(l => l.startDate <= dateISO && l.endDate >= dateISO);
+        const hasFullDayLeave = selectedDateActiveLeaves.some(l => l.leaveType === 'full_day');
+        if (hasFullDayLeave) {
+            const leaveReason = selectedDateActiveLeaves.find(l => l.leaveType === 'full_day')?.reason || "Provider Leave / Holiday";
+            return NextResponse.json({ isLeave: true, leaveReason, availableTimeSlots: [], totalCartDuration });
+        }
+
+        const activeIntervals = getDayActiveIntervals(dateISO, appConfig, leavesData);
+        if (activeIntervals.length === 0) {
             return NextResponse.json({ availableTimeSlots: [], totalCartDuration });
         }
 
         const now = getZonedDate(new Date(), timezone);
         const earliestBookableTime = new Date(now.getTime() + (limitLateBookingHours * 60 * 60 * 1000));
-        const dayStartMinutes = parseTimeToMinutes(selectedDayAvail.startTime);
-        const dayEndMinutes = parseTimeToMinutes(selectedDayAvail.endTime);
 
         const availableSlots: { slot: string; remainingCapacity: number, endDateTime: string }[] = [];
 
-        let potentialStart = dayStartMinutes;
-        while (potentialStart < dayEndMinutes) {
-            // Construct slotDateTime in target timezone
-            const slotDateTime = getZonedDate(new Date(selectedDate), timezone);
-            slotDateTime.setHours(Math.floor(potentialStart / 60), potentialStart % 60, 0, 0);
+        for (const interval of activeIntervals) {
+            let potentialStart = interval.startMin;
+            while (potentialStart < interval.endMin) {
+                const slotDateTime = getZonedDate(new Date(selectedDate), timezone);
+                slotDateTime.setHours(Math.floor(potentialStart / 60), potentialStart % 60, 0, 0);
 
-            if (slotDateTime < earliestBookableTime) {
-                potentialStart += slotInterval;
-                continue;
-            }
+                if (slotDateTime < earliestBookableTime) {
+                    potentialStart += slotInterval;
+                    continue;
+                }
 
-            // 🚨 MULTI-DAY SERVICE RESTRICTION
+                // 🚨 MULTI-DAY SERVICE RESTRICTION
+                const totalWorkingMinutesInDay = activeIntervals.reduce((acc, i) => acc + (i.endMin - i.startMin), 0);
+                const dayStartMinutes = activeIntervals[0].startMin;
 
-const totalWorkingMinutesInDay = dayEndMinutes - dayStartMinutes;
-
-if (totalCartDuration > totalWorkingMinutesInDay) {
-    // Only allow starting at beginning of day
-    if (potentialStart !== dayStartMinutes) {
-        potentialStart += slotInterval;
-        continue;
-    }
-}
-// 🚨 LONG SERVICE RESTRICTION (FULL-DAY FIX)
-
-const FULL_DAY_THRESHOLD = 6 * 60; // 6 hours (adjust if needed)
-
-const remainingMinutesToday = dayEndMinutes - potentialStart;
-
-// If long service and not enough time today → skip this slot
-
-
-if (
-    totalCartDuration >= FULL_DAY_THRESHOLD &&
-    totalCartDuration <= totalWorkingMinutesInDay && // ✅ IMPORTANT
-    remainingMinutesToday < totalCartDuration
-) {
-    potentialStart += slotInterval;
-    continue;
-}
-            let isPathClear = true;
-            let minRemainingCapacity = Infinity;
-
-            const pathSteps = Array.from( simulateProgression(dateISO, potentialStart, totalCartDuration, breakTimeMinutes, appConfig) );
-            
-            for (const step of pathSteps) {
-                const key = getSlotKey(step.dateISO, step.minutes);
-                const counts = globalBusyMap.get(key) || {};
-
-                for (const catId of cartCategoryIds) {
-                    const limit = limitsData[catId]?.maxConcurrentBookings || 1;
-                    const currentBookings = counts[catId] || 0;
-                    const remaining = limit - currentBookings;
-                    
-                    minRemainingCapacity = Math.min(minRemainingCapacity, remaining);
-                    if (remaining <= 0) {
-                        isPathClear = false;
-                        break;
+                if (totalCartDuration > totalWorkingMinutesInDay) {
+                    if (potentialStart !== dayStartMinutes) {
+                        potentialStart += slotInterval;
+                        continue;
                     }
                 }
-                if (!isPathClear) break;
-            }
 
-            if (isPathClear) {
-                // FIXED: Include breakTimeMinutes in endDateTime for UI transparency
-                const endDateTime = calculateEndDateTime(dateISO, potentialStart, totalCartDuration, 0, appConfig);
-                availableSlots.push({ 
-                    slot: formatTimeFromMinutes(potentialStart), 
-                    remainingCapacity: minRemainingCapacity,
-                    endDateTime: endDateTime
-                });
-            }
+                // 🚨 LONG SERVICE RESTRICTION (FULL-DAY FIX)
+                const FULL_DAY_THRESHOLD = 6 * 60; // 6 hours
+                let remainingMinutesToday = 0;
+                for (const val of activeIntervals) {
+                    if (potentialStart < val.endMin) {
+                        const activeStart = Math.max(potentialStart, val.startMin);
+                        remainingMinutesToday += (val.endMin - activeStart);
+                    }
+                }
 
-            potentialStart += slotInterval;
+                if (
+                    totalCartDuration >= FULL_DAY_THRESHOLD &&
+                    totalCartDuration <= totalWorkingMinutesInDay &&
+                    remainingMinutesToday < totalCartDuration
+                ) {
+                    potentialStart += slotInterval;
+                    continue;
+                }
+
+                let isPathClear = true;
+                let minRemainingCapacity = Infinity;
+
+                const pathSteps = Array.from( simulateProgression(dateISO, potentialStart, totalCartDuration, breakTimeMinutes, appConfig, leavesData) );
+                if (pathSteps.length === 0) {
+                    isPathClear = false;
+                }
+                
+                for (const step of pathSteps) {
+                    const key = getSlotKey(step.dateISO, step.minutes);
+                    const counts = globalBusyMap.get(key) || {};
+
+                    for (const catId of cartCategoryIds) {
+                        const limit = limitsData[catId]?.maxConcurrentBookings || 1;
+                        const currentBookings = counts[catId] || 0;
+                        const remaining = limit - currentBookings;
+                        
+                        minRemainingCapacity = Math.min(minRemainingCapacity, remaining);
+                        if (remaining <= 0) {
+                            isPathClear = false;
+                            break;
+                        }
+                    }
+                    if (!isPathClear) break;
+                }
+
+                if (isPathClear) {
+                    const endDateTime = calculateEndDateTime(dateISO, potentialStart, totalCartDuration, 0, appConfig, leavesData);
+                    availableSlots.push({ 
+                        slot: formatTimeFromMinutes(potentialStart), 
+                        remainingCapacity: minRemainingCapacity,
+                        endDateTime: endDateTime
+                    });
+                }
+
+                potentialStart += slotInterval;
+            }
         }
 
         return NextResponse.json({ availableTimeSlots: availableSlots, totalCartDuration });

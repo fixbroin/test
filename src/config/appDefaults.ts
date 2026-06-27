@@ -31,13 +31,13 @@ export const defaultAppSettings: AppSettings = {
     slotIntervalMinutes: 60,
     breakTimeMinutes: 15, // Added break time
     weeklyAvailability: {
-      monday: { isEnabled: true, startTime: "09:00", endTime: "17:00" },
-      tuesday: { isEnabled: true, startTime: "09:00", endTime: "17:00" },
-      wednesday: { isEnabled: true, startTime: "09:00", endTime: "17:00" },
-      thursday: { isEnabled: true, startTime: "09:00", endTime: "17:00" },
-      friday: { isEnabled: true, startTime: "09:00", endTime: "17:00" },
-      saturday: { isEnabled: true, startTime: "10:00", endTime: "14:00" },
-      sunday: { isEnabled: true, startTime: "10:00", endTime: "14:00" },
+      monday: { isEnabled: true, startTime: "09:00", endTime: "17:00", intervals: [{ startTime: "09:00", endTime: "17:00" }] },
+      tuesday: { isEnabled: true, startTime: "09:00", endTime: "17:00", intervals: [{ startTime: "09:00", endTime: "17:00" }] },
+      wednesday: { isEnabled: true, startTime: "09:00", endTime: "17:00", intervals: [{ startTime: "09:00", endTime: "17:00" }] },
+      thursday: { isEnabled: true, startTime: "09:00", endTime: "17:00", intervals: [{ startTime: "09:00", endTime: "17:00" }] },
+      friday: { isEnabled: true, startTime: "09:00", endTime: "17:00", intervals: [{ startTime: "09:00", endTime: "17:00" }] },
+      saturday: { isEnabled: true, startTime: "10:00", endTime: "14:00", intervals: [{ startTime: "10:00", endTime: "14:00" }] },
+      sunday: { isEnabled: true, startTime: "10:00", endTime: "14:00", intervals: [{ startTime: "10:00", endTime: "14:00" }] },
     }
   },
   enableLimitLateBookings: false,
