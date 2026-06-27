@@ -2,7 +2,7 @@ import { adminDb } from '@/lib/firebaseAdmin';
 import type { ContentPage, GlobalWebSettings } from "@/types/firestore";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
-import { ArrowLeft, PackageSearch, Mail, Phone, MapPin } from "lucide-react";
+import { ArrowLeft, PackageSearch, Mail, Phone, MapPin, Clock, Calendar } from "lucide-react";
 import type { Metadata, ResolvingMetadata } from 'next';
 import { getGlobalSEOSettings } from '@/lib/seoServerUtils';
 import { getBaseUrl } from '@/lib/config'; 
@@ -47,6 +47,35 @@ export async function generateMetadata(
 
 export default async function ContactUsPage() {
   const pageData = await getContentPageData(PAGE_SLUG);
+
+  // Load App Settings for working hours
+  const appConfigSnap = await adminDb.collection("webSettings").doc("applicationConfig").get();
+  const appConfig = appConfigSnap.data() || {};
+  const timeSlotSettings = appConfig.timeSlotSettings || {};
+  
+  const defaultWeeklyAvailability = {
+    monday: { isEnabled: true, startTime: "09:00", endTime: "17:00", intervals: [{ startTime: "09:00", endTime: "17:00" }] },
+    tuesday: { isEnabled: true, startTime: "09:00", endTime: "17:00", intervals: [{ startTime: "09:00", endTime: "17:00" }] },
+    wednesday: { isEnabled: true, startTime: "09:00", endTime: "17:00", intervals: [{ startTime: "09:00", endTime: "17:00" }] },
+    thursday: { isEnabled: true, startTime: "09:00", endTime: "17:00", intervals: [{ startTime: "09:00", endTime: "17:00" }] },
+    friday: { isEnabled: true, startTime: "09:00", endTime: "17:00", intervals: [{ startTime: "09:00", endTime: "17:00" }] },
+    saturday: { isEnabled: true, startTime: "10:00", endTime: "14:00", intervals: [{ startTime: "10:00", endTime: "14:00" }] },
+    sunday: { isEnabled: true, startTime: "10:00", endTime: "14:00", intervals: [{ startTime: "10:00", endTime: "14:00" }] },
+  };
+
+  const weeklyAvailability: any = {
+    ...defaultWeeklyAvailability,
+    ...(timeSlotSettings.weeklyAvailability || {})
+  };
+
+  // Load Leaves (active and upcoming)
+  const todayISO = new Date().toLocaleDateString('en-CA');
+  const leavesSnap = await adminDb.collection("leaves")
+      .where("endDate", ">=", todayISO)
+      .get();
+  const leaves = leavesSnap.docs
+      .map(doc => ({ id: doc.id, ...doc.data() }))
+      .sort((a: any, b: any) => a.startDate.localeCompare(b.startDate));
 
   if (!pageData) {
     return (
@@ -178,6 +207,89 @@ export default async function ContactUsPage() {
                   <ContactUsForm />
                 </CardContent>
               </Card>
+            </div>
+          </div>
+
+          {/* Working Hours & Holidays Section */}
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 mt-16">
+            {/* Service Working Hours (Left side) */}
+            <div className="lg:col-span-6 bg-card border border-border/50 rounded-[2.5rem] shadow-2xl p-8 md:p-12">
+              <h3 className="text-2xl font-bold font-headline mb-6 flex items-center gap-3 text-foreground">
+                <Clock className="h-6 w-6 text-primary" /> Service Working Hours
+              </h3>
+              <div className="space-y-4">
+                {['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'].map((day) => {
+                  const dayName = day.charAt(0).toUpperCase() + day.slice(1);
+                  const config = weeklyAvailability[day];
+                  const isEnabled = config?.isEnabled ?? false;
+                  
+                  return (
+                    <div key={day} className="flex justify-between items-center py-2 border-b border-border/30 last:border-0">
+                      <span className="font-semibold text-foreground/80">{dayName}</span>
+                      {isEnabled ? (
+                        <div className="flex flex-col items-end gap-1">
+                          {config.intervals && config.intervals.length > 0 ? (
+                            config.intervals.map((interval: any, idx: number) => (
+                              <span key={idx} className="text-sm font-medium bg-primary/10 text-primary px-3 py-1 rounded-full">
+                                {interval.startTime} - {interval.endTime}
+                              </span>
+                            ))
+                          ) : (
+                            <span className="text-sm font-medium bg-primary/10 text-primary px-3 py-1 rounded-full">
+                              {config.startTime || "09:00 AM"} - {config.endTime || "06:00 PM"}
+                            </span>
+                          )}
+                        </div>
+                      ) : (
+                        <span className="text-sm font-medium bg-muted text-muted-foreground px-3 py-1 rounded-full">
+                          Closed
+                        </span>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Holidays & Leaves (Right side) */}
+            <div className="lg:col-span-6 bg-card border border-border/50 rounded-[2.5rem] shadow-2xl p-8 md:p-12">
+              <h3 className="text-2xl font-bold font-headline mb-6 flex items-center gap-3 text-foreground">
+                <Calendar className="h-6 w-6 text-primary" /> Holidays & Leaves
+              </h3>
+              {leaves.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-12 text-center text-muted-foreground">
+                  <Calendar className="h-12 w-12 text-muted-foreground/30 mb-3" />
+                  <p className="font-medium">No scheduled holidays or provider leaves.</p>
+                </div>
+              ) : (
+                <div className="space-y-4 max-h-[400px] overflow-y-auto pr-2">
+                  {leaves.map((leave: any) => {
+                    const isFullDay = leave.leaveType === 'full_day';
+                    const dateDisplay = leave.startDate === leave.endDate 
+                      ? new Date(leave.startDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })
+                      : `${new Date(leave.startDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })} - ${new Date(leave.endDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}`;
+
+                    return (
+                      <div key={leave.id} className="p-4 rounded-2xl bg-muted/40 border border-border/40 space-y-2">
+                        <div className="flex justify-between items-start gap-2">
+                          <span className="font-bold text-foreground/80 text-sm md:text-base">{dateDisplay}</span>
+                          <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold ${isFullDay ? 'bg-red-100 text-red-800 dark:bg-red-950/20 dark:text-red-300' : 'bg-amber-100 text-amber-800 dark:bg-amber-950/20 dark:text-amber-300'}`}>
+                            {isFullDay ? 'Full Day' : 'Partial Day'}
+                          </span>
+                        </div>
+                        {!isFullDay && (
+                          <p className="text-xs text-muted-foreground font-semibold">
+                            Hours: {leave.startTime} - {leave.endTime}
+                          </p>
+                        )}
+                        <p className="text-sm font-medium text-muted-foreground">
+                          Reason: <span className="text-foreground/90 font-bold">{leave.reason || (isFullDay ? "Provider Leave / Holiday" : "Provider on Leave / Custom Gaps")}</span>
+                        </p>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
             </div>
           </div>
 

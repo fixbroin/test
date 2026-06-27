@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { ListOrdered, PackageSearch, ArrowLeft, Loader2, Eye, Trash2, Download, Ban, UserCircle, Languages, Phone } from "lucide-react"; // Added Phone
+import { ListOrdered, PackageSearch, ArrowLeft, Loader2, Eye, Trash2, Download, Ban, UserCircle, Languages, Phone, AlertTriangle } from "lucide-react"; // Added Phone
 import ProtectedRoute from "@/components/auth/ProtectedRoute";
 import { useAuth } from "@/hooks/useAuth";
 import { db } from "@/lib/firebase";
@@ -526,6 +526,25 @@ export default function MyBookingsPage() {
                       <p className="font-medium text-green-700">
                         {formatDateInTimezone(booking.estimatedEndTime, appConfig.timezone, { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' })} at {formatTimeInTimezone(booking.estimatedEndTime, appConfig.timezone)}
                       </p>
+                    </div>
+                  )}
+                  {booking.interveningBreaks && booking.interveningBreaks.length > 0 && (
+                    <div className="sm:col-span-2 md:col-span-3 py-2.5 px-3 bg-amber-50/60 dark:bg-amber-950/20 border border-amber-200/50 rounded-xl space-y-1.5 text-xs text-muted-foreground my-1">
+                      <p className="font-bold text-[10px] text-amber-800 dark:text-amber-300 uppercase tracking-wider flex items-center gap-1">
+                        <AlertTriangle className="h-3 w-3" /> Includes Gaps / Holidays
+                      </p>
+                      <div className="space-y-1 pl-1">
+                        {booking.interveningBreaks.map((item: any, idx: number) => (
+                          <div key={idx} className="flex items-start gap-2">
+                            <div className={`mt-1.5 h-1.5 w-1.5 rounded-full ${item.type === 'holiday' ? 'bg-red-500' : item.type === 'partial' ? 'bg-amber-500' : 'bg-blue-500'}`} />
+                            <div className="text-muted-foreground text-xs">
+                              <span className="font-semibold text-foreground/80">{item.dateLabel}</span>
+                              {item.timeLabel && <span className="ml-1">({item.timeLabel})</span>}
+                              <span className="ml-1.5 font-medium text-muted-foreground/80">— {item.reason}</span>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
                     </div>
                   )}
                   <div>

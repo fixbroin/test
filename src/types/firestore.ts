@@ -218,6 +218,7 @@ export interface FirestoreBooking {
   previousScheduledDate?: string; // NEW: Store previous date before reschedule
   previousScheduledTimeSlot?: string; // NEW: Store previous slot before reschedule
   estimatedEndTime?: string; // Work-only completion time (ISO string)
+  interveningBreaks?: { type: 'holiday' | 'partial' | 'gap'; dateLabel: string; timeLabel?: string; reason?: string }[];
   createdAt: Timestamp;
   updatedAt?: Timestamp;
   isReviewedByCustomer?: boolean;

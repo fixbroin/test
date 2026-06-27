@@ -37,7 +37,7 @@ const getDayName = (date: Date, timeZone: string = 'Asia/Kolkata'): keyof AppSet
 };
 
 interface ScheduleSelectionProps {
-  onSelect: (date: Date, slot: string, endTime: string) => void;
+  onSelect: (date: Date, slot: string, endTime: string, interveningBreaks: any[]) => void;
   initialDate?: Date;
   initialSlot?: string;
 }
@@ -274,7 +274,7 @@ export default function ScheduleSelection({ onSelect, initialDate, initialSlot }
 
   const handleConfirm = () => {
     if (selectedDate && selectedTimeSlot && selectedSlotData) {
-      onSelect(selectedDate, selectedTimeSlot, selectedSlotData.endDateTime);
+      onSelect(selectedDate, selectedTimeSlot, selectedSlotData.endDateTime, interveningBreaksAndHolidays);
     }
   };
 

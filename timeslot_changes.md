@@ -46,6 +46,35 @@ This document lists all the files modified and created to support the multiple t
 * **Changes**:
   * **Bypassed Permission Rules**: Replaced client-side Firestore calls with requests to the new `/api/checkout/leaves` API.
   * **Calendar Modifiers**: Applied custom highlights to the calendar (dashed red for holidays, dashed amber for partial-day leaves).
-  * **Selectable Holiday Dates**: Kept holiday dates selectable (instead of disabling them completely) so that when clicked, the customer is shown the custom warning banner with the admin's holiday reason, while the confirmation button remains disabled.
+  * **Selectable Holiday Dates**: Kept holiday dates clickable so that when selected, the custom warning banner with the holiday reason is displayed, rather than disabling them completely.
   * **Estimated Completion Date**: Restored the date string display so that it outputs both date and time (e.g., `Ends on Sat, 27 Jun at 07:00 PM`).
-  * **Includes Gaps / Holidays Breakdown**: Added a detailed section below estimated completion that transparently lists any holidays, leaves, or shop breaks falling within the booking progression timeline to prevent client confusion.
+  * **Includes Gaps / Holidays Breakdown**: Added a detailed section below estimated completion that lists any holidays, leaves, or shop breaks falling within the booking progression timeline.
+  * **Passes Breaks List**: Pass the array of computed gaps/holidays to the parent component via the `onSelect` callback.
+
+---
+
+### 7. `src/app/checkout/page.tsx`
+* **Changes**:
+  * Saved the computed gaps, holidays, and leaves list (`interveningBreaks`) directly to `localStorage` (`fixbroInterveningBreaks`) when the schedule is selected.
+
+---
+
+### 8. `src/app/checkout/thank-you/page.tsx`
+* **Changes**:
+  * Reads the list of breaks from `localStorage` and saves it directly to the booking document under the new `interveningBreaks` field in Firestore bookings.
+  * Displays the **"Includes Gaps / Holidays"** timeline details inside the booking success summary.
+
+---
+
+### 9. `src/app/my-bookings/page.tsx`
+* **Changes**:
+  * Displays the list of gaps, holidays, or leaves inside the booking cards under the Estimated Completion details, helping customers verify the schedule details at any time.
+
+---
+
+### 10. `src/app/contact-us/page.tsx`
+* **Changes**:
+  * Loaded app settings weekly availability and all active/upcoming leaves directly from Firestore.
+  * Rendered a new **"Working Hours & Holidays"** section dynamically:
+    * Left side shows weekdays along with their multiple configured timing intervals (or `Closed`).
+    * Right side lists upcoming holidays/leaves, highlighting dates, blockout type, custom times, and reasons.
