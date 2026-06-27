@@ -186,8 +186,10 @@ if (booking.additionalCharges && booking.additionalCharges.length > 0) {
     }
   }
 
-  finalY += 6;
-  drawRightAlignedText("Total Tax:", `+ Rs. ${booking.taxAmount.toFixed(2)}`, finalY);
+  if (booking.taxAmount && booking.taxAmount > 0) {
+    finalY += 6;
+    drawRightAlignedText("Total Tax:", `+ Rs. ${booking.taxAmount.toFixed(2)}`, finalY);
+  }
 
   finalY += 8;
   doc.setFontSize(12);

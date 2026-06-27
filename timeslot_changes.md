@@ -78,3 +78,28 @@ This document lists all the files modified and created to support the multiple t
   * Rendered a new **"Working Hours & Holidays"** section dynamically:
     * Left side shows weekdays along with their multiple configured timing intervals (or `Closed`).
     * Right side lists upcoming holidays/leaves, highlighting dates, blockout type, custom times, and reasons.
+
+---
+
+### 11. Multi-day Booking Day-by-Day Timeline Breakdown
+* **Changes across files**:
+  * **`src/app/api/checkout/available-slots/route.ts`**: Implemented `calculateDailyTimeline` to simulate work progression day-by-day and return a `dailyTimeline` array inside each available time slot object.
+  * **`src/components/checkout/ScheduleSelection.tsx`**: Renders a **"Day-by-Day Work Schedule"** list (only if the booking spans across multiple days) underneath the slot card in the selection modal.
+  * **`src/app/checkout/page.tsx`**: Saves the selected schedule's daily timeline to `localStorage` (`fixbroDailyTimeline`).
+  * **`src/app/checkout/thank-you/page.tsx`**: Loads the daily timeline from `localStorage` and saves it to the Firestore booking document. Renders the day-by-day timeline inside the confirmation summary.
+  * **`src/app/my-bookings/page.tsx`**: Reads `dailyTimeline` from the booking document and renders the timeline within the customer's historical booking card summary.
+
+---
+
+### 12. Conditional Tax Display (Zero-Tax Rule)
+* **Changes across files**:
+  * **`src/components/checkout/payment/PaymentSummary.tsx`**: Hides the checkout "Tax" summary row if `taxAmount === 0`.
+  * **`src/app/checkout/thank-you/page.tsx`**: Hides the "Total Tax" row in the success card if `taxAmount === 0`.
+  * **`src/lib/invoiceGenerator.ts`**: Hides the `Total Tax` row in the admin and email PDF invoices if `booking.taxAmount === 0`.
+  * **`src/lib/InvoicePdfForDownload.ts`**: Hides the `Total Tax` row in the customer-downloaded PDF invoices if `booking.taxAmount === 0`.
+
+---
+
+### 13. Scheduler Slots Grid Card container
+* **Changes**:
+  * **`src/components/checkout/ScheduleSelection.tsx`**: Wrapped the time slots buttons grid in a visual container card (`p-4 bg-primary/[0.03] dark:bg-muted/10 border border-primary/10 rounded-2xl`) so that the individual slots sit on a defined light background with colored borders, elevating the UI design premium feel.

@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { ListOrdered, PackageSearch, ArrowLeft, Loader2, Eye, Trash2, Download, Ban, UserCircle, Languages, Phone, AlertTriangle } from "lucide-react"; // Added Phone
+import { ListOrdered, PackageSearch, ArrowLeft, Loader2, Eye, Trash2, Download, Ban, UserCircle, Languages, Phone, AlertTriangle, Clock } from "lucide-react"; // Added Phone
 import ProtectedRoute from "@/components/auth/ProtectedRoute";
 import { useAuth } from "@/hooks/useAuth";
 import { db } from "@/lib/firebase";
@@ -526,6 +526,23 @@ export default function MyBookingsPage() {
                       <p className="font-medium text-green-700">
                         {formatDateInTimezone(booking.estimatedEndTime, appConfig.timezone, { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' })} at {formatTimeInTimezone(booking.estimatedEndTime, appConfig.timezone)}
                       </p>
+                    </div>
+                  )}
+                  {booking.dailyTimeline && booking.dailyTimeline.length > 1 && (
+                    <div className="sm:col-span-2 md:col-span-3 py-2.5 px-3 bg-blue-50/60 dark:bg-blue-950/20 border border-blue-200/50 rounded-xl space-y-2 text-sm text-muted-foreground my-1">
+                      <p className="font-bold text-xs text-blue-800 dark:text-blue-300 uppercase tracking-wider flex items-center gap-1">
+                        <Clock className="h-3 w-3" /> Day-by-Day Work Schedule
+                      </p>
+                      <div className="space-y-1.5 pl-1">
+                        {booking.dailyTimeline.map((item: any, idx: number) => (
+                          <div key={idx} className="flex items-center justify-between gap-2 flex-wrap sm:flex-nowrap text-sm py-1.5 border-b border-border/20 last:border-0">
+                            <span className="font-semibold text-foreground/80">{item.dateLabel}</span>
+                            <span className="font-semibold bg-primary/10 text-primary px-2.5 py-0.5 rounded-full text-xs whitespace-nowrap">
+                              {item.startTime} - {item.endTime}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
                     </div>
                   )}
                   {booking.interveningBreaks && booking.interveningBreaks.length > 0 && (

@@ -104,7 +104,7 @@ export default function CheckoutPage() {
     }
   }, [router]);
 
-  const handleScheduleSelect = (date: Date, slot: string, endTime: string, interveningBreaks: any[]) => {
+  const handleScheduleSelect = (date: Date, slot: string, endTime: string, interveningBreaks: any[], dailyTimeline?: any[]) => {
     setScheduledDate(date);
     setScheduledSlot(slot);
     setEstimatedEndTime(endTime);
@@ -112,6 +112,7 @@ export default function CheckoutPage() {
     localStorage.setItem('fixbroScheduledTimeSlot', slot);
     localStorage.setItem('fixbroEstimatedEndTime', endTime);
     localStorage.setItem('fixbroInterveningBreaks', JSON.stringify(interveningBreaks));
+    localStorage.setItem('fixbroDailyTimeline', JSON.stringify(dailyTimeline || []));
     setIsScheduleModalOpen(false);
     toast({ title: "Schedule Updated", description: "Your service time has been updated." });
 

@@ -346,13 +346,15 @@ export default function PaymentSummary({ paymentMethod, canBook, appliedPromo, o
               <span>₹{(fee.calculatedFeeAmount + fee.taxAmountOnFee).toLocaleString()}</span>
             </div>
           ))}
-          <div className="flex justify-between items-center">
-            <div className="flex items-center gap-1 text-muted-foreground">
-              Tax
-              <Info className="h-3 w-3 cursor-pointer" onClick={() => setIsTaxBreakdownOpen(true)} />
+          {taxAmount > 0 && (
+            <div className="flex justify-between items-center">
+              <div className="flex items-center gap-1 text-muted-foreground">
+                Tax
+                <Info className="h-3 w-3 cursor-pointer" onClick={() => setIsTaxBreakdownOpen(true)} />
+              </div>
+              <span>₹{taxAmount.toLocaleString()}</span>
             </div>
-            <span>₹{taxAmount.toLocaleString()}</span>
-          </div>
+          )}
           <div className="flex justify-between text-lg font-bold border-t pt-2 mt-2">
             <span>Total Amount</span>
             <span className="text-primary">₹{totalAmountDue.toLocaleString()}</span>

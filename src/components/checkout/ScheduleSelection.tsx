@@ -37,7 +37,7 @@ const getDayName = (date: Date, timeZone: string = 'Asia/Kolkata'): keyof AppSet
 };
 
 interface ScheduleSelectionProps {
-  onSelect: (date: Date, slot: string, endTime: string, interveningBreaks: any[]) => void;
+  onSelect: (date: Date, slot: string, endTime: string, interveningBreaks: any[], dailyTimeline?: any[]) => void;
   initialDate?: Date;
   initialSlot?: string;
 }
@@ -46,7 +46,7 @@ export default function ScheduleSelection({ onSelect, initialDate, initialSlot }
   const slotsSectionRef = useRef<HTMLDivElement>(null);
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(initialDate);
   const [displayMonth, setDisplayMonth] = useState<Date>(initialDate || new Date());
-  const [availableTimeSlots, setAvailableTimeSlots] = useState<{ slot: string; remainingCapacity: number; endDateTime: string }[]>([]);
+  const [availableTimeSlots, setAvailableTimeSlots] = useState<{ slot: string; remainingCapacity: number; endDateTime: string; dailyTimeline?: { dateLabel: string; startTime: string; endTime: string }[] }[]>([]);
   const [selectedTimeSlot, setSelectedTimeSlot] = useState<string | undefined>(initialSlot);
   const [isLoadingSlots, setIsLoadingSlots] = useState(false);
   const [isSearchingForNextDay, setIsSearchingForNextDay] = useState(false);
@@ -274,7 +274,7 @@ export default function ScheduleSelection({ onSelect, initialDate, initialSlot }
 
   const handleConfirm = () => {
     if (selectedDate && selectedTimeSlot && selectedSlotData) {
-      onSelect(selectedDate, selectedTimeSlot, selectedSlotData.endDateTime, interveningBreaksAndHolidays);
+      onSelect(selectedDate, selectedTimeSlot, selectedSlotData.endDateTime, interveningBreaksAndHolidays, selectedSlotData.dailyTimeline);
     }
   };
 
@@ -359,41 +359,43 @@ export default function ScheduleSelection({ onSelect, initialDate, initialSlot }
                     </div>
                   ) : availableTimeSlots.length > 0 ? (
                     <div className="space-y-4">
-                       <RadioGroup
-                        value={selectedTimeSlot}
-                        onValueChange={setSelectedTimeSlot}
-                        className="grid grid-cols-2 sm:grid-cols-3 gap-3"
-                      >
-                        {availableTimeSlots.map(({ slot, remainingCapacity }) => (
-                          <div key={slot}>
-                            <RadioGroupItem 
-                              value={slot} 
-                              id={`slot-${slot}`} 
-                              className="sr-only" 
-                            />
-                            <Label
-                              htmlFor={`slot-${slot}`}
-                              className={`group relative flex flex-col items-center justify-center border-2 rounded-xl p-3 cursor-pointer transition-all duration-200 hover:border-primary/50
-                                ${selectedTimeSlot === slot 
-                                  ? 'bg-primary border-primary text-primary-foreground shadow-md' 
-                                  : 'bg-background border-muted hover:bg-muted/30'}`}
-                            >
-                              <Clock className={`h-4 w-4 mb-1 ${selectedTimeSlot === slot ? 'text-primary-foreground' : 'text-muted-foreground'}`} />
-                              <span className="font-bold text-sm">{slot}</span>
-                              
-                              {remainingCapacity > 1 && (
-                                  <Badge 
-                                    variant="default" 
-                                    className={`absolute -top-2 -right-1 text-[9px] px-1.5 py-0 bg-green-500
-                                      ${selectedTimeSlot === slot ? 'bg-white text-green-600' : ''}`}
-                                  >
-                                    {remainingCapacity} left
-                                  </Badge>
-                              )}
-                            </Label>
-                          </div>
-                        ))}
-                      </RadioGroup>
+                      <div className="p-4 bg-primary/[0.03] dark:bg-muted/10 border border-primary/10 rounded-2xl">
+                        <RadioGroup
+                          value={selectedTimeSlot}
+                          onValueChange={setSelectedTimeSlot}
+                          className="grid grid-cols-2 sm:grid-cols-3 gap-3"
+                        >
+                          {availableTimeSlots.map(({ slot, remainingCapacity }) => (
+                            <div key={slot}>
+                              <RadioGroupItem 
+                                value={slot} 
+                                id={`slot-${slot}`} 
+                                className="sr-only" 
+                              />
+                              <Label
+                                htmlFor={`slot-${slot}`}
+                                className={`group relative flex flex-col items-center justify-center border-2 rounded-xl p-3 cursor-pointer transition-all duration-200 hover:border-primary/50
+                                  ${selectedTimeSlot === slot 
+                                    ? 'bg-primary border-primary text-primary-foreground shadow-md font-bold' 
+                                    : 'bg-background border-muted hover:bg-muted/30'}`}
+                              >
+                                <Clock className={`h-4 w-4 mb-1 ${selectedTimeSlot === slot ? 'text-primary-foreground' : 'text-muted-foreground'}`} />
+                                <span className="font-bold text-sm">{slot}</span>
+                                
+                                {remainingCapacity > 1 && (
+                                    <Badge 
+                                      variant="default" 
+                                      className={`absolute -top-2 -right-1 text-[9px] px-1.5 py-0 bg-green-500
+                                        ${selectedTimeSlot === slot ? 'bg-white text-green-600 font-bold' : ''}`}
+                                    >
+                                      {remainingCapacity} left
+                                    </Badge>
+                                )}
+                              </Label>
+                            </div>
+                          ))}
+                        </RadioGroup>
+                      </div>
                       
                       {selectedTimeSlot && (
                          <motion.div 
@@ -424,6 +426,28 @@ export default function ScheduleSelection({ onSelect, initialDate, initialSlot }
                                 </p>
                               </div>
                             </div>
+
+                             {selectedSlotData && selectedSlotData.dailyTimeline && selectedSlotData.dailyTimeline.length > 1 && (
+                               <>
+                                 <Separator className="bg-primary/10" />
+                                 <div className="space-y-2.5 pt-1">
+                                   <p className="text-xs text-muted-foreground uppercase tracking-wider font-bold flex items-center gap-1.5">
+                                     <Clock className="h-3.5 w-3.5 text-blue-500" />
+                                     Day-by-Day Work Schedule
+                                   </p>
+                                   <div className="space-y-1.5 pl-1">
+                                     {selectedSlotData.dailyTimeline.map((item, idx) => (
+                                       <div key={idx} className="flex items-center justify-between gap-2 flex-wrap sm:flex-nowrap text-sm py-1.5 border-b border-border/20 last:border-0">
+                                         <span className="font-semibold text-foreground/85">{item.dateLabel}</span>
+                                         <span className="font-semibold bg-primary/10 text-primary px-2.5 py-0.5 rounded-full text-xs whitespace-nowrap">
+                                           {item.startTime} - {item.endTime}
+                                         </span>
+                                       </div>
+                                     ))}
+                                   </div>
+                                 </div>
+                               </>
+                             )}
 
                             {interveningBreaksAndHolidays.length > 0 && (
                               <>
@@ -473,7 +497,9 @@ export default function ScheduleSelection({ onSelect, initialDate, initialSlot }
             ) : (
               <div className="flex flex-col items-center justify-center py-12 text-center border-2 border-dashed rounded-2xl opacity-60">
                 <CalendarDays className="h-10 w-10 text-muted-foreground mb-4" />
-                <p className="text-muted-foreground font-medium">Please select a date on the left</p>
+                <p className="text-muted-foreground font-medium">
+                  Please select a date <span className="hidden sm:inline">on the left</span><span className="inline sm:hidden">above</span>
+                </p>
               </div>
             )}
           </div>

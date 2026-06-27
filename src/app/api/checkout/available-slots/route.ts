@@ -193,6 +193,86 @@ function calculateEndDateTime(
     return convertWallClockToUTC(wallClockDate, timezone).toISOString();
 }
 
+interface DailyTimelineItem {
+    dateLabel: string;
+    startTime: string;
+    endTime: string;
+}
+
+function calculateDailyTimeline(
+    startDateISO: string,
+    startMinutes: number,
+    workDuration: number,
+    appConfig: AppSettings,
+    leaves: LeaveRequest[]
+): DailyTimelineItem[] {
+    let remainingMinutes = workDuration;
+    let currentMinutes = startMinutes;
+    
+    const [y, m, d] = startDateISO.split('-').map(Number);
+    const currentDate = new Date(Date.UTC(y, m - 1, d, 0, 0, 0)); 
+    
+    const timeline: DailyTimelineItem[] = [];
+    let daysSearched = 0;
+    
+    while (remainingMinutes > 0 && daysSearched < 30) {
+        const dateISO = currentDate.toISOString().split('T')[0];
+        const intervals = getDayActiveIntervals(dateISO, appConfig, leaves);
+
+        if (intervals.length === 0) {
+            currentDate.setUTCDate(currentDate.getUTCDate() + 1);
+            currentMinutes = 0;
+            daysSearched++;
+            continue;
+        }
+
+        const activeIntervals = intervals.filter(i => i.endMin > currentMinutes);
+        if (activeIntervals.length === 0) {
+            currentDate.setUTCDate(currentDate.getUTCDate() + 1);
+            currentMinutes = 0;
+            daysSearched++;
+            continue;
+        }
+
+        let dayWorkStart: number | null = null;
+        let dayWorkEnd: number | null = null;
+
+        for (const interval of activeIntervals) {
+            if (remainingMinutes <= 0) break;
+            
+            const start = Math.max(currentMinutes, interval.startMin);
+            if (dayWorkStart === null) dayWorkStart = start;
+            
+            const minutesAvailableInInterval = interval.endMin - start;
+            
+            if (remainingMinutes <= minutesAvailableInInterval) {
+                dayWorkEnd = start + remainingMinutes;
+                currentMinutes = start + remainingMinutes;
+                remainingMinutes = 0;
+            } else {
+                dayWorkEnd = interval.endMin;
+                remainingMinutes -= minutesAvailableInInterval;
+                currentMinutes = interval.endMin;
+            }
+        }
+
+        if (dayWorkStart !== null && dayWorkEnd !== null) {
+            const displayDateStr = currentDate.toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short' });
+            timeline.push({
+                dateLabel: displayDateStr,
+                startTime: formatTimeFromMinutes(dayWorkStart),
+                endTime: formatTimeFromMinutes(dayWorkEnd)
+            });
+        }
+
+        currentDate.setUTCDate(currentDate.getUTCDate() + 1);
+        currentMinutes = 0;
+        daysSearched++;
+    }
+    
+    return timeline;
+}
+
 /**
  * Simulates a continuous timeline of work across multiple days.
  * Yields every slot interval that has any overlap with the Work + Buffer range.
@@ -517,11 +597,13 @@ export async function POST(req: NextRequest) {
 
                 if (isPathClear) {
                     const endDateTime = calculateEndDateTime(dateISO, potentialStart, totalCartDuration, 0, appConfig, leavesData);
+                    const dailyTimeline = calculateDailyTimeline(dateISO, potentialStart, totalCartDuration, appConfig, leavesData);
                     availableSlots.push({ 
                         slot: formatTimeFromMinutes(potentialStart), 
                         remainingCapacity: minRemainingCapacity,
-                        endDateTime: endDateTime
-                    });
+                        endDateTime: endDateTime,
+                        dailyTimeline: dailyTimeline
+                    } as any);
                 }
 
                 potentialStart += slotInterval;
