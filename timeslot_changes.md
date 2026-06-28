@@ -116,3 +116,10 @@ This document lists all the files modified and created to support the multiple t
 ### 15. Scheduler Default Date Selection (Auto-select Today)
 * **Changes**:
   * **`src/components/checkout/ScheduleSelection.tsx`**: Automatically selects the current date (today) in the calendar on load (if no date was previously selected), triggering slot loading immediately for today.
+
+---
+
+### 16. Available Slots API Performance Optimization
+* **Changes**:
+  * **`src/app/api/checkout/available-slots/route.ts`**: Optimized from reading all services, subcategories, and limits, to targeted reads using `adminDb.getAll(...)` for only the specific services in the cart and bookings active in the date range. Added an in-memory cache for `applicationConfig` to avoid repeated database lookups.
+  * **How to change config cache timing**: In `src/app/api/checkout/available-slots/route.ts`, locate the variable `CACHE_TTL_MS` (currently set to `15 * 60 * 1000` / 15 minutes). You can modify this value (in milliseconds) to adjust how long settings are cached in memory (e.g. `60 * 1000` for 1 minute).

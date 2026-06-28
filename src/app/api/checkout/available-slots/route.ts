@@ -20,9 +20,14 @@ const DEFAULT_HOURS_WHEN_LIMIT_ENABLED = defaultAppSettings.limitLateBookingHour
 const BUSY_MAP_CACHE = new Map<string, Map<string, Record<string, number>>>();
 const MAX_CACHE_SIZE = 100;
 
+// Config caching to prevent fetching settings on every click
+let CACHED_APP_CONFIG: AppSettings | null = null;
+let CACHED_APP_CONFIG_TIME = 0;
+const CACHE_TTL_MS = 15 * 60 * 1000; // 15 minutes
+
 // --- Helper Functions ---
 
-const getServiceDurationInMinutes = (service: FirestoreService): number => {
+const getServiceDurationInMinutes = (service: FirestoreService | any): number => {
     if (!service.taskTimeValue || !service.taskTimeUnit) return 0;
     if (service.taskTimeUnit === 'hours') {
         return service.taskTimeValue * 60;
@@ -378,9 +383,17 @@ export async function POST(req: NextRequest) {
             return NextResponse.json({ error: "Missing required parameters." }, { status: 400 });
         }
 
-        // Fetch config first to get timezone
-        const appConfigSnap = await adminDb.collection("webSettings").doc("applicationConfig").get();
-        const appConfig = (appConfigSnap.exists ? appConfigSnap.data() : defaultAppSettings) as AppSettings;
+        // Fetch config first to get timezone (cached for 1 minute)
+        let appConfig: AppSettings;
+        const currentTimestamp = Date.now();
+        if (CACHED_APP_CONFIG && (currentTimestamp - CACHED_APP_CONFIG_TIME < CACHE_TTL_MS)) {
+            appConfig = CACHED_APP_CONFIG;
+        } else {
+            const appConfigSnap = await adminDb.collection("webSettings").doc("applicationConfig").get();
+            appConfig = (appConfigSnap.exists ? appConfigSnap.data() : defaultAppSettings) as AppSettings;
+            CACHED_APP_CONFIG = appConfig;
+            CACHED_APP_CONFIG_TIME = currentTimestamp;
+        }
         const timezone = appConfig.timezone || 'Asia/Kolkata';
 
         // Robust parsing: Extract "YYYY-MM-DD" part even if it's a full ISO string
@@ -409,10 +422,8 @@ export async function POST(req: NextRequest) {
         lookBackDate.setDate(lookBackDate.getDate() - 7);
         const lookBackISO = formatZonedDateToISO(lookBackDate, timezone);
 
-        const [limitsSnap, servicesSnap, subCatsSnap, bookingsSnap, leavesSnap] = await Promise.all([
-            adminDb.collection("timeSlotCategoryLimits").get(),
-            adminDb.collection("adminServices").get(),
-            adminDb.collection("adminSubCategories").get(),
+        // Fetch bookings and leaves (filtered to target range to avoid over-fetching)
+        const [bookingsSnap, leavesSnap] = await Promise.all([
             adminDb.collection("bookings")
                 .where("scheduledDate", ">=", lookBackISO)
                 .where("scheduledDate", "<=", dateISO) 
@@ -422,11 +433,62 @@ export async function POST(req: NextRequest) {
                 .get()
         ]);
 
-        const limitsData = Object.fromEntries(limitsSnap.docs.map(doc => [doc.data().categoryId, { id: doc.id, ...doc.data() } as TimeSlotCategoryLimit]));
-        const servicesData = Object.fromEntries(servicesSnap.docs.map(doc => [doc.id, { id: doc.id, ...doc.data() } as FirestoreService]));
-        const subCatsData = Object.fromEntries(subCatsSnap.docs.map(doc => [doc.id, { id: doc.id, ...doc.data() } as FirestoreSubCategory]));
         const existingBookings = bookingsSnap.docs.map(doc => doc.data() as FirestoreBooking);
         const leavesData = leavesSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as LeaveRequest));
+
+        // Collect all unique service IDs from cart AND active bookings in target range
+        const serviceIds = new Set<string>();
+        cartEntries.forEach((entry: CartEntry) => {
+            if (entry.serviceId) serviceIds.add(entry.serviceId);
+        });
+        existingBookings.forEach((b: FirestoreBooking) => {
+            if (b.services) {
+                b.services.forEach(item => {
+                    if (item.serviceId) serviceIds.add(item.serviceId);
+                });
+            }
+        });
+        const serviceIdsArray = Array.from(serviceIds);
+
+        // Fetch details ONLY for the required services
+        const serviceRefs = serviceIdsArray.map(id => adminDb.collection("adminServices").doc(id));
+        const serviceDocs = serviceRefs.length > 0 ? await adminDb.getAll(...serviceRefs) : [];
+        const servicesData = Object.fromEntries(
+            serviceDocs
+                .filter(doc => doc.exists)
+                .map(doc => [doc.id, { id: doc.id, ...doc.data() } as FirestoreService])
+        );
+
+        // Collect unique subcategory IDs from the resolved services
+        const subCategoryIds = new Set<string>();
+        Object.values(servicesData).forEach(service => {
+            if (service.subCategoryId) subCategoryIds.add(service.subCategoryId);
+        });
+        const subCategoryIdsArray = Array.from(subCategoryIds);
+
+        // Fetch details ONLY for the required subcategories
+        const subCatRefs = subCategoryIdsArray.map(id => adminDb.collection("adminSubCategories").doc(id));
+        const subCatDocs = subCatRefs.length > 0 ? await adminDb.getAll(...subCatRefs) : [];
+        const subCatsData = Object.fromEntries(
+            subCatDocs
+                .filter(doc => doc.exists)
+                .map(doc => [doc.id, { id: doc.id, ...doc.data() } as FirestoreSubCategory])
+        );
+
+        // Collect category IDs from resolved subcategories
+        const categoryIds = new Set<string>();
+        Object.values(subCatsData).forEach(subCat => {
+            if (subCat.parentId) categoryIds.add(subCat.parentId);
+        });
+        const categoryIdsArray = Array.from(categoryIds);
+
+        // Fetch category limits ONLY for the required category IDs
+        const limitsSnap = categoryIdsArray.length > 0
+            ? await adminDb.collection("timeSlotCategoryLimits").where("categoryId", "in", categoryIdsArray).get()
+            : { docs: [] };
+        const limitsData = Object.fromEntries(
+            limitsSnap.docs.map(doc => [doc.data().categoryId, { id: doc.id, ...doc.data() } as TimeSlotCategoryLimit])
+        );
 
         const slotInterval = appConfig.timeSlotSettings?.slotIntervalMinutes || DEFAULT_SLOT_INTERVAL_MINUTES;
         const breakTimeMinutes = appConfig.timeSlotSettings?.breakTimeMinutes || 0;
