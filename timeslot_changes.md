@@ -110,3 +110,9 @@ This document lists all the files modified and created to support the multiple t
 * **Changes**:
   * **`src/components/admin/BookingDetailsModalContent.tsx`**: Displays the **"Day-by-Day Work Schedule"** and **"Includes Gaps / Holidays"** timeline details inside the admin booking detail modal.
   * **`src/app/provider/booking/[bookingId]/page.tsx`**: Displays the **"Day-by-Day Work Schedule"** and **"Includes Gaps / Holidays"** timelines inside the provider booking details page.
+
+---
+
+### 15. Scheduler Default Date Selection (Auto-select Today)
+* **Changes**:
+  * **`src/components/checkout/ScheduleSelection.tsx`**: Automatically selects the current date (today) in the calendar on load (if no date was previously selected), triggering slot loading immediately for today.

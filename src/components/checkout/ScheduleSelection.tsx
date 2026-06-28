@@ -284,6 +284,13 @@ export default function ScheduleSelection({ onSelect, initialDate, initialSlot }
     return d;
   }, [appConfig.timezone]);
 
+  useEffect(() => {
+    if (!selectedDate && !isLoadingAppSettings) {
+      setSelectedDate(today);
+      setDisplayMonth(today);
+    }
+  }, [isLoadingAppSettings, today, selectedDate]);
+
   const formatDateForDisplay = (date: Date | undefined): string => {
     if (!date) return "";
     return date.toLocaleDateString('en-IN', { day: '2-digit', month: '2-digit', year: 'numeric' });
