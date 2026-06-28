@@ -103,3 +103,10 @@ This document lists all the files modified and created to support the multiple t
 ### 13. Scheduler Slots Grid Card container
 * **Changes**:
   * **`src/components/checkout/ScheduleSelection.tsx`**: Wrapped the time slots buttons grid in a visual container card (`p-4 bg-primary/[0.03] dark:bg-muted/10 border border-primary/10 rounded-2xl`) so that the individual slots sit on a defined light background with colored borders, elevating the UI design premium feel.
+
+---
+
+### 14. Admin & Provider Booking Detail Schedule Display
+* **Changes**:
+  * **`src/components/admin/BookingDetailsModalContent.tsx`**: Displays the **"Day-by-Day Work Schedule"** and **"Includes Gaps / Holidays"** timeline details inside the admin booking detail modal.
+  * **`src/app/provider/booking/[bookingId]/page.tsx`**: Displays the **"Day-by-Day Work Schedule"** and **"Includes Gaps / Holidays"** timelines inside the provider booking details page.

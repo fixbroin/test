@@ -162,7 +162,7 @@ export default function ScheduleSelection({ onSelect, initialDate, initialSlot }
               type: 'gap',
               dateLabel: displayDateStr,
               timeLabel: `${currentEnd} - ${nextStart}`,
-              reason: "Scheduled Shop Break"
+              reason: "Scheduled Provider Break"
             });
           }
         }

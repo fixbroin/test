@@ -233,7 +233,7 @@ export default function ProviderBookingDetailsPage() {
           <Separator />
           <section>
             <h3 className="text-lg font-semibold mb-2 flex items-center"><CalendarDays className="mr-2 text-primary"/>Schedule</h3>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-1 text-sm">
+             <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-1 text-sm">
               <p><strong>Date:</strong> {formatDateForDisplay(booking.scheduledDate)}</p>
               <p><strong>Time Slot:</strong> {booking.scheduledTimeSlot}</p>
               {booking.estimatedEndTime && (
@@ -242,6 +242,44 @@ export default function ProviderBookingDetailsPage() {
                 </p>
               )}
             </div>
+
+            {booking.dailyTimeline && booking.dailyTimeline.length > 1 && (
+              <div className="mt-4 py-2.5 px-3 bg-blue-50/60 dark:bg-blue-950/20 border border-blue-200/50 rounded-xl space-y-2 text-sm text-muted-foreground max-w-xl">
+                <p className="font-bold text-xs text-blue-800 dark:text-blue-300 uppercase tracking-wider flex items-center gap-1.5">
+                  <Clock className="h-3.5 w-3.5" /> Day-by-Day Work Schedule
+                </p>
+                <div className="space-y-1.5 pl-1">
+                  {booking.dailyTimeline.map((item, idx) => (
+                    <div key={idx} className="flex items-center justify-between gap-2 flex-wrap sm:flex-nowrap text-sm py-1.5 border-b border-border/20 last:border-0">
+                      <span className="font-semibold text-foreground/80">{item.dateLabel}</span>
+                      <span className="font-semibold bg-primary/10 text-primary px-2.5 py-0.5 rounded-full text-xs whitespace-nowrap">
+                        {item.startTime} - {item.endTime}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {booking.interveningBreaks && booking.interveningBreaks.length > 0 && (
+              <div className="mt-4 py-2.5 px-3 bg-amber-50/60 dark:bg-amber-950/20 border border-amber-200/50 rounded-xl space-y-1.5 text-xs text-muted-foreground max-w-xl">
+                <p className="font-bold text-[10px] text-amber-800 dark:text-amber-300 uppercase tracking-wider flex items-center gap-1.5">
+                  <AlertTriangle className="h-3.5 w-3.5 text-amber-500" /> Includes Gaps / Holidays
+                </p>
+                <div className="space-y-1 pl-1">
+                  {booking.interveningBreaks.map((item, idx) => (
+                    <div key={idx} className="flex items-start gap-2 text-xs">
+                      <div className={`mt-1.5 h-1.5 w-1.5 rounded-full ${item.type === 'holiday' ? 'bg-red-500' : item.type === 'partial' ? 'bg-amber-500' : 'bg-blue-500'}`} />
+                      <div className="text-muted-foreground text-xs">
+                        <span className="font-semibold text-foreground/80">{item.dateLabel}</span>
+                        {item.timeLabel && <span className="ml-1">({item.timeLabel})</span>}
+                        <span className="ml-1.5 font-medium text-muted-foreground/80">— {item.reason}</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </section>
           <Separator />
           <section>
