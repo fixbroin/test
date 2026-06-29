@@ -13,6 +13,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { useToast } from "@/hooks/use-toast";
 import type { FirestoreBooking } from '@/types/firestore';
 import { format } from 'date-fns';
+import { formatScheduledDate } from '@/lib/utils';
 
 interface RescheduleBookingDialogProps {
     isOpen: boolean;
@@ -120,7 +121,7 @@ export default function RescheduleBookingDialog({ isOpen, onClose, booking, onRe
                             
                             <div className="mt-6 p-4 rounded-lg bg-primary/5 border border-primary/10">
                                 <p className="text-xs font-bold text-primary uppercase mb-1">Current Schedule</p>
-                                <p className="text-sm font-medium">{booking.scheduledDate} at {booking.scheduledTimeSlot}</p>
+                                <p className="text-sm font-medium">{formatScheduledDate(booking.scheduledDate)} at {booking.scheduledTimeSlot}</p>
                             </div>
                         </div>
 

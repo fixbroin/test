@@ -8,7 +8,7 @@ import { sendProviderBookingAssignmentEmail } from '@/ai/flows/sendProviderBooki
 import { getBaseUrl } from '@/lib/config';
 import { generateInvoicePdf } from '@/lib/invoiceGenerator';
 import { triggerRefresh } from '@/lib/revalidateUtils';
-import { getZonedDate } from '@/lib/utils';
+import { getZonedDate, formatScheduledDate } from '@/lib/utils';
 import { getHaversineDistance } from '@/lib/locationUtils';
 
 // Define ADMIN_EMAIL - should match your AuthContext
@@ -315,7 +315,7 @@ export async function POST(request: Request) {
         
         if (isRescheduled) {
             notificationTitle = "Booking Rescheduled!";
-            notificationMessage = `Your booking ${booking.bookingId} has been rescheduled to ${booking.scheduledDate} at ${booking.scheduledTimeSlot}.`;
+            notificationMessage = `Your booking ${booking.bookingId} has been rescheduled to ${formatScheduledDate(booking.scheduledDate)} at ${booking.scheduledTimeSlot}.`;
         }
 
         tasks.push(adminDb.collection('userNotifications').add({
@@ -346,7 +346,7 @@ export async function POST(request: Request) {
                 notificationType = 'admin_alert';
             } else if (isRescheduled) {
                 adminTitle = "Booking Rescheduled";
-                adminMessage = `Booking ${booking.bookingId} has been rescheduled to ${booking.scheduledDate} at ${booking.scheduledTimeSlot}.`;
+                adminMessage = `Booking ${booking.bookingId} has been rescheduled to ${formatScheduledDate(booking.scheduledDate)} at ${booking.scheduledTimeSlot}.`;
             } else if (emailType === 'booking_confirmation') {
                 adminTitle = "New Booking Received!";
                 adminMessage = `A new booking ${booking.bookingId} has been placed by ${booking.customerName}.`;
@@ -502,7 +502,7 @@ export async function POST(request: Request) {
                 body: JSON.stringify({
                     to: booking.customerPhone,
                     templateName: marketingConfig.whatsAppOnBookingConfirmed.templateName,
-                    parameters: [booking.bookingId, servicesSummary, booking.scheduledDate],
+                    parameters: [booking.bookingId, servicesSummary, formatScheduledDate(booking.scheduledDate)],
                 }),
             }).catch(e => console.error("WhatsApp Confirmation Error:", e)));
         } else if (isCancelled && marketingConfig.whatsAppOnBookingCancelled?.enabled) {

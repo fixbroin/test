@@ -10,7 +10,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { MapPin, ExternalLink, Tag, HandCoins, Plus, UserCheck, Loader2, Phone, UserCircle, Clock, AlertTriangle } from 'lucide-react'; 
 import AppImage from '@/components/ui/AppImage'; 
-import { getTimestampMillis } from '@/lib/utils';
+import { getTimestampMillis, formatScheduledDate } from '@/lib/utils';
 import { db } from '@/lib/firebase';
 import { doc, getDoc } from 'firebase/firestore';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -191,7 +191,7 @@ export default function BookingDetailsModalContent({ booking }: BookingDetailsMo
             <div><strong>Booking No:</strong> <Badge className="text-xs bg-primary text-white font-black px-2 shadow-sm">#{booking.bookingNumber || "N/A"}</Badge></div>
             <div><strong>Booking ID:</strong> <Badge variant="secondary" className="text-xs font-mono">{booking.bookingId}</Badge></div>
             <div><strong>Status:</strong> <Badge variant={booking.status === "Completed" ? "default" : booking.status === "Confirmed" ? "default" : "outline"} className={ booking.status === "Confirmed" ? "bg-green-500 text-white hover:bg-green-600" : booking.status === "Completed" ? "bg-blue-500 text-white hover:bg-blue-600" : booking.status === "Cancelled" ? "bg-red-500 text-white hover:bg-red-600" : ""}>{booking.status}</Badge></div>
-            <p><strong>Scheduled Date:</strong> {booking.scheduledDate}</p>
+            <p><strong>Scheduled Date:</strong> {formatScheduledDate(booking.scheduledDate)}</p>
             <p><strong>Scheduled Time:</strong> {booking.scheduledTimeSlot}</p>
             {booking.estimatedEndTime && (
               <p className="text-green-600 font-bold">

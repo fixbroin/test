@@ -26,6 +26,7 @@ import type {
   ChatSession,
 } from '@/types/firestore';
 import { sendHumanSupportRequestEmail } from './sendHumanSupportRequestEmailFlow';
+import { formatScheduledDate } from '@/lib/utils';
 
 /* -------------------------
    Input / Output Schemas
@@ -414,10 +415,10 @@ const chatAgentFlow = ai.defineFlow(
     if (/\b(booking|my booking|status|order|where is my|help with my booking)\b/i.test(message)) {
       if (bookings.length > 0) {
         const latest = bookings[0];
-        let responseText = `Hi ${name}, I found ${bookings.length} booking(s) in your account. Your most recent booking (${latest.bookingId}) is currently **${latest.status}**. It is scheduled for ${latest.scheduledDate} during the ${latest.scheduledTimeSlot} slot.`;
+        let responseText = `Hi ${name}, I found ${bookings.length} booking(s) in your account. Your most recent booking (${latest.bookingId}) is currently **${latest.status}**. It is scheduled for ${formatScheduledDate(latest.scheduledDate)} during the ${latest.scheduledTimeSlot} slot.`;
         
         if (bookings.length > 1) {
-            const others = bookings.slice(1, 3).map(b => `- ${b.bookingId}: ${b.status} (${b.scheduledDate})`).join('\n');
+            const others = bookings.slice(1, 3).map(b => `- ${b.bookingId}: ${b.status} (${formatScheduledDate(b.scheduledDate)})`).join('\n');
             responseText += `\n\nYour other recent bookings:\n${others}\n\nYou can view full details in your account here: ${baseUrl}/my-bookings`;
         } else {
             responseText += `\n\nYou can track this booking here: ${baseUrl}/my-bookings`;

@@ -152,3 +152,17 @@ export function formatTimeInTimezone(date: Date | string | number | undefined, t
     if (isNaN(d.getTime())) return String(date);
     return new Intl.DateTimeFormat('en-IN', { ...options, timeZone }).format(d);
 }
+
+/**
+ * Converts a raw database date string (YYYY-MM-DD) to Indian format (DD-MM-YYYY)
+ */
+export function formatScheduledDate(dateStr: string | undefined): string {
+  if (!dateStr) return 'N/A';
+  if (dateStr.includes('-')) {
+    const parts = dateStr.split('-');
+    if (parts.length === 3 && parts[0].length === 4) {
+      return `${parts[2]}-${parts[1]}-${parts[0]}`;
+    }
+  }
+  return dateStr;
+}

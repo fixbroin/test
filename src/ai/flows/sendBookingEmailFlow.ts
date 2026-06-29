@@ -8,6 +8,7 @@ import { ai } from '@/ai/genkit';
 import { z } from 'genkit';
 import nodemailer from 'nodemailer';
 import { getBaseUrl } from '@/lib/config';
+import { formatScheduledDate } from '@/lib/utils';
 
 // Define Zod schema for individual service items
 const EmailBookingServiceItemSchema = z.object({
@@ -233,7 +234,7 @@ const bookingEmailFlow = ai.defineFlow(
           <div class="summary-box">
             <div class="section-title">Booking Details</div>
             <p style="margin: 5px 0;"><strong>Booking ID:</strong> ${bookingDetails.bookingId}</p>
-            <p style="margin: 5px 0;"><strong>Scheduled:</strong> ${bookingDetails.scheduledDate} at ${bookingDetails.scheduledTimeSlot}</p>
+            <p style="margin: 5px 0;"><strong>Scheduled:</strong> ${formatScheduledDate(bookingDetails.scheduledDate)} at ${bookingDetails.scheduledTimeSlot}</p>
             <p style="margin: 5px 0;"><strong>Status:</strong> Completed</p>
             
             <div class="section-title" style="margin-top: 25px;">Final Payment Summary</div>
@@ -254,16 +255,16 @@ const bookingEmailFlow = ai.defineFlow(
             <p>Your service booking (ID: <strong>${bookingDetails.bookingId}</strong>) has been rescheduled.</p>
             <div class="summary-box">
               <div class="section-title">Reschedule Info</div>
-              <p style="margin: 5px 0;"><strong>Previous Schedule:</strong> ${previousScheduledDate || 'N/A'} at ${previousScheduledTimeSlot || 'N/A'}</p>
-              <p style="margin: 5px 0;"><strong>New Schedule:</strong> ${bookingDetails.scheduledDate} at ${bookingDetails.scheduledTimeSlot}</p>
+              <p style="margin: 5px 0;"><strong>Previous Schedule:</strong> ${formatScheduledDate(previousScheduledDate)} at ${previousScheduledTimeSlot || 'N/A'}</p>
+              <p style="margin: 5px 0;"><strong>New Schedule:</strong> ${formatScheduledDate(bookingDetails.scheduledDate)} at ${bookingDetails.scheduledTimeSlot}</p>
             </div>
             <p>If you have any questions, please contact us.</p>
         `, siteName, logoUrl);
         adminEmailSubject = `Booking Rescheduled (ID: ${bookingDetails.bookingId})`;
         adminEmailBody = createHtmlTemplate('Admin Alert: Booking Rescheduled', `
             <p>Booking ID <strong>${bookingDetails.bookingId}</strong> for <strong>${bookingDetails.customerName}</strong> has been RESCHEDULED.</p>
-            <p><strong>Previous Schedule:</strong> ${previousScheduledDate || 'N/A'} at ${previousScheduledTimeSlot || 'N/A'}</p>
-            <p><strong>New Schedule:</strong> ${bookingDetails.scheduledDate} at ${bookingDetails.scheduledTimeSlot}</p>
+            <p><strong>Previous Schedule:</strong> ${formatScheduledDate(previousScheduledDate)} at ${previousScheduledTimeSlot || 'N/A'}</p>
+            <p><strong>New Schedule:</strong> ${formatScheduledDate(bookingDetails.scheduledDate)} at ${bookingDetails.scheduledTimeSlot}</p>
             <p style="margin-top: 20px;">
               <a href="${getBaseUrl()}/admin/bookings" class="button">View in Admin Panel</a>
             </p>
@@ -298,7 +299,7 @@ const bookingEmailFlow = ai.defineFlow(
           <div class="summary-box">
             <div class="section-title">Booking Details</div>
             <p style="margin: 5px 0;"><strong>Booking ID:</strong> ${bookingDetails.bookingId}</p>
-            <p style="margin: 5px 0;"><strong>Scheduled:</strong> ${bookingDetails.scheduledDate} | ${bookingDetails.scheduledTimeSlot}</p>
+            <p style="margin: 5px 0;"><strong>Scheduled:</strong> ${formatScheduledDate(bookingDetails.scheduledDate)} | ${bookingDetails.scheduledTimeSlot}</p>
             <p style="margin: 5px 0;"><strong>Address:</strong> ${bookingDetails.addressLine1}${bookingDetails.addressLine2 ? ', ' + bookingDetails.addressLine2 : ''}, ${bookingDetails.city}</p>
             
             <div class="section-title" style="margin-top: 25px;">Services</div>
@@ -329,7 +330,7 @@ const bookingEmailFlow = ai.defineFlow(
               <li style="margin-bottom: 5px;"><strong>Customer:</strong> ${bookingDetails.customerName}</li>
               <li style="margin-bottom: 5px;"><strong>Email:</strong> ${bookingDetails.customerEmail}</li>
               <li style="margin-bottom: 5px;"><strong>Phone:</strong> ${bookingDetails.customerPhone}</li>
-              <li style="margin-bottom: 5px;"><strong>Scheduled:</strong> ${bookingDetails.scheduledDate} at ${bookingDetails.scheduledTimeSlot}</li>
+              <li style="margin-bottom: 5px;"><strong>Scheduled:</strong> ${formatScheduledDate(bookingDetails.scheduledDate)} at ${bookingDetails.scheduledTimeSlot}</li>
               ${addressBlock}
               <li style="margin-bottom: 5px; margin-top: 10px;"><strong>Payment:</strong> ${bookingDetails.paymentMethod}</li>
               <li style="margin-bottom: 5px;"><strong>Status:</strong> ${bookingDetails.status}</li>
