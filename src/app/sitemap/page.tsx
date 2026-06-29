@@ -26,8 +26,8 @@ export const metadata: Metadata = {
 interface SitemapData {
   pages: Array<{ name: string; url: string }>;
   cities: FirestoreCity[];
-  cityCategories: Array<{ city: FirestoreCity; categories: FirestoreCategory[] }>;
-  areaCategories: Array<{ city: FirestoreCity; areas: Array<{ area: FirestoreArea; categories: FirestoreCategory[] }> }>;
+  cityCategories: Array<{ city: FirestoreCity }>;
+  areaCategories: Array<{ city: FirestoreCity; areas: FirestoreArea[] }>;
   globalCategories: FirestoreCategory[];
   servicesByCategory: Array<{ category: FirestoreCategory; subCategories: Array<{ subCategory: FirestoreSubCategory; services: FirestoreService[] }> }>;
   blogs: FirestoreBlogPost[];
@@ -81,7 +81,6 @@ const getSitemapData = cache(async (): Promise<SitemapData> => {
       // Group City-wise Categories
       const cityCategories = cities.map(city => ({
         city,
-        categories,
       }));
       
       // Group Area-wise Categories
@@ -90,7 +89,7 @@ const getSitemapData = cache(async (): Promise<SitemapData> => {
         const areas = areasSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as FirestoreArea));
         return {
           city,
-          areas: areas.map(area => ({ area, categories })),
+          areas,
         };
       });
       const areaCategories = await Promise.all(areaCategoriesPromises);
@@ -196,13 +195,13 @@ export default async function SitemapPage() {
                     <h2 className="text-2xl font-bold font-headline">City Specific Categories</h2>
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-                {data.cityCategories.map(({ city, categories }) => (
+                {data.cityCategories.map(({ city }) => (
                     <div key={city.id} className="bg-card p-5 rounded-2xl shadow-sm border border-border/50">
                         <h3 className="font-bold text-foreground text-lg mb-3 flex items-center gap-2 border-b pb-2">
                             <MapPin className="h-4 w-4 text-primary opacity-70"/> {city.name}
                         </h3>
                         <ul className="space-y-2.5 text-xs">
-                            {categories.map(cat => (
+                            {data.globalCategories.map(cat => (
                             <li key={`${city.id}-${cat.id}`} className="group flex items-center gap-1.5">
                                 <span className="h-1 w-1 rounded-full bg-primary/40 group-hover:bg-primary transition-colors" />
                                 <Link href={`/${city.slug}/category/${cat.slug}`} className="text-muted-foreground hover:text-primary transition-colors">{cat.name} in {city.name}</Link>
@@ -227,11 +226,11 @@ export default async function SitemapPage() {
                             <span className="bg-primary w-2 h-6 rounded-full"/> {city.name} Regions
                         </h3>
                         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-                            {areas.map(({ area, categories }) => (
+                            {areas.map(area => (
                             <div key={area.id} className="bg-card p-4 rounded-xl border border-border/50 shadow-sm">
                                 <h4 className="font-bold text-foreground/90 text-sm mb-3 border-b border-primary/10 pb-2">{area.name}</h4>
                                 <ul className="space-y-2 text-[11px]">
-                                {categories.map(cat => (
+                                {data.globalCategories.map(cat => (
                                     <li key={`${area.id}-${cat.id}`} className="group flex items-center gap-1.5">
                                         <ChevronRight className="h-2.5 w-2.5 text-primary/40 group-hover:text-primary transition-colors"/>
                                         <Link href={`/${city.slug}/${area.slug}/${cat.slug}`} className="text-muted-foreground hover:text-primary transition-colors line-clamp-1">{cat.name}</Link>
