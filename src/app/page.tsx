@@ -159,6 +159,37 @@ export default async function Page() {
     ]
   };
 
+  const organizationSchema = {
+    "@context": "https://schema.org",
+    "@type": "Organization",
+    "name": siteName,
+    "url": appBaseUrl,
+    "logo": `${appBaseUrl}/android-chrome-512x512.png`,
+    "sameAs": Object.values(seoSettings.socialProfileUrls || {}).filter(url => !!url),
+    "contactPoint": {
+      "@type": "ContactPoint",
+      "telephone": seoSettings.structuredDataTelephone,
+      "contactType": "customer service",
+      "areaServed": "IN",
+      "availableLanguage": ["English", "Hindi", "Kannada"]
+    }
+  };
+
+  const websiteSchema = {
+    "@context": "https://schema.org",
+    "@type": "WebSite",
+    "name": siteName,
+    "url": appBaseUrl,
+    "potentialAction": {
+      "@type": "SearchAction",
+      "target": {
+        "@type": "EntryPoint",
+        "urlTemplate": `${appBaseUrl}/categories?q={search_term_string}`
+      },
+      "query-input": "required name=search_term_string"
+    }
+  };
+
   if (aggregateRating) {
     (localBusinessSchema as any).aggregateRating = {
       "@type": "AggregateRating",
@@ -181,6 +212,8 @@ export default async function Page() {
     <>
       <JsonLdScript data={localBusinessSchema} idSuffix="homepage-local-biz" />
       <JsonLdScript data={faqSchema} idSuffix="homepage-faqs" />
+      <JsonLdScript data={organizationSchema} idSuffix="homepage-org" />
+      <JsonLdScript data={websiteSchema} idSuffix="homepage-website" />
       <HomePageClient initialData={homepageData} initialH1Title={seoSettings.homepageH1} />
     </>
   );

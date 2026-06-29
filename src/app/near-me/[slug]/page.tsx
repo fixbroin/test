@@ -2,7 +2,7 @@ import React from 'react';
 import { adminDb } from '@/lib/firebaseAdmin';
 import type { FirestoreCategory, FirestoreCity, FirestoreArea } from '@/types/firestore';
 import { getBaseUrl } from '@/lib/config';
-import { getCategorySearchTerm } from '@/lib/seoAdvancedUtils';
+import { getCategorySearchTerm, generateBreadcrumbSchema } from '@/lib/seoAdvancedUtils';
 import { Metadata, ResolvingMetadata } from 'next';
 import NearMeLocationDetector from '@/components/category/NearMeLocationDetector';
 import { Badge } from '@/components/ui/badge';
@@ -10,6 +10,8 @@ import Link from 'next/link';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import JsonLdScript from '@/components/shared/JsonLdScript';
 import { MapPin, ShieldCheck, Clock, CheckCircle2 } from 'lucide-react';
+import { cache } from 'react';
+import { unstable_cache } from 'next/cache';
 
 interface NearMeCategoryPageProps {
   params: Promise<{ slug: string }>;
@@ -36,29 +38,45 @@ export async function generateMetadata(
   };
 }
 
+const getNearMePageData = cache(async (slug: string) => {
+  return unstable_cache(
+    async () => {
+      try {
+        const categorySnapshot = await adminDb.collection('adminCategories').where('slug', '==', slug).limit(1).get();
+        const citySnapshot = await adminDb.collection('cities').where('slug', '==', 'bangalore').limit(1).get();
+
+        if (categorySnapshot.empty || citySnapshot.empty) return null;
+
+        const category = { id: categorySnapshot.docs[0].id, ...categorySnapshot.docs[0].data() } as FirestoreCategory;
+        const city = { id: citySnapshot.docs[0].id, ...citySnapshot.docs[0].data() } as FirestoreCity;
+
+        const areasSnap = await adminDb.collection('areas')
+          .where('cityId', '==', city.id)
+          .where('isActive', '==', true)
+          .orderBy('name', 'asc')
+          .get();
+        
+        const areas = areasSnap.docs.map(doc => ({ id: doc.id, name: doc.data().name, slug: doc.data().slug } as FirestoreArea));
+
+        return { category, city, areas };
+      } catch (error) {
+        console.error("Error in getNearMePageData:", error);
+        return null;
+      }
+    },
+    [`near-me-data-${slug}`],
+    { revalidate: false, tags: ['categories', 'cities', 'areas', 'global-cache'] }
+  )();
+});
+
 export default async function NearMeCategoryPage({ params }: NearMeCategoryPageProps) {
   const { slug } = await params;
   
-  // 1. Fetch Data
-  const [categorySnap, citySnap] = await Promise.all([
-    adminDb.collection('adminCategories').where('slug', '==', slug).limit(1).get(),
-    adminDb.collection('cities').where('slug', '==', 'bangalore').limit(1).get()
-  ]);
+  const pageData = await getNearMePageData(slug);
+  if (!pageData) return <div>Service Not Found</div>;
 
-  if (categorySnap.empty || citySnap.empty) return <div>Service Not Found</div>;
-
-  const category = { id: categorySnap.docs[0].id, ...categorySnap.docs[0].data() } as FirestoreCategory;
-  const city = { id: citySnap.docs[0].id, ...citySnap.docs[0].data() } as FirestoreCity;
+  const { category, city, areas } = pageData;
   const searchTerm = getCategorySearchTerm(category.name);
-
-  // 2. Fetch all areas for this city
-  const areasSnap = await adminDb.collection('areas')
-    .where('cityId', '==', city.id)
-    .where('isActive', '==', true)
-    .orderBy('name', 'asc')
-    .get();
-  
-  const areas = areasSnap.docs.map(doc => ({ id: doc.id, name: doc.data().name, slug: doc.data().slug } as FirestoreArea));
 
   const faqs = [
     {
@@ -116,7 +134,7 @@ export default async function NearMeCategoryPage({ params }: NearMeCategoryPageP
             <div className="flex flex-col items-center text-center p-6 bg-card border rounded-2xl">
                 <CheckCircle2 className="h-10 w-10 text-primary mb-4" />
                 <h3 className="font-bold text-lg mb-2">Quality Guarantee</h3>
-                <p className="text-sm text-muted-foreground">100% satisfaction or we will fix it for free.</p>
+                <p className="text-sm text-muted-foreground">99.9% satisfaction or we will fix it for free.</p>
             </div>
           </div>
 
@@ -178,6 +196,17 @@ export default async function NearMeCategoryPage({ params }: NearMeCategoryPageP
           }))
         }}
       />
+
+      {/* Breadcrumb List Schema */}
+      {(() => {
+        const appBaseUrl = getBaseUrl();
+        const breadcrumbSchema = generateBreadcrumbSchema([
+          { name: "Home", url: appBaseUrl },
+          { name: "Near Me", url: `${appBaseUrl}/near-me` },
+          { name: `${searchTerm} Near Me`, url: `${appBaseUrl}/near-me/${slug}` }
+        ]);
+        return <JsonLdScript idSuffix={`near-me-breadcrumbs-${slug}`} data={breadcrumbSchema} />;
+      })()}
     </div>
   );
 }

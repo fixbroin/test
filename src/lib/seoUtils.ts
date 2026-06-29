@@ -10,16 +10,16 @@ export const defaultSeoValues: FirestoreSEOSettings = {
   defaultMetaTitleSuffix: ' | FixBro',
 
   defaultMetaDescription:
-    'Book trusted carpenter, plumber, electrician, TV installation, painting, interior work, furniture assembly, and home repair services near you in Bangalore.',
+    'Book trusted carpenter, plumber, electrician, TV installation, painting, interior work, furniture assembly, and home repair services near you in Bangalore. Verified professionals, upfront pricing, and same-day service.',
 
   defaultMetaKeywords:
     'carpenter near me, plumber near me, electrician near me, tv installation near me, painting services near me, interior designers near me, furniture assembly near me, home repair services bangalore',
 
   homepageMetaTitle:
-    'Carpenter, Plumber, Electrician & TV Installation Services Near Me in Bangalore',
+    'Verified Carpenter, Plumber, Electrician & Home Services in Bangalore | FixBro',
 
   homepageMetaDescription:
-    'Book trusted carpenter, plumber, electrician, TV installation, painting, interior work, furniture assembly, and home repair services near you in Bangalore at affordable prices.',
+    'Book verified carpenter, plumber, electrician, painting, appliance repair, and home maintenance services in Bangalore. Same-day service, upfront pricing, and 99.9% satisfaction guaranteed.',
 
   homepageMetaKeywords:
     'carpenter near me, plumber near me, electrician near me, tv installation near me, painting services near me, interior designers near me, furniture assembly near me, handyman services bangalore',
@@ -28,10 +28,10 @@ export const defaultSeoValues: FirestoreSEOSettings = {
     'Trusted Home Services Near You in Bangalore',
 
   categoryPageTitlePattern:
-    '{{categorySearchTerm}} Near Me in Bangalore',
+    'Best {{categorySearchTerm}} Near Me in Bangalore | Top-Rated Home Services',
 
   categoryPageDescriptionPattern:
-    'Book trusted {{categorySearchTerm}} near you in Bangalore for installation, repair, replacement, maintenance, and handyman services at affordable prices.',
+    'Book top-rated, background-verified {{categorySearchTerm}} near you in Bangalore. Get professional installation, repair, and handyman services with same-day availability and transparent pricing.',
 
   categoryPageKeywordsPattern:
     '{{categorySearchTerm}} near me, best {{categorySearchTerm}} near me, affordable {{categorySearchTerm}} in bangalore, local {{categorySearchTerm}} services',
@@ -40,10 +40,10 @@ export const defaultSeoValues: FirestoreSEOSettings = {
     '{{categorySearchTerm}} Services in Bangalore',
 
   cityCategoryPageTitlePattern:
-    '{{categorySearchTerm}} in {{cityName}} Bangalore | Near Me',
+    'Best {{categorySearchTerm}} in {{cityName}} Bangalore | Verified Experts Near Me',
 
   cityCategoryPageDescriptionPattern:
-    'Professional {{categorySearchTerm}} services in {{cityName}} Bangalore by trusted experts near you for homes and offices.',
+    'Hire the best professional {{categorySearchTerm}} in {{cityName}} Bangalore. Background-verified experts, 99.9% satisfaction guarantee, and upfront pricing. Book now!',
 
   cityCategoryPageKeywordsPattern:
     '{{categorySearchTerm}} {{cityName}}, {{categorySearchTerm}} near me, best {{categorySearchTerm}} in {{cityName}}, affordable {{categorySearchTerm}}',
@@ -52,10 +52,10 @@ export const defaultSeoValues: FirestoreSEOSettings = {
     '{{categorySearchTerm}} Services in {{cityName}}',
 
   areaCategoryPageTitlePattern:
-    '{{categorySearchTerm}} in {{areaName}} Bangalore | Near Me',
+    'Best {{categorySearchTerm}} in {{areaName}}, Bangalore | #1 Rated Service',
 
   areaCategoryPageDescriptionPattern:
-    'Looking for {{categorySearchTerm}} in {{areaName}} Bangalore? Book trusted experts near you for repair, installation, maintenance, and replacement services.',
+    'Looking for professional {{categorySearchTerm}} in {{areaName}} Bangalore? Book background-verified local experts for repair, installation, and maintenance with same-day service and upfront pricing.',
 
   areaCategoryPageKeywordsPattern:
     '{{categorySearchTerm}} {{areaName}}, {{categorySearchTerm}} near me {{areaName}}, best {{categorySearchTerm}} {{areaName}}, affordable {{categorySearchTerm}}',
@@ -64,10 +64,10 @@ export const defaultSeoValues: FirestoreSEOSettings = {
     '{{categorySearchTerm}} Services in {{areaName}}',
 
   servicePageTitlePattern:
-    '{{serviceName}} Near Me in Bangalore',
+    'Professional {{serviceName}} in Bangalore | Same-Day Service',
 
   servicePageDescriptionPattern:
-    'Book professional {{serviceName}} near you in Bangalore for fast, affordable, and trusted repair, installation, and maintenance services.',
+    'Book professional {{serviceName}} in Bangalore with FixBro. Verified technicians, transparent rates, and same-day availability. 99.9% satisfaction guaranteed!',
 
   servicePageKeywordsPattern:
     '{{serviceName}} near me, best {{serviceName}} in bangalore, affordable {{serviceName}}, local {{serviceName}} services',
@@ -76,10 +76,10 @@ export const defaultSeoValues: FirestoreSEOSettings = {
     '{{serviceName}} in Bangalore',
 
   areaPageTitlePattern:
-    'Carpenter, Plumber & Electrician Services in {{areaName}}',
+    'Best Carpenter, Plumber & Electrician Services in {{areaName}} Bangalore',
 
   areaPageDescriptionPattern:
-    'Book carpenter, plumber, electrician, TV installation, painting, furniture assembly, and home repair services in {{areaName}} Bangalore.',
+    'Book verified carpenters, plumbers, electricians, painters, and home repair technicians in {{areaName}} Bangalore. Top-rated local services at transparent rates.',
 
   areaPageKeywordsPattern:
     'carpenter {{areaName}}, plumber {{areaName}}, electrician {{areaName}}, tv installation {{areaName}}, painting services {{areaName}}, home services {{areaName}}',
@@ -88,10 +88,10 @@ export const defaultSeoValues: FirestoreSEOSettings = {
     'Home Services in {{areaName}}',
 
   cityPageTitlePattern:
-    'Home Repair Services in {{cityName}}',
+    'Top-Rated Home Repair Services in {{cityName}} | FixBro',
 
   cityPageDescriptionPattern:
-    'Book trusted carpenter, plumber, electrician, TV installation, painting, furniture assembly, and home repair services in {{cityName}} Bangalore.',
+    'Book trusted carpenter, plumber, electrician, painting, furniture assembly, and home repair services in {{cityName}} Bangalore. Professional, verified experts near you.',
 
   cityPageKeywordsPattern:
     'carpenter {{cityName}}, plumber {{cityName}}, electrician {{cityName}}, tv installation {{cityName}}, painting services {{cityName}}, home repair services {{cityName}}',

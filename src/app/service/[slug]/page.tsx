@@ -138,7 +138,7 @@ const getServiceData = cache(async (slug: string): Promise<ClientServiceData | n
       }
     },
     [`service-data-${slug}`],
-    { tags: ['services', `service-${slug}`, 'global-cache'] }
+    { revalidate: false, tags: ['services', `service-${slug}`, 'global-cache'] }
   )();
 });
 
@@ -266,6 +266,33 @@ export default async function ServiceDetailPage({ params }: ServicePageProps) {
     };
   }
 
+  // Create a separate Product schema specifically for Google organic Product Feeds
+  const productSchema = {
+    "@context": "https://schema.org",
+    "@type": "Product",
+    "name": serviceData.name,
+    "description": serviceData.seo_description || serviceData.description,
+    "image": schemaImage,
+    "brand": {
+      "@type": "Brand",
+      "name": "FixBro"
+    },
+    "offers": serviceData.price ? {
+      "@type": "Offer",
+      "price": serviceData.discountedPrice || serviceData.price,
+      "priceCurrency": "INR",
+      "availability": "https://schema.org/InStock",
+      "url": `${appBaseUrl}/service/${slug}`
+    } : undefined,
+    "aggregateRating": {
+      "@type": "AggregateRating",
+      "ratingValue": ratingValue,
+      "reviewCount": reviewCount,
+      "bestRating": "5",
+      "worstRating": "1"
+    }
+  };
+
   // Add FAQ Schema if available
   let faqSchema = null;
   if (serviceData.serviceFaqs && serviceData.serviceFaqs.length > 0) {
@@ -286,6 +313,7 @@ export default async function ServiceDetailPage({ params }: ServicePageProps) {
   return (
     <>
       <JsonLdScript data={serviceSchema} idSuffix={`service-${serviceData.id}`} />
+      <JsonLdScript data={productSchema} idSuffix={`product-${serviceData.id}`} />
       <JsonLdScript data={breadcrumbSchema} idSuffix={`breadcrumb-service-${serviceData.id}`} />
       {faqSchema && <JsonLdScript data={faqSchema} idSuffix={`faq-${serviceData.id}`} />}
       <ServiceDetailPageClient serviceSlug={slug} initialServiceData={serviceData} initialH1Title={h1Title} />

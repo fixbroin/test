@@ -1,7 +1,6 @@
 
 "use client";
 
-import Script from 'next/script';
 import { useId } from 'react';
 
 interface JsonLdScriptProps {
@@ -15,10 +14,9 @@ const JsonLdScript: React.FC<JsonLdScriptProps> = ({ data, idSuffix }) => {
   const scriptId = `${baseId}-${reactId.replace(/:/g, '')}`;
 
   return (
-    <Script
+    <script
       id={scriptId}
       type="application/ld+json"
-      strategy="afterInteractive"
       dangerouslySetInnerHTML={{ __html: JSON.stringify(data) }}
     />
   );

@@ -57,7 +57,7 @@ export const getCityCategorySeoOverride = cache(async (cityId: string, categoryI
       }
     },
     [`city-category-seo-${cityId}-${categoryId}`],
-    { tags: ['seo-settings', 'city-category-seo', 'global-cache'] }
+    { revalidate: false, tags: ['seo-settings', 'city-category-seo', 'global-cache'] }
   )();
 });
 
@@ -84,6 +84,6 @@ export const getAreaCategorySeoOverride = cache(async (areaId: string, categoryI
       }
     },
     [`area-category-seo-${areaId}-${categoryId}`],
-    { tags: ['seo-settings', 'area-category-seo', 'global-cache'] }
+    { revalidate: false, tags: ['seo-settings', 'area-category-seo', 'global-cache'] }
   )();
 });

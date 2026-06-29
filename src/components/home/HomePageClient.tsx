@@ -892,7 +892,7 @@ export default function HomePageClient({ citySlug, areaSlug, breadcrumbItems, in
                                 FixBro is your one-stop solution for all <strong>home services in Bangalore</strong>. Whether you are looking for a <strong>carpenter near me</strong>, a professional <strong>plumber in Bangalore</strong>, or an <strong>electrician in Whitefield</strong>, we have you covered. Our platform connects you with verified, background-checked experts for over 50+ services including AC repair, house cleaning, painting, and appliance maintenance.
                             </p>
                             <p>
-                                We currently serve all major localities in Bangalore, including <strong>Whitefield, HSR Layout, Koramangala, Indiranagar, Electronic City, and Jayanagar</strong>. With upfront pricing, same-day service availability, and a 100% satisfaction guarantee, FixBro is Bangalore's most trusted home maintenance partner.
+                                We currently serve all major localities in Bangalore, including <strong>Whitefield, HSR Layout, Koramangala, Indiranagar, Electronic City, and Jayanagar</strong>. With upfront pricing, same-day service availability, and a 99.9% satisfaction guarantee, FixBro is Bangalore's most trusted home maintenance partner.
                             </p>
                         </div>
                     </div>

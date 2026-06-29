@@ -4,14 +4,14 @@ import CategoryPageClient from '@/components/category/CategoryPageClient';
 import type { BreadcrumbItem } from '@/types/ui';
 import { notFound } from 'next/navigation';
 import type { Metadata, ResolvingMetadata } from 'next';
-import { replacePlaceholders } from '@/lib/seoUtils';
+import { replacePlaceholders, defaultSeoValues } from '@/lib/seoUtils';
 import { getGlobalSEOSettings, getAreaCategorySeoOverride } from '@/lib/seoServerUtils';
 import { getBaseUrl } from '@/lib/config';
 import JsonLdScript from '@/components/shared/JsonLdScript';
 import { getCategoryFullData, getAggregateRating } from '@/lib/homepageUtils';
 import { cache } from 'react';
 import { unstable_cache } from 'next/cache';
-import { getCategorySearchTerm } from '@/lib/seoAdvancedUtils';
+import { getCategorySearchTerm, generateBreadcrumbSchema } from '@/lib/seoAdvancedUtils';
 
 export const revalidate = false;
 
@@ -96,7 +96,7 @@ const getPageData = cache(async (citySlug: string, areaSlug: string, categorySlu
       }
     },
     [`area-category-data-${citySlug}-${areaSlug}-${categorySlug}`],
-    { tags: ['cities', 'areas', 'categories', 'seo-settings', 'global-cache'] }
+    { revalidate: false, tags: ['cities', 'areas', 'categories', 'seo-settings', 'global-cache'] }
   )();
 });
 
@@ -190,6 +190,35 @@ export default async function AreaCategoryPage({ params }: AreaCategoryPageProps
   breadcrumbItems.push({ label: categoryData.name });
 
   const appBaseUrl = getBaseUrl();
+  const breadcrumbSchema = generateBreadcrumbSchema([
+    { name: "Home", url: appBaseUrl },
+    { name: cityData.name, url: `${appBaseUrl}/${citySlug}` },
+    { name: areaData.name, url: `${appBaseUrl}/${citySlug}/${areaSlug}` },
+    { name: categoryData.name, url: `${appBaseUrl}/${citySlug}/${areaSlug}/${catSlug}` }
+  ]);
+
+  // Generate server-rendered FAQ schema
+  const areaFaqsTemplate = seoSettings.areaCategoryFaqsTemplate || defaultSeoValues.areaCategoryFaqsTemplate;
+  const rawFaqs = seoOverride?.faqs || (areaFaqsTemplate && areaFaqsTemplate.length > 0 ? areaFaqsTemplate : []) || categoryData.faqs || [];
+  
+  const faqs = rawFaqs.map(f => ({
+    question: replacePlaceholders(f.question, placeholderData),
+    answer: replacePlaceholders(f.answer, placeholderData)
+  }));
+
+  const faqSchema = faqs.length > 0 ? {
+    "@context": "https://schema.org",
+    "@type": "FAQPage",
+    "mainEntity": faqs.map(faq => ({
+      "@type": "Question",
+      "name": faq.question,
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": faq.answer
+      }
+    }))
+  } : null;
+
   const rawSchemaImage = categoryData.imageUrl || `/android-chrome-512x512.png`;
   const schemaImage = rawSchemaImage.startsWith('http') ? rawSchemaImage : `${appBaseUrl}${rawSchemaImage.startsWith('/') ? '' : '/'}${rawSchemaImage}`;
 
@@ -225,6 +254,8 @@ export default async function AreaCategoryPage({ params }: AreaCategoryPageProps
   return (
     <>
       <JsonLdScript data={areaCategorySchema} idSuffix={`area-cat-${cityData.id}-${areaData.id}-${categoryData.id}`} />
+      <JsonLdScript data={breadcrumbSchema} idSuffix={`breadcrumb-area-cat-${cityData.id}-${areaData.id}-${categoryData.id}`} />
+      {faqSchema && <JsonLdScript data={faqSchema} idSuffix={`faqs-area-cat-${cityData.id}-${areaData.id}-${categoryData.id}`} />}
       <CategoryPageClient 
       categorySlug={catSlug} 
       citySlug={citySlug} 

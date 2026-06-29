@@ -60,7 +60,7 @@ const getBlogPost = cache(async (slug: string): Promise<FirestoreBlogPost | null
       }
     },
     [`blog-post-${slug}`],
-    { tags: ['blog', `blog-${slug}`, 'global-cache'] }
+    { revalidate: false, tags: ['blog', `blog-${slug}`, 'global-cache'] }
   )();
 });
 
@@ -100,7 +100,7 @@ const getRelatedPosts = cache(async (currentSlug: string, categoryId?: string): 
       }
     },
     [`related-posts-${currentSlug}`],
-    { tags: ['blog', 'global-cache'] }
+    { revalidate: false, tags: ['blog', 'global-cache'] }
   )();
 });
 

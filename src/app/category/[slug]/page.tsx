@@ -79,7 +79,7 @@ const getCategoryDataForPage = cache(async (slug: string): Promise<{category: Fi
       }
     },
     [`category-summary-${slug}`],
-    { tags: ['categories', `category-summary-${slug}`, 'global-cache'] }
+    { revalidate: false, tags: ['categories', `category-summary-${slug}`, 'global-cache'] }
   )();
 });
 

@@ -61,7 +61,7 @@ const getAreaDataForPage = cache(async (citySlug: string, areaSlug: string): Pro
       }
     },
     [`city-area-data-${citySlug}-${areaSlug}`],
-    { tags: ['cities', 'areas', `city-area-${citySlug}-${areaSlug}`, 'global-cache'] }
+    { revalidate: false, tags: ['cities', 'areas', `city-area-${citySlug}-${areaSlug}`, 'global-cache'] }
   )();
 });
 

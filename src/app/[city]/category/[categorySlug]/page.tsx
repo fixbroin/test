@@ -5,12 +5,13 @@ import type { BreadcrumbItem } from '@/types/ui';
 import { notFound } from 'next/navigation';
 import { getCategoryFullData, getAggregateRating } from '@/lib/homepageUtils';
 import type { Metadata, ResolvingMetadata } from 'next';
-import { replacePlaceholders } from '@/lib/seoUtils';
+import { replacePlaceholders, defaultSeoValues } from '@/lib/seoUtils';
 import { getGlobalSEOSettings, getCityCategorySeoOverride } from '@/lib/seoServerUtils';
 import { getBaseUrl } from '@/lib/config';
 import JsonLdScript from '@/components/shared/JsonLdScript';
 import { cache } from 'react';
 import { unstable_cache } from 'next/cache';
+import { generateBreadcrumbSchema } from '@/lib/seoAdvancedUtils';
 
 export const revalidate = false;
 
@@ -89,7 +90,7 @@ const getPageData = cache(async (citySlug: string, categorySlug: string): Promis
       return { city: cityData, category: categoryData, seoOverride };
     },
     [`city-category-data-${citySlug}-${categorySlug}`],
-    { tags: ['cities', 'categories', 'seo-settings', `city-cat-${citySlug}-${categorySlug}`, 'global-cache'] }
+    { revalidate: false, tags: ['cities', 'categories', 'seo-settings', `city-cat-${citySlug}-${categorySlug}`, 'global-cache'] }
   )();
 });
 
@@ -181,6 +182,34 @@ export default async function CityCategoryPage({ params }: PageProps) {
   breadcrumbItems.push({ label: cityData.name, href: `/${citySlugParam}` });
   breadcrumbItems.push({ label: categoryData.name });
 
+  const breadcrumbSchema = generateBreadcrumbSchema([
+    { name: "Home", url: appBaseUrl },
+    { name: cityData.name, url: `${appBaseUrl}/${citySlugParam}` },
+    { name: categoryData.name, url: `${appBaseUrl}/${citySlugParam}/category/${categorySlugParam}` }
+  ]);
+
+  // Generate server-rendered FAQ schema
+  const cityFaqsTemplate = seoSettings.cityCategoryFaqsTemplate || defaultSeoValues.cityCategoryFaqsTemplate;
+  const rawFaqs = seoOverride?.faqs || (cityFaqsTemplate && cityFaqsTemplate.length > 0 ? cityFaqsTemplate : []) || categoryData.faqs || [];
+  
+  const faqs = rawFaqs.map(f => ({
+    question: replacePlaceholders(f.question, placeholderData),
+    answer: replacePlaceholders(f.answer, placeholderData)
+  }));
+
+  const faqSchema = faqs.length > 0 ? {
+    "@context": "https://schema.org",
+    "@type": "FAQPage",
+    "mainEntity": faqs.map(faq => ({
+      "@type": "Question",
+      "name": faq.question,
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": faq.answer
+      }
+    }))
+  } : null;
+
   const rawSchemaImage = categoryData.imageUrl || `/android-chrome-512x512.png`;
   const schemaImage = rawSchemaImage.startsWith('http') ? rawSchemaImage : `${appBaseUrl}${rawSchemaImage.startsWith('/') ? '' : '/'}${rawSchemaImage}`;
 
@@ -216,6 +245,8 @@ export default async function CityCategoryPage({ params }: PageProps) {
   return (
     <>
       <JsonLdScript data={categoryCitySchema} idSuffix={`city-cat-${cityData.id}-${categoryData.id}`} />
+      <JsonLdScript data={breadcrumbSchema} idSuffix={`breadcrumb-city-cat-${cityData.id}-${categoryData.id}`} />
+      {faqSchema && <JsonLdScript data={faqSchema} idSuffix={`faqs-city-cat-${cityData.id}-${categoryData.id}`} />}
       <CategoryPageClient 
       categorySlug={categorySlugParam} 
       citySlug={citySlugParam} 
