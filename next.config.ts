@@ -48,6 +48,7 @@ const withPWA = withPWAInit({
   register: true,
   skipWaiting: true,
   reloadOnOnline: true,
+  swcMinify: true,
   fallbacks: {
     document: '/offline',
   },

@@ -6,8 +6,8 @@
     "dev": "npx next dev --port 3001 --hostname 0.0.0.0",
     "genkit:dev": "genkit start -- tsx src/ai/dev.ts",
     "genkit:watch": "genkit start -- tsx --watch src/ai/dev.ts",
-    "build": "npx next build",
-    "export": "npx next build && npx next export",
+    "build": "npx next build && node scripts/patch-sw.js",
+    "export": "npx next build && node scripts/patch-sw.js && npx next export",
     "start": "next start -p 3001",
     "lint": "npx eslint .",
     "typecheck": "tsc --noEmit"
