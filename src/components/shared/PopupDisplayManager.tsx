@@ -54,9 +54,19 @@ export default function PopupDisplayManager() {
 
     const handleVisualViewportResize = () => {
       if (!window.visualViewport) return;
-      // If the height is significantly smaller than the screen height, keyboard is probably open
+      
       const isKeyboardOpen = window.visualViewport.height < window.innerHeight * 0.85;
       setIsInputFocused(isKeyboardOpen);
+
+      if (!isKeyboardOpen) {
+        // Keyboard closed: force blur active input to remove active green focus borders
+        const activeEl = document.activeElement;
+        if (activeEl && (activeEl.tagName === 'INPUT' || activeEl.tagName === 'TEXTAREA')) {
+          (activeEl as HTMLElement).blur();
+        }
+        // Force the browser view to snap back to original position
+        window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
+      }
     };
 
     window.visualViewport.addEventListener('resize', handleVisualViewportResize);
@@ -526,7 +536,7 @@ export default function PopupDisplayManager() {
     <Dialog open={isPopupVisible} onOpenChange={(open) => { if (!open) handlePopupClose(); }}>
       <DialogContent className={cn(
         "max-w-[90%] sm:max-w-md md:max-w-lg p-0 overflow-hidden shadow-2xl rounded-xl transition-all duration-300",
-        isInputFocused ? "!-translate-y-[85%] sm:!-translate-y-[50%] top-[50%]" : ""
+        isInputFocused ? "top-2 !-translate-y-0 sm:top-[50%] sm:!-translate-y-[50%]" : ""
       )}>
         {currentPopupToDisplay.showCloseButton !== false && (
           <DialogClose asChild>

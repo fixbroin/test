@@ -76,9 +76,24 @@ const Header = () => {
   const [headerUnreadCount, setHeaderUnreadCount] = useState(0);
   const [currentThemeForIcon, setCurrentThemeForIcon] = useState<'light' | 'dark'>('light');
 
-  // New state for referral settings
-  const [referralSettings, setReferralSettings] = useState<ReferralSettings | null>(null);
-  const [isLoadingReferral, setIsLoadingReferral] = useState(true);
+  // New state for referral settings with client-side cache
+  const [referralSettings, setReferralSettings] = useState<ReferralSettings | null>(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const cached = localStorage.getItem('referral_settings');
+        return cached ? JSON.parse(cached) : null;
+      } catch (e) {
+        return null;
+      }
+    }
+    return null;
+  });
+  const [isLoadingReferral, setIsLoadingReferral] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return !localStorage.getItem('referral_settings');
+    }
+    return true;
+  });
 
   // Fetch referral settings - Only for logged in users to save reads
   useEffect(() => {
@@ -90,9 +105,16 @@ const Header = () => {
       const settingsDocRef = doc(db, "appConfiguration", "referral");
       const unsubscribe = onSnapshot(settingsDocRef, (docSnap) => {
           if (docSnap.exists()) {
-              setReferralSettings(docSnap.data() as ReferralSettings);
+              const data = docSnap.data() as ReferralSettings;
+              setReferralSettings(data);
+              try {
+                localStorage.setItem('referral_settings', JSON.stringify(data));
+              } catch (e) {}
           } else {
               setReferralSettings(null);
+              try {
+                localStorage.removeItem('referral_settings');
+              } catch (e) {}
           }
           setIsLoadingReferral(false);
       }, (error) => {

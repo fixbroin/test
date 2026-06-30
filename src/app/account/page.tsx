@@ -37,7 +37,17 @@ function AccountPageContent() {
   const router = useRouter();
   
   const { count: unreadNotificationsCount } = useUnreadNotificationsCount(user?.uid);
-  const [referralSettings, setReferralSettings] = useState<ReferralSettings | null>(null);
+  const [referralSettings, setReferralSettings] = useState<ReferralSettings | null>(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const cached = localStorage.getItem('referral_settings');
+        return cached ? JSON.parse(cached) : null;
+      } catch (e) {
+        return null;
+      }
+    }
+    return null;
+  });
   const { config: appConfig, isLoading: isLoadingAppConfig } = useApplicationConfig();
   const { featuresConfig, isLoading: isLoadingFeaturesConfig } = useFeaturesConfig();
   const { settings: globalSettings, isLoading: isLoadingGlobalSettings } = useGlobalSettings();
@@ -47,9 +57,16 @@ function AccountPageContent() {
     const settingsDocRef = doc(db, "appConfiguration", "referral");
     const unsubscribe = onSnapshot(settingsDocRef, (docSnap) => {
         if (docSnap.exists()) {
-            setReferralSettings(docSnap.data() as ReferralSettings);
+            const data = docSnap.data() as ReferralSettings;
+            setReferralSettings(data);
+            try {
+              localStorage.setItem('referral_settings', JSON.stringify(data));
+            } catch (e) {}
         } else {
             setReferralSettings(null);
+            try {
+              localStorage.removeItem('referral_settings');
+            } catch (e) {}
         }
     });
     return () => unsubscribe();
