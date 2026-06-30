@@ -558,7 +558,7 @@ export default function PopupDisplayManager() {
           style={currentPopupToDisplay.popupType === 'video' && currentPopupToDisplay.targetUrl ? { cursor: 'pointer' } : {}}
         >
           {currentPopupToDisplay.imageUrl && currentPopupToDisplay.popupType !== 'video' && (
-          <div className={cn("flex items-center justify-center transition-all duration-300", isInputFocused ? "h-0 opacity-0 overflow-hidden" : "h-auto opacity-100")}>
+          <div className={cn("flex items-center justify-center transition-all duration-500 ease-in-out overflow-hidden", isInputFocused ? "max-h-0 opacity-0" : "max-h-64 opacity-100")}>
             <div 
               className="relative aspect-square w-48 md:w-64 overflow-hidden"
               onClick={currentPopupToDisplay.targetUrl ? () => handleActionClick(currentPopupToDisplay.targetUrl) : undefined}
@@ -576,7 +576,7 @@ export default function PopupDisplayManager() {
           )}
           
           {currentPopupToDisplay.popupType === 'video' && currentPopupToDisplay.videoUrl && (
-            <div className={cn("relative w-full aspect-video bg-black transition-all duration-300", isInputFocused ? "h-0 opacity-0 overflow-hidden" : "h-auto opacity-100")}>
+            <div className={cn("relative w-full bg-black transition-all duration-500 ease-in-out overflow-hidden", isInputFocused ? "max-h-0 opacity-0" : "max-h-96 aspect-video opacity-100")}>
               {isDirectVideoLink ? (
                  <video
                     src={embedUrl}
