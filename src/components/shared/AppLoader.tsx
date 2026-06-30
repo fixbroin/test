@@ -1,20 +1,39 @@
+"use client";
+
 import { useGlobalSettings } from "@/hooks/useGlobalSettings";
 import AppImage from "@/components/ui/AppImage";
 
 interface AppLoaderProps {
   text?: string;
+  initialLoaderType?: string;
 }
 
-export default function AppLoader({ text }: AppLoaderProps) {
+export default function AppLoader({ text, initialLoaderType }: AppLoaderProps) {
   const { settings: globalSettings, isLoading } = useGlobalSettings();
 
   const appName =
     globalSettings?.websiteName ||
     process.env.NEXT_PUBLIC_WEBSITE_NAME ||
     "FixBro";
-  
-  // Use the loaderType from settings, or a default if settings are not loaded yet
-  const loaderType = isLoading ? "logo-pulse" : (globalSettings?.loaderType || "logo-pulse");
+
+  // Check if we can read the cached loaderType from localStorage to prevent flash
+  let cachedLoaderType: string | null = null;
+  if (typeof window !== 'undefined') {
+    try {
+      const stored = localStorage.getItem("fixbro_cache_global-web-settings");
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        if (parsed?.data?.loaderType) {
+          cachedLoaderType = parsed.data.loaderType;
+        }
+      }
+    } catch (e) {}
+  }
+
+  // Use active settings, cached settings, layout cookie, or default
+  const loaderType = (!isLoading && globalSettings?.loaderType)
+    ? globalSettings.loaderType
+    : (cachedLoaderType || initialLoaderType || "logo-pulse");
 
   return (
     <div className="fixed inset-0 z-[250] flex flex-col items-center justify-center bg-background/90 backdrop-blur-md transition-all duration-300">
@@ -111,6 +130,72 @@ export default function AppLoader({ text }: AppLoaderProps) {
             <span>{appName}</span>
           </div>
           {text && <p className="mt-4 text-lg text-muted-foreground">{text}</p>}
+        </div>
+      )}
+
+      {loaderType === "bounce" && (
+        <div className="flex flex-col items-center">
+          <div className="bounce-loader">
+            <span></span>
+            <span></span>
+            <span></span>
+          </div>
+          <span className="mt-6 text-2xl font-semibold">{appName}</span>
+          {text && <p className="mt-2 text-muted-foreground">{text}</p>}
+        </div>
+      )}
+
+      {loaderType === "ring" && (
+        <div className="flex flex-col items-center">
+          <div className="ring-loader"></div>
+          <span className="mt-6 text-2xl font-semibold">{appName}</span>
+          {text && <p className="mt-2 text-muted-foreground">{text}</p>}
+        </div>
+      )}
+
+      {loaderType === "flip" && (
+        <div className="flex flex-col items-center">
+          <div className="flip-loader"></div>
+          <span className="mt-6 text-2xl font-semibold">{appName}</span>
+          {text && <p className="mt-2 text-muted-foreground">{text}</p>}
+        </div>
+      )}
+
+      {loaderType === "wave" && (
+        <div className="flex flex-col items-center">
+          <div className="wave-loader">
+            <span></span>
+            <span></span>
+            <span></span>
+            <span></span>
+            <span></span>
+          </div>
+          <span className="mt-6 text-2xl font-semibold">{appName}</span>
+          {text && <p className="mt-2 text-muted-foreground">{text}</p>}
+        </div>
+      )}
+
+      {loaderType === "heart" && (
+        <div className="flex flex-col items-center">
+          <div className="heart-loader">
+            <div className="heart-shape"></div>
+          </div>
+          <span className="mt-6 text-2xl font-semibold">{appName}</span>
+          {text && <p className="mt-2 text-muted-foreground">{text}</p>}
+        </div>
+      )}
+
+      {loaderType === "matrix" && (
+        <div className="flex flex-col items-center">
+          <div className="matrix-loader">
+            <span></span>
+            <span></span>
+            <span></span>
+            <span></span>
+            <span></span>
+          </div>
+          <span className="mt-6 text-2xl font-semibold">{appName}</span>
+          {text && <p className="mt-2 text-muted-foreground">{text}</p>}
         </div>
       )}
 
@@ -332,6 +417,167 @@ export default function AppLoader({ text }: AppLoaderProps) {
           }
           100% {
             background-position: -200% center;
+          }
+        }
+
+        .bounce-loader {
+          display: flex;
+          gap: 6px;
+          align-items: center;
+          height: 20px;
+        }
+        .bounce-loader span {
+          width: 12px;
+          height: 12px;
+          background-color: hsl(var(--primary));
+          border-radius: 50%;
+          animation: bounce-loader-anim 0.6s infinite alternate;
+        }
+        .bounce-loader span:nth-child(2) {
+          animation-delay: 0.15s;
+        }
+        .bounce-loader span:nth-child(3) {
+          animation-delay: 0.3s;
+        }
+        @keyframes bounce-loader-anim {
+          to {
+            transform: translateY(-16px);
+          }
+        }
+
+        .ring-loader {
+          width: 50px;
+          height: 50px;
+          border: 4px solid hsl(var(--primary) / 0.1);
+          border-top: 4px solid hsl(var(--primary));
+          border-radius: 50%;
+          animation: spin 1s linear infinite;
+        }
+
+        .flip-loader {
+          width: 40px;
+          height: 40px;
+          background-color: hsl(var(--primary));
+          animation: flip-loader-anim 1.2s infinite ease-in-out;
+        }
+        @keyframes flip-loader-anim {
+          0% {
+            transform: perspective(120px) rotateX(0deg) rotateY(0deg);
+          }
+          50% {
+            transform: perspective(120px) rotateX(-180.1deg) rotateY(0deg);
+          }
+          100% {
+            transform: perspective(120px) rotateX(-180deg) rotateY(-179.9deg);
+          }
+        }
+
+        .wave-loader {
+          display: flex;
+          gap: 6px;
+          align-items: center;
+          height: 30px;
+        }
+        .wave-loader span {
+          width: 8px;
+          height: 8px;
+          background-color: hsl(var(--primary));
+          border-radius: 50%;
+          animation: wave-loader-anim 1.2s ease-in-out infinite;
+        }
+        .wave-loader span:nth-child(1) { animation-delay: 0s; }
+        .wave-loader span:nth-child(2) { animation-delay: 0.15s; }
+        .wave-loader span:nth-child(3) { animation-delay: 0.3s; }
+        .wave-loader span:nth-child(4) { animation-delay: 0.45s; }
+        .wave-loader span:nth-child(5) { animation-delay: 0.6s; }
+        @keyframes wave-loader-anim {
+          0%, 100% {
+            transform: translateY(0);
+          }
+          50% {
+            transform: translateY(-12px);
+          }
+        }
+
+        .heart-loader {
+          position: relative;
+          width: 60px;
+          height: 60px;
+          animation: heartbeat-anim 1.2s infinite cubic-bezier(0.215, 0.61, 0.355, 1);
+        }
+        .heart-shape {
+          position: absolute;
+          width: 30px;
+          height: 30px;
+          background: hsl(var(--primary));
+          transform: rotate(-45deg);
+          top: 15px;
+          left: 15px;
+        }
+        .heart-shape:before,
+        .heart-shape:after {
+          content: "";
+          width: 30px;
+          height: 30px;
+          background: hsl(var(--primary));
+          border-radius: 50%;
+          position: absolute;
+        }
+        .heart-shape:before {
+          top: -15px;
+          left: 0;
+        }
+        .heart-shape:after {
+          top: 0;
+          left: 15px;
+        }
+        @keyframes heartbeat-anim {
+          0% {
+            transform: scale(0.85);
+          }
+          20% {
+            transform: scale(1.1);
+          }
+          40% {
+            transform: scale(0.9);
+          }
+          60% {
+            transform: scale(1.15);
+          }
+          80%, 100% {
+            transform: scale(0.85);
+          }
+        }
+
+        .matrix-loader {
+          display: flex;
+          gap: 8px;
+          height: 40px;
+          align-items: flex-start;
+        }
+        .matrix-loader span {
+          width: 4px;
+          height: 12px;
+          background-color: hsl(var(--primary));
+          border-radius: 2px;
+          animation: matrix-loader-anim 1.5s infinite ease-in-out;
+          opacity: 0.1;
+        }
+        .matrix-loader span:nth-child(1) { animation-delay: 0s; }
+        .matrix-loader span:nth-child(2) { animation-delay: 0.3s; }
+        .matrix-loader span:nth-child(3) { animation-delay: 0.6s; }
+        .matrix-loader span:nth-child(4) { animation-delay: 0.9s; }
+        .matrix-loader span:nth-child(5) { animation-delay: 1.2s; }
+        @keyframes matrix-loader-anim {
+          0%, 100% {
+            transform: translateY(0);
+            opacity: 0.1;
+            height: 12px;
+          }
+          50% {
+            transform: translateY(20px);
+            opacity: 1;
+            height: 20px;
           }
         }
       `}</style>

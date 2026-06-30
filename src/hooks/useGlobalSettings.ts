@@ -82,6 +82,13 @@ export function useGlobalSettings() {
   const hasLoadedRef = useRef(false);
   const isVisitorBot = useRef(isBot());
 
+  // Automatically keep the loader type cookie in sync for SSR fallback
+  useEffect(() => {
+    if (settings?.loaderType && typeof document !== 'undefined') {
+      document.cookie = `fixbro-loader-type=${settings.loaderType}; path=/; max-age=31536000; SameSite=Lax`;
+    }
+  }, [settings?.loaderType]);
+
   useEffect(() => {
     // If it's a bot and we are not in admin, skip fetching to save reads
     if (isVisitorBot.current && !isAdmin) {

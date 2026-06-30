@@ -6,7 +6,11 @@ import AppLoader from './AppLoader';
 import { useEffect, useRef } from 'react';
 import { usePathname } from 'next/navigation';
 
-const GlobalActionLoader: React.FC = () => {
+interface GlobalActionLoaderProps {
+  initialLoaderType?: string;
+}
+
+const GlobalActionLoader: React.FC<GlobalActionLoaderProps> = ({ initialLoaderType }) => {
   const { isLoading, hideLoading } = useLoading();
   const pathname = usePathname();
   const previousPathnameRef = useRef(pathname);
@@ -39,7 +43,7 @@ const GlobalActionLoader: React.FC = () => {
     return null;
   }
 
-  return <AppLoader text="Ready in a moment..." />;
+  return <AppLoader text="Ready in a moment..." initialLoaderType={initialLoaderType} />;
 };
 
 export default GlobalActionLoader;
