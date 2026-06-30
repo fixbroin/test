@@ -648,7 +648,7 @@ export default function AdminSettingsPage() {
                         <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                       </Button>
                     </DialogTrigger>
-                    <DialogContent className="w-[calc(100%-6px)] sm:max-w-[425px]">
+                    <DialogContent className="w-[calc(100%-2rem)] sm:max-w-[425px]">
                       <DialogHeader>
                         <DialogTitle>Select Application Timezone</DialogTitle>
                         <DialogDescription>
@@ -671,7 +671,7 @@ export default function AdminSettingsPage() {
                               <Button
                                 key={tz.value}
                                 variant={settings.timezone === tz.value ? "secondary" : "ghost"}
-                                className="w-full justify-start text-left h-auto py-3 px-3 relative group"
+                                className="w-full justify-start text-left h-auto py-3 px-3 relative group whitespace-normal"
                                 onClick={() => {
                                   handleSelectChange('timezone', tz.value);
                                   setIsTimezoneDialogOpen(false);
@@ -826,7 +826,7 @@ export default function AdminSettingsPage() {
                                 <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                               </Button>
                             </DialogTrigger>
-                            <DialogContent className="w-[calc(100%-6px)] sm:max-w-[425px]">
+                            <DialogContent className="w-[calc(100%-2rem)] sm:max-w-[425px]">
                               <DialogHeader>
                                 <DialogTitle>Select Price Tax Type</DialogTitle>
                                 <DialogDescription>
@@ -1263,7 +1263,7 @@ export default function AdminSettingsPage() {
                             <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                           </Button>
                         </DialogTrigger>
-                        <DialogContent className="w-[calc(100%-6px)] sm:max-w-[425px]">
+                        <DialogContent className="w-[calc(100%-2rem)] sm:max-w-[425px]">
                           <DialogHeader>
                             <DialogTitle>Select Cancellation Fee Type</DialogTitle>
                             <DialogDescription>
@@ -1397,7 +1397,7 @@ export default function AdminSettingsPage() {
                 >
                   <Plus className="h-4 w-4 mr-2" /> Add Leave / Holiday
                 </Button>
-                <DialogContent className="w-[calc(100%-6px)] sm:max-w-[425px]">
+                <DialogContent className="w-[calc(100%-2rem)] sm:max-w-[425px]">
                   <DialogHeader>
                     <DialogTitle>{editingLeaveId ? "Edit Leave / Holiday" : "Add Leave / Holiday"}</DialogTitle>
                     <DialogDescription>
@@ -1440,7 +1440,7 @@ export default function AdminSettingsPage() {
                             <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                           </Button>
                         </DialogTrigger>
-                        <DialogContent className="w-[calc(100%-6px)] sm:max-w-[425px]">
+                        <DialogContent className="w-[calc(100%-2rem)] sm:max-w-[425px]">
                           <DialogHeader>
                             <DialogTitle>Select Leave Type</DialogTitle>
                             <DialogDescription>Choose if the entire day or specific hours are blocked.</DialogDescription>
