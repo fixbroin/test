@@ -289,13 +289,9 @@ export default function AdminServicesPage() {
         await triggerRefresh(`service-${data.slug}`); // Invalidate specific service page cache
       }
       await triggerRefresh('sitemap');
-<<<<<<< HEAD
-      // Removed global-cache trigger to save reads
-=======
       if (payloadForFirestore.slug) {
         await submitToGoogleIndexing('service', payloadForFirestore.slug, payloadForFirestore.isActive);
       }
->>>>>>> c66c8f8 (update project)
       setIsFormOpen(false); setEditingService(null); await fetchData(true);
     } catch (_error) {
       console.error("Error saving service: ", _error);

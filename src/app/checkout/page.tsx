@@ -20,11 +20,8 @@ import PromoCodeCard from '@/components/checkout/PromoCodeCard';
 import type { Address } from '@/types/firestore';
 import PaymentSummary from '@/components/checkout/payment/PaymentSummary';
 import PaymentMethods from '@/components/checkout/payment/PaymentMethods';
-<<<<<<< HEAD
-=======
 import { logUserActivity } from '@/lib/activityLogger';
 import { getGuestId } from '@/lib/guestIdManager';
->>>>>>> c66c8f8 (update project)
 
 interface AppliedPromoCodeInfo {
   id: string;
@@ -121,8 +118,6 @@ export default function CheckoutPage() {
     setIsScheduleModalOpen(false);
     toast({ title: "Schedule Updated", description: "Your service time has been updated." });
 
-<<<<<<< HEAD
-=======
     // Log time slot selection activity
     logUserActivity(
       'checkoutStep',
@@ -137,7 +132,6 @@ export default function CheckoutPage() {
       !user ? getGuestId() : null
     );
 
->>>>>>> c66c8f8 (update project)
     // Auto-flow logic
     if (!selectedAddress) {
       setTimeout(() => {
@@ -158,8 +152,6 @@ export default function CheckoutPage() {
     setIsAddressModalOpen(false);
     toast({ title: "Address Updated", description: "Your service address has been updated." });
 
-<<<<<<< HEAD
-=======
     // Log address selection activity
     logUserActivity(
       'checkoutStep',
@@ -176,7 +168,6 @@ export default function CheckoutPage() {
       !user ? getGuestId() : null
     );
 
->>>>>>> c66c8f8 (update project)
     // Scroll to payment section
     setTimeout(() => {
       paymentSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
@@ -185,8 +176,6 @@ export default function CheckoutPage() {
 
   const handlePaymentMethodSelect = (method: string) => {
     setPaymentMethod(method);
-<<<<<<< HEAD
-=======
 
     // Log payment method selection activity
     logUserActivity(
@@ -200,7 +189,6 @@ export default function CheckoutPage() {
       !user ? getGuestId() : null
     );
 
->>>>>>> c66c8f8 (update project)
     // Scroll to book button in order summary
     if (window.innerWidth < 1024) {
       setTimeout(() => {

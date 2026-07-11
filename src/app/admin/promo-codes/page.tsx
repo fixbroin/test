@@ -20,10 +20,7 @@ import { getCache, setCache } from '@/lib/client-cache';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { useAdminStats } from "@/hooks/useAdminStats";
-<<<<<<< HEAD
-=======
 import { triggerRefresh } from '@/lib/revalidateUtils';
->>>>>>> c66c8f8 (update project)
 
 export default function AdminPromoCodesPage() {
   const { stats } = useAdminStats();
@@ -104,69 +101,9 @@ export default function AdminPromoCodesPage() {
       setIsSubmitting(false);
     }
   };
-  
-  const handleToggleActive = async (code: FirestorePromoCode) => {
-    setIsSubmitting(true);
-    try {
-      const codeDocRef = doc(db, "adminPromoCodes", code.id);
-      await updateDoc(codeDocRef, { isActive: !code.isActive, updatedAt: Timestamp.now() });
-      fetchPromoCodes(); 
-      toast({ title: "Status Updated", description: `Promo code ${code.code} ${!code.isActive ? "activated" : "deactivated"}.`});
-    } catch (error) {
-        console.error("Error toggling promo code status:", error);
-        toast({ title: "Error", description: "Could not update promo code status.", variant: "destructive" });
-    } finally {
-        setIsSubmitting(false);
-    }
-  };
 
   const handleDeleteUsageRecord = async (record: PromoCodeUsageRecord) => {
     setIsSubmitting(true);
-<<<<<<< HEAD
-    
-    const codeExistsQuery = query(promoCodesCollectionRef, where("code", "==", data.code.toUpperCase()));
-    const existingCodesSnapshot = await getDocs(codeExistsQuery);
-    const isCodeDuplicate = !existingCodesSnapshot.empty && (!data.id || existingCodesSnapshot.docs[0].id !== data.id);
-
-    if (isCodeDuplicate) {
-      toast({ title: "Duplicate Code", description: `Promo code "${data.code.toUpperCase()}" already exists. Please use a unique code.`, variant: "destructive" });
-      setIsSubmitting(false);
-      return;
-    }
-
-    const payload: Omit<FirestorePromoCode, 'id' | 'createdAt' | 'updatedAt' | 'usesCount'> & { updatedAt?: Timestamp, createdAt?: Timestamp, usesCount?: number } = {
-      code: data.code.toUpperCase(),
-      description: data.description,
-      discountType: data.discountType,
-      discountValue: Number(data.discountValue),
-      minBookingAmount: data.minBookingAmount ? Number(data.minBookingAmount) : undefined,
-      maxUses: data.maxUses ? Number(data.maxUses) : undefined,
-      maxUsesPerUser: data.maxUsesPerUser ? Number(data.maxUsesPerUser) : undefined,
-      validFrom: data.validFrom ? Timestamp.fromDate(new Date(data.validFrom)) : undefined,
-      validUntil: data.validUntil ? Timestamp.fromDate(new Date(data.validUntil)) : undefined,
-      isActive: data.isActive === undefined ? true : data.isActive,
-      isHidden: data.isHidden,
-    };
-
-    try {
-      if (data.id) { 
-        const promoCodeDoc = doc(db, "adminPromoCodes", data.id);
-        payload.updatedAt = Timestamp.now();
-        await updateDoc(promoCodeDoc, payload);
-        toast({ title: "Success", description: "Promo code updated successfully." });
-      } else { 
-        payload.createdAt = Timestamp.now();
-        payload.usesCount = 0; 
-        await addDoc(promoCodesCollectionRef, payload);
-        toast({ title: "Success", description: "Promo code added successfully." });
-      }
-      setIsFormOpen(false);
-      setEditingPromoCode(null);
-      await fetchPromoCodes(); 
-    } catch (error) {
-      console.error("Error saving promo code: ", error);
-      toast({ title: "Error", description: (error as Error).message || "Could not save promo code.", variant: "destructive" });
-=======
     try {
       await deleteDoc(doc(db, "promoCodeUsage", record.id));
       
@@ -197,20 +134,11 @@ export default function AdminPromoCodesPage() {
     } catch (error) {
       console.error("Error deleting usage record: ", error);
       toast({ title: "Error", description: "Could not delete usage record.", variant: "destructive" });
->>>>>>> c66c8f8 (update project)
     } finally {
       setIsSubmitting(false);
     }
   };
   
-<<<<<<< HEAD
-  const formatDateForIndia = (timestamp?: any) => {
-    const millis = getTimestampMillis(timestamp);
-    if (!millis) return "N/A";
-    return new Date(millis).toLocaleDateString('en-IN', { day: '2-digit', month: '2-digit', year: 'numeric' });
-  };
-
-=======
   const handleToggleActive = async (code: FirestorePromoCode) => {
     setIsSubmitting(true);
     try {
@@ -282,7 +210,6 @@ export default function AdminPromoCodesPage() {
     return new Date(millis).toLocaleDateString('en-IN', { day: '2-digit', month: '2-digit', year: 'numeric' });
   };
 
->>>>>>> c66c8f8 (update project)
   const getDiscountDisplay = (type: DiscountType, value: number) => {
     if (type === 'percentage') return `${value}%`;
     if (type === 'fixed') return `₹${value.toLocaleString()}`;
@@ -479,22 +406,14 @@ export default function AdminPromoCodesPage() {
                     <TableHead className="text-center">Discount</TableHead>
                     <TableHead className="text-center">Booking ID</TableHead>
                     <TableHead className="text-center">Status</TableHead>
-<<<<<<< HEAD
-                    <TableHead className="text-right">Date</TableHead>
-=======
                     <TableHead className="text-center">Date</TableHead>
                     <TableHead className="text-right min-w-[80px]">Actions</TableHead>
->>>>>>> c66c8f8 (update project)
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {filteredHistory.length === 0 ? (
                     <TableRow>
-<<<<<<< HEAD
-                      <TableCell colSpan={7} className="text-center text-muted-foreground py-10">
-=======
                       <TableCell colSpan={8} className="text-center text-muted-foreground py-10">
->>>>>>> c66c8f8 (update project)
                         {historySearchTerm ? "No matching usage records found." : "No promo code usage recorded yet."}
                       </TableCell>
                     </TableRow>
@@ -526,10 +445,6 @@ export default function AdminPromoCodesPage() {
                             {record.status}
                           </Badge>
                         </TableCell>
-<<<<<<< HEAD
-                        <TableCell className="text-right text-xs">
-                          {record.createdAt ? new Date(record.createdAt).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : 'N/A'}
-=======
                         <TableCell className="text-center text-xs">
                           {record.createdAt ? new Date(record.createdAt).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : 'N/A'}
                         </TableCell>
@@ -558,7 +473,6 @@ export default function AdminPromoCodesPage() {
                               </AlertDialogFooter>
                             </AlertDialogContent>
                           </AlertDialog>
->>>>>>> c66c8f8 (update project)
                         </TableCell>
                       </TableRow>
                     ))

@@ -141,8 +141,6 @@ export default function SeoOverridesPage() {
         : areaCategorySettings.find(s => s.id === id);
       await deleteDoc(doc(collectionRef, id));
       await triggerRefresh('seo-settings');
-<<<<<<< HEAD
-=======
       
       if (setting) {
         const city = cities.find(c => c.id === setting.cityId);
@@ -159,7 +157,6 @@ export default function SeoOverridesPage() {
         }
       }
       
->>>>>>> c66c8f8 (update project)
       toast({ title: "Success", description: "SEO override deleted successfully." });
       await fetchData(true); // Force refresh
     } catch (error) {

@@ -1,11 +1,7 @@
 
 "use client";
 
-<<<<<<< HEAD
-import { useState, useEffect, useCallback, useMemo } from 'react';
-=======
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
->>>>>>> c66c8f8 (update project)
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -21,11 +17,8 @@ import { getHaversineDistance } from '@/lib/locationUtils';
 import dynamic from 'next/dynamic'; 
 import { useApplicationConfig } from '@/hooks/useApplicationConfig'; 
 import { useAuth } from '@/hooks/useAuth';
-<<<<<<< HEAD
-=======
 import { logUserActivity } from '@/lib/activityLogger';
 import { getGuestId } from '@/lib/guestIdManager';
->>>>>>> c66c8f8 (update project)
 
 const MapAddressSelector = dynamic(() => import('@/components/checkout/MapAddressSelector'), {
   loading: () => <div className="flex items-center justify-center h-64 bg-muted rounded-md"><Loader2 className="h-8 w-8 animate-spin" /></div>,
@@ -57,11 +50,8 @@ export default function AddressSelection({ onSelect, initialAddressId }: Address
   
   const [isServiceable, setIsServiceable] = useState<boolean | null>(null);
   const [allServiceZones, setAllServiceZones] = useState<ServiceZone[]>([]);
-<<<<<<< HEAD
-=======
 
   const lastLoggedOutOfCoverageIdRef = useRef<string | null>(null);
->>>>>>> c66c8f8 (update project)
   const [providerZones, setProviderZones] = useState<ServiceZone[]>([]);
   const [isLoadingZones, setIsLoadingZones] = useState(true);
 
@@ -165,8 +155,6 @@ export default function AddressSelection({ onSelect, initialAddressId }: Address
     else setIsServiceable(null); 
   }, [selectedAddressId, savedAddresses, checkServiceability]);
 
-<<<<<<< HEAD
-=======
   // Log user activity when the selected address is out of coverage
   useEffect(() => {
     if (isServiceable === false && selectedAddressId) {
@@ -195,7 +183,6 @@ export default function AddressSelection({ onSelect, initialAddressId }: Address
     }
   }, [isServiceable, selectedAddressId, savedAddresses, user, firestoreUser]);
 
->>>>>>> c66c8f8 (update project)
   const handleOpenMapClick = useCallback(async () => {
     setEditingAddress(null);
     setIsLocating(true);
@@ -241,8 +228,6 @@ export default function AddressSelection({ onSelect, initialAddressId }: Address
     setIsFormOpen(true); 
   }, [checkServiceability, user, firestoreUser, editingAddress]);
 
-<<<<<<< HEAD
-=======
   const handleOutOfCoverage = useCallback((addressData: Partial<AddressFormData>) => {
     logUserActivity(
       'checkoutStep',
@@ -264,7 +249,6 @@ export default function AddressSelection({ onSelect, initialAddressId }: Address
     );
   }, [user, firestoreUser]);
 
->>>>>>> c66c8f8 (update project)
   const handleEditAddress = (e: React.MouseEvent, address: Address) => {
     e.stopPropagation();
     setEditingAddress(address);
@@ -423,10 +407,7 @@ export default function AddressSelection({ onSelect, initialAddressId }: Address
                 onClose={() => setIsMapModalOpen(false)} 
                 initialCenter={initialMapCenter} 
                 serviceZones={applicableServiceZones} 
-<<<<<<< HEAD
-=======
                 onOutOfCoverage={handleOutOfCoverage}
->>>>>>> c66c8f8 (update project)
               />
             )}
           </div>

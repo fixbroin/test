@@ -162,12 +162,9 @@ export default function AdminBookingsPage() {
   const [bookingToChangeStatus, setBookingToChangeStatus] = useState<FirestoreBooking | null>(null);
   const [isStatusDialogOpen, setIsStatusDialogOpen] = useState(false);
   const [isFilterStatusPickerOpen, setIsFilterStatusPickerOpen] = useState(false);
-<<<<<<< HEAD
-=======
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [bookingToEditId, setBookingToEditId] = useState<string | null>(null);
   const [refreshTrigger, setRefreshTrigger] = useState(0);
->>>>>>> c66c8f8 (update project)
 
   const handleInitialize = async () => {
     setIsInitializing(true);
@@ -854,15 +851,12 @@ export default function AdminBookingsPage() {
           </DialogContent>
         </Dialog>
       )}
-<<<<<<< HEAD
-=======
       <EditBookingModal
         bookingId={bookingToEditId}
         isOpen={isEditModalOpen}
         onOpenChange={setIsEditModalOpen}
         onSuccess={() => setRefreshTrigger(prev => prev + 1)}
       />
->>>>>>> c66c8f8 (update project)
     </div>
   );
 }

@@ -15,10 +15,7 @@ import { useToast } from "@/hooks/use-toast";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Skeleton } from '@/components/ui/skeleton';
 import { triggerRefresh } from '@/lib/revalidateUtils';
-<<<<<<< HEAD
-=======
 import { submitToGoogleIndexing } from '@/lib/googleIndexing';
->>>>>>> c66c8f8 (update project)
 import { useAuth } from '@/hooks/useAuth';
 import { hasActionPermission } from '@/config/rbac';
 import PermissionGuard from '@/components/admin/PermissionGuard';
@@ -108,11 +105,6 @@ export default function ServiceSeoPage() {
   const handleDeleteSetting = async (id: string) => {
     setIsSubmitting(true);
     try {
-<<<<<<< HEAD
-      await deleteDoc(doc(serviceSeoRef, id));
-      await triggerRefresh('seo-settings');
-      await triggerRefresh('sitemap');
-=======
       const setting = settings.find(s => s.id === id);
       await deleteDoc(doc(serviceSeoRef, id));
       await triggerRefresh('seo-settings');
@@ -120,7 +112,6 @@ export default function ServiceSeoPage() {
       if (setting?.citySlug && setting?.areaSlug && setting?.serviceSlug) {
         await submitToGoogleIndexing('area-service', { citySlug: setting.citySlug, areaSlug: setting.areaSlug, serviceSlug: setting.serviceSlug }, false);
       }
->>>>>>> c66c8f8 (update project)
       toast({ title: "Success", description: "SEO override deleted successfully." });
       await fetchData(true);
     } catch (error) {
@@ -140,12 +131,9 @@ export default function ServiceSeoPage() {
       });
       await triggerRefresh('seo-settings');
       await triggerRefresh('sitemap');
-<<<<<<< HEAD
-=======
       if (setting.citySlug && setting.areaSlug && setting.serviceSlug) {
         await submitToGoogleIndexing('area-service', { citySlug: setting.citySlug, areaSlug: setting.areaSlug, serviceSlug: setting.serviceSlug }, updatedStatus);
       }
->>>>>>> c66c8f8 (update project)
       toast({ title: "Success", description: `SEO configuration ${updatedStatus ? 'activated' : 'deactivated'} successfully.` });
       await fetchData(true);
     } catch (error) {
@@ -204,12 +192,9 @@ export default function ServiceSeoPage() {
       
       await triggerRefresh('seo-settings');
       await triggerRefresh('sitemap');
-<<<<<<< HEAD
-=======
       if (payload.citySlug && payload.areaSlug && payload.serviceSlug) {
         await submitToGoogleIndexing('area-service', { citySlug: payload.citySlug, areaSlug: payload.areaSlug, serviceSlug: payload.serviceSlug }, payload.isActive);
       }
->>>>>>> c66c8f8 (update project)
       toast({ title: "Success", description: "Local Service SEO configurations saved successfully." });
       setIsFormOpen(false);
       await fetchData(true);

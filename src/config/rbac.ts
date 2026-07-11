@@ -34,11 +34,7 @@ export const PERMISSION_MODULES = [
   { id: 'areas', label: 'Areas', paths: ['/admin/areas'] },
   { id: 'service_zones', label: 'Service Zones', paths: ['/admin/service-zones'] },
   { id: 'seo_settings', label: 'Global SEO Patterns', paths: ['/admin/seo-settings'] },
-<<<<<<< HEAD
-  { id: 'seo_overrides', label: 'Advanced SEO', paths: ['/admin/seo-overrides', '/admin/service-seo'] },
-=======
   { id: 'seo_overrides', label: 'Advanced SEO', paths: ['/admin/seo-overrides', '/admin/service-seo', '/admin/google-indexing'] },
->>>>>>> c66c8f8 (update project)
   { id: 'referral_settings', label: 'Referral System', paths: ['/admin/referral-settings'] },
   { id: 'quotation_invoice', label: 'Quotation & Invoice', paths: ['/admin/quotation-invoice'] },
   { id: 'taxes', label: 'Tax Configurations', paths: ['/admin/taxes'] },

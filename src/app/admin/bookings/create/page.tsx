@@ -13,19 +13,11 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter, DialogDescription
 } from "@/components/ui/dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
-<<<<<<< HEAD
-import { cn } from "@/lib/utils";
-import { 
-  Loader2, ArrowLeft, Search, User, MapPin, Phone, Mail, 
-  CalendarDays, Clock, CheckCircle2, IndianRupee, Tag, 
-  AlertCircle, Plus, Trash2, Info, HandCoins, ChevronDown, CheckCircle, Check, ChevronsUpDown
-=======
 import { cn, getTimestampMillis } from "@/lib/utils";
 import { 
   Loader2, ArrowLeft, Search, User, MapPin, Phone, Mail, 
   CalendarDays, Clock, CheckCircle2, IndianRupee, Tag, 
   AlertCircle, Plus, Trash2, Info, HandCoins, ChevronDown, CheckCircle, Check, ChevronsUpDown, X
->>>>>>> c66c8f8 (update project)
 } from "lucide-react";
 import { db } from '@/lib/firebase';
 import { 
