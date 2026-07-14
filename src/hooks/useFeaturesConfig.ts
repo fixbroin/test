@@ -78,33 +78,19 @@ export function useFeaturesConfig(): UseFeaturesAndAutomationConfigReturn {
             return;
         }
 
-        // Fetch fresh if version changed (2 reads for features and marketing)
-        const featuresConfigRef = doc(db, FEATURES_CONFIG_COLLECTION, FEATURES_CONFIG_DOC_ID);
-        const marketingConfigRef = doc(db, FEATURES_CONFIG_COLLECTION, MARKETING_AUTOMATION_DOC_ID);
-        
-        const [featuresSnap, marketingSnap] = await Promise.all([
-            getDoc(featuresConfigRef),
-            getDoc(marketingConfigRef)
-        ]);
+        const res = await fetch('/api/features-config');
+        if (res.ok) {
+          const data = await res.json();
+          const finalFeatures = data.features || defaultFeaturesConfig;
+          const finalMarketing = data.marketing || null;
 
-        let finalFeatures = defaultFeaturesConfig;
-        let finalMarketing = null;
-
-        if (featuresSnap.exists()) {
-          finalFeatures = { ...defaultFeaturesConfig, ...(featuresSnap.data() as Partial<FeaturesConfiguration>) };
+          setFeaturesConfig(finalFeatures);
+          setMarketingConfig(finalMarketing);
+          
+          const dataToCache = { features: finalFeatures, marketing: finalMarketing };
+          setCache(CACHE_KEY, dataToCache, true);
+          localStorage.setItem(`${CACHE_KEY}-version`, remoteVersion.toString());
         }
-        
-        if (marketingSnap.exists()) {
-          finalMarketing = marketingSnap.data() as MarketingAutomationSettings;
-        }
-
-        setFeaturesConfig(finalFeatures);
-        setMarketingConfig(finalMarketing);
-        
-        const dataToCache = { features: finalFeatures, marketing: finalMarketing };
-        setCache(CACHE_KEY, dataToCache, true);
-        localStorage.setItem(`${CACHE_KEY}-version`, remoteVersion.toString());
-
       } catch (error) {
         console.error("Error fetching configurations in useFeaturesConfig:", error);
       } finally {

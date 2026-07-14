@@ -9,8 +9,6 @@ import { useAuth } from '@/hooks/useAuth';
 import { useLoading } from '@/contexts/LoadingContext';
 import { useFeaturesConfig } from '@/hooks/useFeaturesConfig';
 import { useState, useEffect } from 'react'; // Added useState & useEffect
-import { doc, getDoc } from 'firebase/firestore'; // Added getDoc
-import { db } from '@/lib/firebase'; // Added db
 import type { ReferralSettings } from '@/types/firestore'; // Added ReferralSettings
 import { getRemoteCacheVersions } from '@/lib/client-cache';
 import type { ElementType } from 'react';
@@ -70,10 +68,9 @@ const BottomNavigationBar = () => {
                   return;
               }
 
-              const settingsDocRef = doc(db, "appConfiguration", "referral");
-              const docSnap = await getDoc(settingsDocRef);
-              if (docSnap.exists()) {
-                  const data = docSnap.data() as ReferralSettings;
+              const res = await fetch('/api/referral-settings');
+              if (res.ok) {
+                  const data = await res.json() as ReferralSettings;
                   setReferralSettings(data);
                   localStorage.setItem('referral_settings', JSON.stringify(data));
                   localStorage.setItem('referral_settings_version', remoteVersion.toString());

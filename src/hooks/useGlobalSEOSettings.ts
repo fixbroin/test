@@ -52,13 +52,12 @@ export function useGlobalSEOSettings() {
             hasLoadedRef.current = true;
             return;
         }
-
-        const seoDocRef = doc(db, 'webSettings', 'seoConfiguration');
-        const docSnap = await getDoc(seoDocRef);
-        if (docSnap.exists()) {
-          const data = { ...defaultSeoValues, ...docSnap.data() } as FirestoreSEOSettings;
-          setSeoSettings(data);
-          setCache(CACHE_KEY, data, true);
+        const res = await fetch('/api/global-seo');
+        if (res.ok) {
+          const data = await res.json();
+          const finalSeo = { ...defaultSeoValues, ...data } as FirestoreSEOSettings;
+          setSeoSettings(finalSeo);
+          setCache(CACHE_KEY, finalSeo, true);
           localStorage.setItem(`${CACHE_KEY}-version`, remoteVersion.toString());
         }
       } catch (err) {

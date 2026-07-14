@@ -100,11 +100,10 @@ export function useMarketingSettings(): UseMarketingSettingsReturn {
             hasLoadedRef.current = true;
             return;
         }
-
-        const settingsDocRef = doc(db, MARKETING_CONFIG_COLLECTION, MARKETING_CONFIG_DOC_ID);
-        const docSnap = await getDoc(settingsDocRef);
-        if (docSnap.exists()) {
-          const processed = processData(docSnap.data());
+        const res = await fetch('/api/marketing-settings');
+        if (res.ok) {
+          const data = await res.json();
+          const processed = processData(data);
           setSettings(processed);
           setCache(CACHE_KEY, processed, true);
           localStorage.setItem(`${CACHE_KEY}-version`, remoteVersion.toString());

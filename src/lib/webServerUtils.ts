@@ -3,7 +3,7 @@
 
 import { adminDb } from './firebaseAdmin';
 import { Timestamp } from 'firebase-admin/firestore';
-import type { GlobalWebSettings, ThemePalette, MarketingAutomationSettings } from '@/types/firestore';
+import type { GlobalWebSettings, ThemePalette, MarketingAutomationSettings, FirestoreSlide, ReferralSettings, FeaturesConfiguration } from '@/types/firestore';
 import { DEFAULT_LIGHT_THEME_COLORS_HSL, DEFAULT_DARK_THEME_COLORS_HSL, THEME_PALETTE_KEYS } from '@/lib/colorUtils';
 import { defaultGlobalWebSettings } from '@/config/webDefaults';
 import { defaultAppSettings } from '@/config/appDefaults';
@@ -441,3 +441,107 @@ export const getAreaServiceSeoSettings = cache(async (): Promise<AreaServiceSeoS
     { revalidate: false, tags: ['seo-settings', 'global-cache'] }
   )();
 });
+
+/**
+ * Fetches the cache versions document from Firestore with caching.
+ */
+export const getRemoteCacheVersionsServer = cache(async (): Promise<any> => {
+  return unstable_cache(
+    async () => {
+      try {
+        const docSnap = await adminDb.collection("appConfiguration").doc("cacheVersions").get();
+        if (docSnap.exists) {
+          return serializeFirestoreData(docSnap.data() || {});
+        }
+        return {};
+      } catch (error) {
+        console.error("Error fetching cache versions via Admin SDK:", error);
+        return {};
+      }
+    },
+    ['server-cache-versions'],
+    { revalidate: false, tags: ['global-cache'] }
+  )();
+});
+
+/**
+ * Fetches referral configuration settings from Firestore with caching.
+ */
+export const getReferralSettingsServer = cache(async (): Promise<ReferralSettings | null> => {
+  return unstable_cache(
+    async () => {
+      try {
+        const docSnap = await adminDb.collection("appConfiguration").doc("referral").get();
+        if (docSnap.exists) {
+          return serializeFirestoreData(docSnap.data()) as ReferralSettings;
+        }
+        return null;
+      } catch (error) {
+        console.error("Error fetching referral settings via Admin SDK:", error);
+        return null;
+      }
+    },
+    ['server-referral-settings'],
+    { revalidate: false, tags: ['withdrawal-referral-config', 'global-cache'] }
+  )();
+});
+
+/**
+ * Fetches active slideshow slides from Firestore with caching.
+ */
+export const getHeroSlidesServer = cache(async (): Promise<FirestoreSlide[]> => {
+  return unstable_cache(
+    async () => {
+      try {
+        const snapshot = await adminDb.collection("adminSlideshows")
+          .where("isActive", "==", true)
+          .orderBy("order", "asc")
+          .get();
+        return snapshot.docs.map(doc => ({
+          ...serializeFirestoreData(doc.data() as any),
+          id: doc.id
+        } as FirestoreSlide));
+      } catch (error) {
+        console.error("Error fetching hero slides via Admin SDK:", error);
+        return [];
+      }
+    },
+    ['server-hero-slides'],
+    { revalidate: false, tags: ['content', 'global-cache'] }
+  )();
+});
+
+/**
+ * Fetches features configuration settings from Firestore with caching.
+ */
+export const getFeaturesConfigServer = cache(async (): Promise<FeaturesConfiguration> => {
+  return unstable_cache(
+    async () => {
+      const defaultFeaturesConfig: FeaturesConfiguration = {
+        showMostPopularServices: true,
+        showRecentlyAddedServices: true,
+        showCategoryWiseServices: true,
+        showBlogSection: true,
+        showCustomServiceButton: false,
+        homepageCategoryVisibility: {},
+        ads: [],
+      };
+      try {
+        const docSnap = await adminDb.collection("webSettings").doc("featuresConfiguration").get();
+        if (docSnap.exists) {
+          return serializeFirestoreData({
+            ...defaultFeaturesConfig,
+            ...docSnap.data(),
+          }) as FeaturesConfiguration;
+        }
+        return defaultFeaturesConfig;
+      } catch (error) {
+        console.error("Error fetching features config via Admin SDK:", error);
+        return defaultFeaturesConfig;
+      }
+    },
+    ['server-features-config'],
+    { revalidate: false, tags: ['web-settings', 'global-cache'] }
+  )();
+});
+

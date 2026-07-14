@@ -12,8 +12,6 @@ import {
 } from "@/components/ui/carousel";
 import Autoplay from "embla-carousel-autoplay";
 import { Button } from "@/components/ui/button";
-import { db } from "@/lib/firebase";
-import { collection, query, where, orderBy, getDocs, onSnapshot } from "firebase/firestore";
 import type { FirestoreSlide, SlideButtonLinkType } from "@/types/firestore";
 import { Skeleton } from "@/components/ui/skeleton";
 import { PlaySquare, ChevronRight, ChevronLeft } from "lucide-react";
@@ -70,25 +68,24 @@ export function HeroCarousel() {
           return;
         }
 
-        const slidesCollectionRef = collection(db, "adminSlideshows");
-        const q = query(slidesCollectionRef, where("isActive", "==", true), orderBy("order", "asc"));
-        const snapshot = await getDocs(q);
-        const fetchedSlides = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as FirestoreSlide));
-        
-        setSlides(fetchedSlides);
-        setCache('hero-slides', fetchedSlides, true);
-        localStorage.setItem('hero-slides-version', remoteVersion.toString());
-        setIsLoadingSlides(false);
-
-        // --- PRE-LOAD IMAGES FOR CACHING ---
-        if (typeof window !== 'undefined') {
-            fetchedSlides.forEach(slide => {
-                if (slide.imageUrl) {
-                    const img = new Image();
-                    img.src = slide.imageUrl;
-                }
-            });
+        const res = await fetch('/api/hero-slides');
+        if (res.ok) {
+          const fetchedSlides = await res.json() as FirestoreSlide[];
+          setSlides(fetchedSlides);
+          setCache('hero-slides', fetchedSlides, true);
+          localStorage.setItem('hero-slides-version', remoteVersion.toString());
+          
+          // --- PRE-LOAD IMAGES FOR CACHING ---
+          if (typeof window !== 'undefined') {
+              fetchedSlides.forEach(slide => {
+                  if (slide.imageUrl) {
+                      const img = new Image();
+                      img.src = slide.imageUrl;
+                  }
+              });
+          }
         }
+        setIsLoadingSlides(false);
       } catch (err) {
         console.error("Error fetching slides:", err);
         setIsLoadingSlides(false);

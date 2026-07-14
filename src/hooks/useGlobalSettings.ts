@@ -118,8 +118,7 @@ export function useGlobalSettings() {
       });
       return () => unsubscribe();
     } else {
-      // Public site and providers use one-time fetch + cache
-    const fetchSettings = async () => {
+      const fetchSettings = async () => {
         try {
           // Check Global Version (deduplicated client-side read)
           const remoteVersions = await getRemoteCacheVersions();
@@ -135,10 +134,11 @@ export function useGlobalSettings() {
               return;
           }
 
-          // Versions don't match or no cache? Read settings (1 read)
-          const docSnap = await getDoc(settingsDocRef);
-          if (docSnap.exists()) {
-            const processed = processSettingsData(docSnap.data() as Partial<GlobalWebSettings>);
+          // Versions don't match or no cache? Fetch from server-cached API
+          const res = await fetch('/api/web-settings');
+          if (res.ok) {
+            const data = await res.json();
+            const processed = processSettingsData(data);
             setSettings(processed);
             setCache(CACHE_KEY, processed, true);
             localStorage.setItem(`${CACHE_KEY}-version`, remoteVersion.toString());

@@ -67,10 +67,10 @@ export function useApplicationConfig(): UseApplicationConfigReturn {
             return;
         }
 
-        // Fetch fresh if version changed (1 read)
-        const docSnap = await getDoc(configDocRef);
-        if (docSnap.exists()) {
-          const processed = processData(docSnap.data());
+        const res = await fetch('/api/application-config');
+        if (res.ok) {
+          const data = await res.json();
+          const processed = processData(data);
           setConfig(processed);
           setCache(CACHE_KEY, processed, true);
           localStorage.setItem(`${CACHE_KEY}-version`, remoteVersion.toString());
