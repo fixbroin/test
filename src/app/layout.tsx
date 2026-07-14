@@ -1,7 +1,4 @@
-
-
 import type { Metadata, Viewport } from 'next';
-import { cookies } from 'next/headers';
 import './globals.css';
 import { Toaster } from '@/components/ui/toaster';
 import AppLayout from '@/components/layout/AppLayout';
@@ -113,8 +110,6 @@ export default async function RootLayout({
   children: React.ReactNode;
 }>) {
   const webSettings = await getGlobalWebSettings();
-  const cookieStore = await cookies();
-  const initialLoaderType = cookieStore.get('fixbro-loader-type')?.value || 'logo-pulse';
   
   // Pre-generate the CSS variables for server injection to eliminate flicker
   const serverThemeStyles = `
@@ -173,7 +168,7 @@ export default async function RootLayout({
               <AppLayout>
                 {children}
               </AppLayout>
-              <GlobalActionLoader initialLoaderType={initialLoaderType} />
+              <GlobalActionLoader />
             </LoadingProvider>
           </AuthProvider>
         </Suspense>

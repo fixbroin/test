@@ -118,7 +118,7 @@ export default function AssignProviderModal({ isOpen, onClose, booking, onAssign
   return (
     <Dialog open={isOpen} onOpenChange={(open) => { if (!open) onClose(); }}>
       <DialogContent className="sm:max-w-md md:max-w-lg max-h-[85vh] flex flex-col p-0 overflow-hidden">
-        <DialogHeader className="p-4 sm:p-6 pb-2">
+        <DialogHeader className="p-4 sm:p-3 pb-2">
           <DialogTitle className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2">
             <div className="flex items-center">
               <UserCheck2 className="mr-2 h-5 w-5 text-primary"/> Assign Provider
@@ -189,7 +189,7 @@ export default function AssignProviderModal({ isOpen, onClose, booking, onAssign
           )}
         </div>
 
-        <DialogFooter className="p-4 sm:p-6 border-t bg-muted/30 gap-2 sm:gap-0">
+        <DialogFooter className="p-4 sm:p-3 border-t bg-muted/30 gap-2 sm:gap-0">
           <Button type="button" variant="outline" className="w-full sm:w-auto" onClick={onClose} disabled={isAssigning}>
             Cancel
           </Button>

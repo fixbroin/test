@@ -414,11 +414,11 @@ export default function SeoOverridesPage() {
 
       <Dialog open={isFormOpen} onOpenChange={(open) => { if (!isSubmitting) { setIsFormOpen(open); if (!open) { setEditingSetting(null); setFormType(null); } }}}>
         <DialogContent className="w-[calc(100%-6px)] sm:max-w-md md:max-w-lg lg:max-w-xl max-h-[90vh] overflow-y-auto p-0">
-          <DialogHeader className="p-6 pb-4 border-b">
+          <DialogHeader className="p-3 pb-4 border-b">
             <DialogTitle>{editingSetting ? 'Edit' : 'Add New'} {formType === 'cityCategory' ? 'City-Category' : 'Area-Category'} SEO Setting</DialogTitle>
             <DialogDescription>Fill in the details for the SEO override.</DialogDescription>
           </DialogHeader>
-          <div className="p-6">
+          <div className="p-3">
             {cities.length === 0 || categories.length === 0 || (formType === 'areaCategory' && areas.length === 0) ? (
                  <div className="py-8 text-center"><PackageSearch className="mx-auto h-10 w-10 text-muted-foreground mb-3" /><p className="text-destructive">Cannot add settings: Cities, Categories (and Areas for area-specific) must exist first.</p></div>
             ) : formType === 'cityCategory' ? (

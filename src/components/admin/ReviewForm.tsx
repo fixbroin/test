@@ -112,7 +112,7 @@ export default function ReviewForm({ onSubmit: onSubmitProp, initialData, servic
       {/* Form takes full height of its container from reviews/page.tsx */}
       <form onSubmit={form.handleSubmit(handleSubmit)} className="flex flex-col h-full"> 
         {/* This div contains the actual form fields and will scroll if needed */}
-        <div className="p-6 space-y-6 flex-grow"> {/* Removed overflow-y-auto, parent handles scroll */}
+        <div className="p-3 space-y-6 flex-grow"> {/* Removed overflow-y-auto, parent handles scroll */}
             <FormField
             control={form.control}
             name="serviceId"
@@ -300,7 +300,7 @@ export default function ReviewForm({ onSubmit: onSubmitProp, initialData, servic
         </div>
         
         {/* Button footer - mt-auto pushes it down if form content is short. */}
-        <div className="p-6 border-t bg-background flex flex-col sm:flex-row sm:justify-end gap-3 mt-auto">
+        <div className="p-3 border-t bg-background flex flex-col sm:flex-row sm:justify-end gap-3 mt-auto">
           <Button type="button" variant="outline" onClick={onCancel} disabled={isSubmitting}>
             Cancel
           </Button>

@@ -22,6 +22,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, Dialog
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
 import { collection, query, where, getDocs, limit } from "firebase/firestore";
+import { compressImage } from "@/lib/imageCompressor";
 
 const generateSlug = (title: string) => {
   if (!title) return "";
@@ -203,15 +204,21 @@ export default function BlogForm({ onSubmit: onSubmitProp, initialData, onCancel
     }
   }, [watchedSlug, isSlugEditable, initialData, form, checkSlugUniqueness]);
 
-  const handleFileSelected = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileSelected = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
       const file = e.target.files[0];
-      if (file.size > 5 * 1024 * 1024) { // 5MB limit
-        toast({ title: "File Too Large", description: "Image must be less than 5MB.", variant: "destructive" });
+      if (file.size > 50 * 1024 * 1024) { // 50MB limit
+        toast({ title: "File Too Large", description: "Image must be less than 50MB.", variant: "destructive" });
         return;
       }
-      setSelectedFile(file);
-      setCurrentImagePreview(URL.createObjectURL(file));
+      let fileToSet = file;
+      try {
+        fileToSet = await compressImage(file);
+      } catch (err) {
+        console.error("Compression failed", err);
+      }
+      setSelectedFile(fileToSet);
+      setCurrentImagePreview(URL.createObjectURL(fileToSet));
       form.setValue('coverImageUrl', '', { shouldValidate: false });
     }
   };
@@ -335,7 +342,7 @@ export default function BlogForm({ onSubmit: onSubmitProp, initialData, onCancel
 
   return (
     <Form {...form} key={initialData ? `edit-${initialData.id}` : 'new-post'}>
-      <form onSubmit={form.handleSubmit(handleSubmit)} className="flex-grow space-y-6 p-6 overflow-y-auto">
+      <form onSubmit={form.handleSubmit(handleSubmit)} className="flex-grow space-y-6 p-3 overflow-y-auto">
         <FormField control={form.control} name="title" render={({ field }) => (<FormItem><FormLabel>Title</FormLabel><FormControl><Input placeholder="Your blog post title" {...field} disabled={effectiveIsSubmitting}/></FormControl><FormMessage /></FormItem>)}/>
         
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -595,7 +602,7 @@ export default function BlogForm({ onSubmit: onSubmitProp, initialData, onCancel
         
         <FormField control={form.control} name="isPublished" render={({ field }) => (<FormItem className="flex flex-row items-center justify-between rounded-lg border p-4"><div className="space-y-0.5"><FormLabel>Publish</FormLabel><FormDescription>Make this post publicly visible.</FormDescription></div><FormControl><Switch checked={field.value} onCheckedChange={field.onChange} disabled={effectiveIsSubmitting}/></FormControl></FormItem>)}/>
         
-        <div className="p-6 border-t sticky bottom-0 bg-background flex justify-end space-x-2">
+        <div className="p-3 border-t sticky bottom-0 bg-background flex justify-end space-x-2">
             <Button type="button" variant="outline" onClick={onCancel} disabled={effectiveIsSubmitting}>Cancel</Button>
             <Button type="submit" disabled={effectiveIsSubmitting}>
               {effectiveIsSubmitting && !statusMessage.includes("Uploading") && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}

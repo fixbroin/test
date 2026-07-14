@@ -502,7 +502,7 @@ export default function ManageAdminsPage() {
                             </Table>
                         </ScrollArea>
                     </CardContent>
-                    <div className="p-6 bg-muted/20 border-t">
+                    <div className="p-3 bg-muted/20 border-t">
                         <Button 
                             className="w-full h-12 rounded-xl bg-primary font-black uppercase text-xs tracking-widest shadow-lg shadow-primary/20"
                             onClick={handleAddAdmin}
@@ -697,7 +697,7 @@ export default function ManageAdminsPage() {
       {/* Edit Permissions Dialog */}
       <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
         <DialogContent className="max-w-2xl rounded-[2rem] border-none shadow-2xl overflow-hidden p-0">
-          <DialogHeader className="p-6 bg-primary/5 pb-4">
+          <DialogHeader className="p-3 bg-primary/5 pb-4">
             <DialogTitle className="text-xl font-black flex items-center">
               <Settings2 className="h-5 w-5 mr-2 text-primary" />
               Edit Permissions for {editingAdmin?.name}
@@ -760,7 +760,7 @@ export default function ManageAdminsPage() {
             )}
           </ScrollArea>
 
-          <DialogFooter className="p-6 bg-muted/10 border-t">
+          <DialogFooter className="p-3 bg-muted/10 border-t">
             <Button variant="ghost" onClick={() => setIsEditDialogOpen(false)} className="rounded-xl font-bold uppercase tracking-widest text-xs">
               Cancel
             </Button>

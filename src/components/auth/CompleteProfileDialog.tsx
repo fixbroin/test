@@ -45,6 +45,7 @@ export default function CompleteProfileDialog({
   const providerId = userCredential.user.providerData[0]?.providerId;
   const isGoogleSignIn = providerId === 'google.com';
   const isPhoneSignIn = providerId === 'phone';
+  const isEmailPasswordSignUp = providerId === 'password';
 
   const form = useForm<ProfileFormData>({
     resolver: zodResolver(profileSchema),
@@ -66,10 +67,29 @@ export default function CompleteProfileDialog({
     });
   }, [userCredential, config, form]);
 
+  const cleanMobileNumber = (val: string, countryCode: string = "+91") => {
+    let cleaned = val.replace(/\s+/g, '').replace(/[-()]/g, ''); // strip spaces, dashes, parens
+    
+    const prefixWithPlus = countryCode.startsWith('+') ? countryCode : `+${countryCode}`; // e.g. "+91"
+    
+    // 1. If it starts with "+" (e.g., "+919876543210"), strip country code prefix
+    if (cleaned.startsWith('+')) {
+      if (cleaned.startsWith(prefixWithPlus)) {
+        cleaned = cleaned.substring(prefixWithPlus.length);
+      }
+    } 
+    // 2. If it starts with "0" and is longer than 10 digits, strip the leading "0"
+    else if (cleaned.startsWith('0') && cleaned.length > 10) {
+      cleaned = cleaned.substring(1);
+    }
+    
+    return cleaned.replace(/\D/g, ''); // Only digits
+  };
+
   const handleSubmit = async (data: ProfileFormData) => {
     let mobileNumberForSubmit = data.mobileNumber;
 
-    if (isGoogleSignIn) {
+    if (isGoogleSignIn || isEmailPasswordSignUp) {
       if (!data.mobileNumber || !/^\d{10}$/.test(data.mobileNumber)) {
         form.setError("mobileNumber", { type: "manual", message: "A valid 10-digit mobile number is required." });
         return;
@@ -133,7 +153,7 @@ export default function CompleteProfileDialog({
               )}
             />
 
-            {isGoogleSignIn && (
+            {(isGoogleSignIn || isEmailPasswordSignUp) && (
               <FormField
                 control={form.control}
                 name="mobileNumber"
@@ -149,6 +169,10 @@ export default function CompleteProfileDialog({
                             type="tel"
                             placeholder="10-digit number"
                             {...field}
+                            onChange={(e) => {
+                              const cleaned = cleanMobileNumber(e.target.value, config.defaultOtpCountryCode);
+                              field.onChange(cleaned);
+                            }}
                             className="rounded-l-none"
                             disabled={isSubmitting || isLoadingConfig}
                           />

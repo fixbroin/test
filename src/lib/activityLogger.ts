@@ -117,6 +117,17 @@ export const logUserActivity = async (
     const newActivityDocRef = doc(userActivitiesCollectionRef);
     await setDoc(newActivityDocRef, activityData);
 
+    // Also log out-of-coverage requests to a separate dedicated collection
+    if (eventType === 'checkoutStep' && eventData?.checkoutStepName === 'out_of_coverage') {
+      try {
+        const outOfZoneCollectionRef = collection(db, 'outOfZoneRequests');
+        const newOutOfZoneDocRef = doc(outOfZoneCollectionRef);
+        await setDoc(newOutOfZoneDocRef, activityData);
+      } catch (err) {
+        console.error('Error copying out-of-coverage request to outOfZoneRequests collection:', err);
+      }
+    }
+
     // Smart Sync: If it's a major event, tell the server to refresh the activity cache
     if (['newBooking', 'newUser', 'userLogin'].includes(eventType)) {
         await triggerRefresh('users');

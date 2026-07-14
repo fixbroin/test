@@ -590,7 +590,7 @@ export default function PopupDisplayManager() {
             </div>
           )}
           
-          <div className="p-6 space-y-3 text-center">
+          <div className="p-3 space-y-3 text-center">
             <DialogHeader >
               {currentPopupToDisplay.title && (
                 <DialogTitle className="text-center text-2xl font-headline text-foreground">

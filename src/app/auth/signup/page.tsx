@@ -21,12 +21,7 @@ import { useApplicationConfig } from '@/hooks/useApplicationConfig';
 import { useGlobalSettings } from '@/hooks/useGlobalSettings';
 
 const signUpSchema = z.object({
-  fullName: z.string().min(2, { message: "Full name must be at least 2 characters." }),
   email: z.string().email({ message: "Invalid email address." }),
-  mobileNumber: z.string()
-    .min(10, { message: "Mobile number must be at least 10 digits." })
-    .max(15, { message: "Mobile number cannot exceed 15 digits." })
-    .regex(/^\+?[1-9]\d{1,14}$/, { message: "Invalid mobile number format (e.g., +919876543210 or 9876543210)." }),
   password: z.string().min(6, { message: "Password must be at least 6 characters." }),
   confirmPassword: z.string(),
 }).refine(data => data.password === data.confirmPassword, {
@@ -53,9 +48,7 @@ export default function SignupPage() {
   const form = useForm<SignUpFormValues>({
     resolver: zodResolver(signUpSchema),
     defaultValues: {
-      fullName: "",
       email: "",
-      mobileNumber: "",
       password: "",
       confirmPassword: "",
     },
@@ -134,9 +127,7 @@ export default function SignupPage() {
             {config.enableEmailPasswordLogin ? (
               <Form {...form}>
                 <form onSubmit={form.handleSubmit(onEmailSubmit)} className="space-y-4">
-                  <FormField control={form.control} name="fullName" render={({ field }) => (<FormItem><FormLabel htmlFor="fullName"><User className="inline mr-2 h-4 w-4 text-muted-foreground" />Full Name</FormLabel><FormControl><Input id="fullName" placeholder="John Doe" {...field} /></FormControl><FormMessage /></FormItem>)}/>
                   <FormField control={form.control} name="email" render={({ field }) => (<FormItem><FormLabel htmlFor="email"><Mail className="inline mr-2 h-4 w-4 text-muted-foreground" />Email</FormLabel><FormControl><Input id="email" type="email" placeholder="you@example.com" {...field} /></FormControl><FormMessage /></FormItem>)}/>
-                  <FormField control={form.control} name="mobileNumber" render={({ field }) => (<FormItem><FormLabel htmlFor="mobileNumber"><Phone className="inline mr-2 h-4 w-4 text-muted-foreground" />Mobile Number</FormLabel><FormControl><Input id="mobileNumber" type="tel" placeholder="e.g., 9876543210" {...field} /></FormControl><FormMessage /></FormItem>)}/>
                   <FormField control={form.control} name="password" render={({ field }) => (<FormItem><FormLabel htmlFor="password"><KeyRound className="inline mr-2 h-4 w-4 text-muted-foreground" />Password</FormLabel><FormControl><Input id="password" type="password" placeholder="Choose a strong password" {...field} /></FormControl><FormMessage /></FormItem>)}/>
                   <FormField control={form.control} name="confirmPassword" render={({ field }) => (<FormItem><FormLabel htmlFor="confirmPassword"><KeyRound className="inline mr-2 h-4 w-4 text-muted-foreground" />Confirm Password</FormLabel><FormControl><Input id="confirmPassword" type="password" placeholder="Re-enter your password" {...field} /></FormControl><FormMessage /></FormItem>)}/>
                   <Button type="submit" className="w-full" size="lg" disabled={authContextIsLoading}>

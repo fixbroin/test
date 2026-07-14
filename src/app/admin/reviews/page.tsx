@@ -407,7 +407,7 @@ export default function AdminReviewsPage() {
 
       <Dialog open={isFormOpen} onOpenChange={(open) => { if (!isSubmitting) { setIsFormOpen(open); if (!open) setEditingReview(null); } }}>
         <DialogContent className="w-[90vw] max-w-md sm:max-w-lg md:max-w-xl lg:max-w-2xl max-h-[90vh] p-0 flex flex-col">
-           <DialogHeader className="p-6 pb-4 border-b bg-background z-10"> {/* Removed sticky, header will scroll */}
+           <DialogHeader className="p-3 pb-4 border-b bg-background z-10"> {/* Removed sticky, header will scroll */}
             <DialogTitle>{editingReview ? 'Edit Review' : 'Add New Review'}</DialogTitle>
             <DialogDescription>
               {editingReview ? `Update details for review by ${editingReview.userName}.` : 'Fill in the details for a new review.'}
@@ -416,12 +416,12 @@ export default function AdminReviewsPage() {
           
           <div className="flex-grow overflow-y-auto"> {/* This div handles scrolling of the ReviewForm */}
             {isLoading ? (
-              <div className="p-6 py-8 text-center flex justify-center items-center">
+              <div className="p-3 py-8 text-center flex justify-center items-center">
                   <Loader2 className="h-6 w-6 animate-spin text-primary"/>
                   <span className="ml-2">Loading services...</span>
               </div>
             ) : services.length === 0 && !editingReview ? (
-              <div className="p-6 py-8 text-center">
+              <div className="p-3 py-8 text-center">
                   <p className="text-destructive">Cannot add new reviews because no services exist.</p>
                   <p className="text-muted-foreground text-sm mt-2">Please add at least one service first.</p>
               </div>

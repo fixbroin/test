@@ -150,7 +150,7 @@ export default function CustomServicePage() {
 
       <Dialog open={isFormOpen} onOpenChange={setIsFormOpen}>
         <DialogContent className="max-w-2xl w-[95vw] sm:w-[90vw] max-h-[90vh] p-0 flex flex-col">
-          <DialogHeader className="p-6 border-b">
+          <DialogHeader className="p-3 border-b">
             <DialogTitle>New Custom Service Request</DialogTitle>
             <DialogDescription>Describe your needs, and we’ll do our best to accommodate.</DialogDescription>
           </DialogHeader>
@@ -162,7 +162,7 @@ export default function CustomServicePage() {
                 onCancel={() => setIsFormOpen(false)}
               />
             ) : (
-              <div className="p-6 text-center"><Loader2 className="h-6 w-6 animate-spin mx-auto"/> <p>Loading categories...</p></div>
+              <div className="p-3 text-center"><Loader2 className="h-6 w-6 animate-spin mx-auto"/> <p>Loading categories...</p></div>
             )}
           </div>
         </DialogContent>

@@ -100,7 +100,7 @@ export default function ServiceZoneForm({ onSubmit: onSubmitProp, initialData, o
   return (
     <Form {...form}>
       <form onSubmit={form.handleSubmit(handleSubmit)} className="flex flex-col h-full">
-        <div className="p-6 space-y-6 flex-grow">
+        <div className="p-3 space-y-6 flex-grow">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div className="space-y-4">
               <FormField
@@ -224,7 +224,7 @@ export default function ServiceZoneForm({ onSubmit: onSubmitProp, initialData, o
             </div>
           </FormItem>
         </div>
-        <div className="p-6 border-t mt-auto flex justify-end space-x-3 bg-muted/50 sticky bottom-0">
+        <div className="p-3 border-t mt-auto flex justify-end space-x-3 bg-muted/50 sticky bottom-0">
           <Button type="button" variant="outline" onClick={onCancel} disabled={isSubmitting}>Cancel</Button>
           <Button type="submit" disabled={isSubmitting}>
             {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}

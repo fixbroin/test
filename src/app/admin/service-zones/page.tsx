@@ -73,17 +73,13 @@ export default function AdminServiceZonesPage() {
   useEffect(() => {
     setIsLoadingRequests(true);
     const q = query(
-      collection(db, "userActivities"),
+      collection(db, "outOfZoneRequests"),
       orderBy("timestamp", "desc"),
       limit(150)
     );
     const unsubscribe = onSnapshot(q, (snapshot) => {
       const items = snapshot.docs
-        .map(doc => ({ id: doc.id, ...doc.data() } as UserActivity))
-        .filter((act) => 
-          act.eventType === 'checkoutStep' && 
-          act.eventData?.checkoutStepName === 'out_of_coverage'
-        );
+        .map(doc => ({ id: doc.id, ...doc.data() } as UserActivity));
       setOutOfZoneRequests(items);
       setIsLoadingRequests(false);
     }, (error) => {
@@ -96,7 +92,7 @@ export default function AdminServiceZonesPage() {
   const handleDeleteRequest = async (id: string) => {
     setIsDeletingRequest(id);
     try {
-      await deleteDoc(doc(db, "userActivities", id));
+      await deleteDoc(doc(db, "outOfZoneRequests", id));
       toast({ title: "Success", description: "Request record deleted successfully." });
     } catch (error) {
       console.error("Error deleting request:", error);
@@ -171,9 +167,9 @@ export default function AdminServiceZonesPage() {
 
   return (
     <Tabs defaultValue="active-zones" className="space-y-6">
-      <TabsList className="grid w-full max-w-md grid-cols-2">
-        <TabsTrigger value="active-zones">Active Service Zones</TabsTrigger>
-        <TabsTrigger value="out-of-coverage">Out-of-Coverage Requests</TabsTrigger>
+      <TabsList className="flex flex-row flex-nowrap overflow-x-auto justify-start w-full max-w-md h-auto p-1 bg-muted rounded-lg scrollbar-none gap-1 sm:grid sm:grid-cols-2 sm:gap-0">
+        <TabsTrigger value="active-zones" className="shrink-0 sm:shrink py-2 sm:py-1.5 px-3 sm:px-0 text-xs sm:text-sm font-medium whitespace-nowrap">Active Service Zones</TabsTrigger>
+        <TabsTrigger value="out-of-coverage" className="shrink-0 sm:shrink py-2 sm:py-1.5 px-3 sm:px-0 text-xs sm:text-sm font-medium whitespace-nowrap">Out-of-Coverage Requests</TabsTrigger>
       </TabsList>
 
       <TabsContent value="active-zones" className="space-y-6">
@@ -341,7 +337,7 @@ export default function AdminServiceZonesPage() {
               }
             }}
           >
-            <DialogHeader className="p-6 pb-4 border-b">
+            <DialogHeader className="p-3 pb-4 border-b">
               <DialogTitle>{editingZone ? 'Edit Service Zone' : 'Add New Service Zone'}</DialogTitle>
               <DialogDescription>Use the map to select the center and define the radius of the service area.</DialogDescription>
             </DialogHeader>

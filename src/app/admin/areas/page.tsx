@@ -251,13 +251,13 @@ export default function AdminAreasPage() {
 
       <Dialog open={isFormOpen} onOpenChange={(open) => { if (!isSubmitting) { setIsFormOpen(open); if (!open) setEditingArea(null); } }}>
         <DialogContent className="w-[calc(100%-6px)] sm:max-w-md md:max-w-lg lg:max-w-xl max-h-[90vh] overflow-y-auto p-0">
-           <DialogHeader className="p-6 pb-4 border-b sticky top-0 bg-background z-10">
+           <DialogHeader className="p-3 pb-4 border-b sticky top-0 bg-background z-10">
             <DialogTitle>{editingArea ? 'Edit Area' : 'Add New Area'}</DialogTitle>
             <DialogDescription>
               {editingArea ? 'Update the details for this area.' : 'Fill in the details to create a new area.'}
             </DialogDescription>
           </DialogHeader>
-          <div className="p-6 flex-grow overflow-y-auto">
+          <div className="p-3 flex-grow overflow-y-auto">
             {cities.length === 0 && !isLoading ? (
                  <div className="py-8 text-center">
                     <p className="text-destructive">Cannot add areas because no cities exist.</p>

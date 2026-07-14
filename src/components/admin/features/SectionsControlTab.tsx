@@ -109,7 +109,7 @@ export default function SectionsControlTab() {
     return (
       <Card>
         <CardHeader><CardTitle className="flex items-center"><LayoutGrid className="mr-2 h-5 w-5"/>Section Visibility Control</CardTitle><CardDescription>Manage which content sections appear on your homepage.</CardDescription></CardHeader>
-        <CardContent className="space-y-4 p-6"><Loader2 className="h-8 w-8 animate-spin text-primary mx-auto" /></CardContent>
+        <CardContent className="space-y-4 p-3"><Loader2 className="h-8 w-8 animate-spin text-primary mx-auto" /></CardContent>
       </Card>
     );
   }
@@ -122,7 +122,7 @@ export default function SectionsControlTab() {
             <CardTitle className="flex items-center"><LayoutGrid className="mr-2 h-5 w-5"/>Section Visibility Control</CardTitle>
             <CardDescription>Toggle the visibility of different content sections on your homepage.</CardDescription>
           </CardHeader>
-          <CardContent className="space-y-6 p-6">
+          <CardContent className="space-y-6 p-3">
             <FormField
               control={form.control}
               name="showMostPopularServices"

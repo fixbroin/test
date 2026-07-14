@@ -42,13 +42,13 @@ const itemVariants = {
 
 const StatCard = ({ title, value, icon: Icon, colorClass, subtitle }: { title: string, value: string | number, icon: any, colorClass: string, subtitle?: string }) => (
   <Card className="overflow-hidden border-none shadow-xl rounded-3xl group transition-all duration-300 hover:shadow-2xl hover:-translate-y-1 bg-card">
-    <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0 p-6">
+    <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0 p-3">
       <CardTitle className="text-xs font-bold uppercase tracking-widest text-muted-foreground">{title}</CardTitle>
       <div className={cn("p-2.5 rounded-2xl transition-colors duration-300", colorClass)}>
         <Icon className="h-4 w-4" />
       </div>
     </CardHeader>
-    <CardContent className="p-6 pt-0">
+    <CardContent className="p-3 pt-0">
       <div className="text-3xl font-black tracking-tight">{value}</div>
       {subtitle && <p className="text-[10px] font-bold text-muted-foreground uppercase mt-2">{subtitle}</p>}
     </CardContent>

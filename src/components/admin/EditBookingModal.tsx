@@ -405,11 +405,11 @@ export default function EditBookingModal({ bookingId, isOpen, onOpenChange, onSu
   return (
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
       <DialogContent className="w-[95vw] max-w-4xl max-h-[90vh] flex flex-col p-0 rounded-2xl overflow-hidden">
-        <DialogHeader className="p-6 pb-4 border-b shrink-0">
+        <DialogHeader className="p-3 pb-4 border-b shrink-0">
           <DialogTitle className="text-xl flex items-center gap-2">
             <Edit className="h-5 w-5 text-primary" /> Edit Booking: {booking?.bookingId || "Loading..."}
           </DialogTitle>
-          <DialogDescription>Modify the details of this booking. Service items cannot be changed here.</DialogDescription>
+          <DialogDescription>Modify the details and service items of this booking.</DialogDescription>
         </DialogHeader>
 
         {isLoading ? (
@@ -420,7 +420,7 @@ export default function EditBookingModal({ bookingId, isOpen, onOpenChange, onSu
         ) : (
           <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)} className="flex-1 flex flex-col min-h-0">
-              <div className="flex-1 overflow-y-auto p-6 max-h-[60vh] md:max-h-[68vh] min-h-0">
+              <div className="flex-1 overflow-y-auto p-3 max-h-[60vh] md:max-h-[68vh] min-h-0">
                 <div className="space-y-6">
                   {/* Customer Details */}
                   <section className="space-y-4 p-4 border rounded-xl bg-muted/5 shadow-sm">
@@ -573,7 +573,7 @@ export default function EditBookingModal({ bookingId, isOpen, onOpenChange, onSu
                           <PlusCircle className="mr-1.5 h-3.5 w-3.5" /> Add Service
                         </Button>
                         <DialogContent className="w-[90vw] sm:max-w-lg rounded-2xl max-h-[80vh] flex flex-col p-0">
-                          <DialogHeader className="p-6 pb-4 border-b">
+                          <DialogHeader className="p-3 pb-4 border-b">
                             <DialogTitle>Add Service</DialogTitle>
                             <DialogDescription>Search and select a service to add to this booking.</DialogDescription>
                           </DialogHeader>

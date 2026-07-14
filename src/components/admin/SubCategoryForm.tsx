@@ -22,6 +22,7 @@ import { ref as storageRef, uploadBytesResumable, getDownloadURL, deleteObject }
 import { collection, query, where, getDocs, limit } from "firebase/firestore";
 import { Progress } from "@/components/ui/progress";
 import { Switch } from "@/components/ui/switch"; // Import Switch
+import { compressImage } from "@/lib/imageCompressor";
 
 const generateSlug = (name: string) => {
   if (!name) return "";
@@ -212,18 +213,24 @@ export default function SubCategoryForm({ onSubmit: onSubmitProp, initialData, o
     }
   }, [watchedSlug, isSlugEditable, initialData, form, checkSlugUniqueness]);
 
-  const handleFileSelected = (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileSelected = async (event: React.ChangeEvent<HTMLInputElement>) => {
     if (event.target.files && event.target.files[0]) {
       const file = event.target.files[0];
-      if (file.size > 5 * 1024 * 1024) { // 5MB limit
-        toast({ title: "File Too Large", description: "Please select an image smaller than 5MB.", variant: "destructive" });
+      if (file.size > 50 * 1024 * 1024) { // 50MB limit
+        toast({ title: "File Too Large", description: "Please select an image smaller than 50MB.", variant: "destructive" });
         if (fileInputRef.current) fileInputRef.current.value = "";
         setSelectedFile(null);
         setCurrentImagePreview(form.getValues('imageUrl') || originalImageUrlFromInitialData || null);
         return;
       }
-      setSelectedFile(file);
-      setCurrentImagePreview(URL.createObjectURL(file));
+      let fileToSet = file;
+      try {
+        fileToSet = await compressImage(file);
+      } catch (err) {
+        console.error("Compression failed", err);
+      }
+      setSelectedFile(fileToSet);
+      setCurrentImagePreview(URL.createObjectURL(fileToSet));
       form.setValue('imageUrl', '', { shouldValidate: false });
     } else {
       setSelectedFile(null);

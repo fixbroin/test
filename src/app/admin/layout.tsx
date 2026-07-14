@@ -363,7 +363,7 @@ export default function AdminLayout({ children }: PropsWithChildren) {
               </div>
             </div>
           </header>
-          <main className="p-4 sm:p-6 lg:p-8 relative flex-grow">
+          <main className="p-4 sm:p-3 lg:p-8 relative flex-grow">
             <Suspense fallback={<AdminPageLoader />}>
               {children}
             </Suspense>

@@ -46,7 +46,7 @@ export default function ProviderSidebarContent() {
 
   return (
     <>
-      <SidebarHeader className="p-6 border-b bg-card">
+      <SidebarHeader className="p-3 border-b bg-card">
         <Logo
           logoUrl={globalSettings?.logoUrl}
           websiteName={globalSettings?.websiteName}

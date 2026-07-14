@@ -8,7 +8,7 @@ import type { ProviderApplication, KycDocument, BankDetails, ProviderApplication
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { UserCircle, Briefcase, FileText, Banknote, MapPin, Image as ImageIcon, ShieldCheck, CheckCircle, AlertTriangle, XCircle, Loader2, Download, Edit as EditIcon, ExternalLink } from "lucide-react";
+import { UserCircle, Briefcase, FileText, Banknote, MapPin, Image as ImageIcon, ShieldCheck, CheckCircle, AlertTriangle, XCircle, Loader2, Download, Edit as EditIcon, ExternalLink, Copy, Mail, Phone } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
 import { useState, useEffect } from "react";
 import NextImage from 'next/image';
@@ -21,6 +21,7 @@ import { Separator } from "@/components/ui/separator";
 import { cn, getTimestampMillis } from "@/lib/utils";
 import { db } from '@/lib/firebase';
 import { doc, updateDoc, Timestamp } from 'firebase/firestore';
+import { useRouter } from 'next/navigation';
 
 const PROVIDER_APPLICATION_COLLECTION = "providerApplications";
 
@@ -39,6 +40,13 @@ const formatTimestampToReadable = (timestamp?: any): string => {
 };
 
 
+const DetailRow = ({ label, value }: { label: string; value: React.ReactNode }) => (
+  <div className="py-2.5 border-b border-border/40 flex flex-col sm:flex-row sm:items-center justify-between gap-1 text-sm last:border-b-0">
+    <span className="font-semibold text-muted-foreground sm:w-1/3 shrink-0">{label}</span>
+    <span className="text-foreground sm:w-2/3 break-words font-medium">{value}</span>
+  </div>
+);
+
 const KycDocDisplay: React.FC<{ 
   doc?: KycDocument | null, 
   docName: string,
@@ -47,45 +55,46 @@ const KycDocDisplay: React.FC<{
 }> = ({ doc, docName, onVerify, isVerifying }) => {
   if (!doc || (!doc.docNumber && !doc.frontImageUrl)) return <p className="text-sm text-muted-foreground">Not Provided</p>;
   return (
-    <div className="space-y-2 border p-3 rounded-lg bg-muted/5">
-      <div className="flex justify-between items-center">
+    <div className="space-y-1 border p-4 rounded-xl bg-muted/5 border-border/60">
+      <div className="flex justify-between items-center border-b pb-2 mb-2">
+        <span className="text-sm font-bold text-primary">{doc.docLabel || docName}</span>
         <div className="flex items-center gap-2">
-            <p className="text-sm font-bold">{doc.docLabel || docName}</p>
-            <Badge variant={doc.verified ? "default" : "secondary"} className={cn(doc.verified && "bg-green-500 hover:bg-green-600")}>
-                {doc.verified ? "Verified" : "Pending Verification"}
-            </Badge>
+          <Badge variant={doc.verified ? "default" : "secondary"} className={cn(doc.verified && "bg-green-500 hover:bg-green-600")}>
+              {doc.verified ? "Verified" : "Pending"}
+          </Badge>
+          {!doc.verified && onVerify && (
+              <Button 
+                  size="sm" 
+                  variant="outline" 
+                  className="h-7 text-[10px] border-green-500 text-green-600 hover:bg-green-50"
+                  onClick={(e) => { e.stopPropagation(); onVerify(); }}
+                  disabled={isVerifying}
+              >
+                  {isVerifying ? <Loader2 className="h-3 w-3 animate-spin mr-1"/> : <CheckCircle className="h-3 w-3 mr-1"/>}
+                  Approve
+              </Button>
+          )}
         </div>
-        {!doc.verified && onVerify && (
-            <Button 
-                size="sm" 
-                variant="outline" 
-                className="h-7 text-[10px] border-green-500 text-green-600 hover:bg-green-50"
-                onClick={(e) => { e.stopPropagation(); onVerify(); }}
-                disabled={isVerifying}
-            >
-                {isVerifying ? <Loader2 className="h-3 w-3 animate-spin mr-1"/> : <CheckCircle className="h-3 w-3 mr-1"/>}
-                Approve
-            </Button>
-        )}
       </div>
-      <p className="text-sm"><strong>ID Number:</strong> {doc.docNumber || "N/A"}</p>
       
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-2">
+      <DetailRow label="Document ID / Number" value={doc.docNumber || "N/A"} />
+      
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-3">
         {doc.frontImageUrl && (
-          <div className="space-y-1">
-            <span className="text-[10px] uppercase text-muted-foreground font-bold">Front Image</span>
-            <div className="relative aspect-video w-full border rounded-md bg-white">
+          <div className="space-y-1.5">
+            <span className="text-[10px] uppercase text-muted-foreground font-bold tracking-wider">Front View</span>
+            <div className="relative aspect-video w-full border rounded-lg bg-white overflow-hidden group shadow-sm">
               <NextImage src={doc.frontImageUrl} alt={`${docName} Front`} fill className="object-contain p-1"/>
-              <a href={doc.frontImageUrl} target="_blank" rel="noopener noreferrer" className="absolute bottom-1 right-1 bg-black/50 p-1 rounded text-white hover:bg-black/70"><ExternalLink className="h-3 w-3"/></a>
+              <a href={doc.frontImageUrl} target="_blank" rel="noopener noreferrer" className="absolute bottom-2 right-2 bg-black/50 p-1.5 rounded-md text-white hover:bg-black/70 transition-colors"><ExternalLink className="h-3.5 w-3.5"/></a>
             </div>
           </div>
         )}
         {doc.backImageUrl && (
-          <div className="space-y-1">
-            <span className="text-[10px] uppercase text-muted-foreground font-bold">Back Image</span>
-            <div className="relative aspect-video w-full border rounded-md bg-white">
+          <div className="space-y-1.5">
+            <span className="text-[10px] uppercase text-muted-foreground font-bold tracking-wider">Back View</span>
+            <div className="relative aspect-video w-full border rounded-lg bg-white overflow-hidden group shadow-sm">
               <NextImage src={doc.backImageUrl} alt={`${docName} Back`} fill className="object-contain p-1"/>
-              <a href={doc.backImageUrl} target="_blank" rel="noopener noreferrer" className="absolute bottom-1 right-1 bg-black/50 p-1 rounded text-white hover:bg-black/70"><ExternalLink className="h-3 w-3"/></a>
+              <a href={doc.backImageUrl} target="_blank" rel="noopener noreferrer" className="absolute bottom-2 right-2 bg-black/50 p-1.5 rounded-md text-white hover:bg-black/70 transition-colors"><ExternalLink className="h-3.5 w-3.5"/></a>
             </div>
           </div>
         )}
@@ -101,14 +110,18 @@ const BankDetailsDisplay: React.FC<{
 }> = ({ details, onVerify, isVerifying }) => {
   if (!details || !details.bankName) return <p className="text-sm text-muted-foreground">Not Provided</p>;
   return (
-    <div className="space-y-1 text-sm">
-      <div className="flex justify-between items-start">
-          <div className="space-y-1">
-            <p><strong>Bank:</strong> {details.bankName}</p>
-            <p><strong>A/C Holder:</strong> {details.accountHolderName}</p>
-            <p><strong>A/C No:</strong> {details.accountNumber}</p>
-            <p><strong>IFSC:</strong> {details.ifscCode}</p>
-          </div>
+    <div className="space-y-1">
+      <DetailRow label="Bank Name" value={details.bankName} />
+      <DetailRow label="Account Holder" value={details.accountHolderName} />
+      <DetailRow label="Account Number" value={details.accountNumber} />
+      <DetailRow label="IFSC Code" value={details.ifscCode} />
+      
+      <div className="py-2.5 flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-border/40 last:border-b-0 text-sm">
+        <span className="font-semibold text-muted-foreground sm:w-1/3 shrink-0">Verification Status</span>
+        <div className="sm:w-2/3 flex items-center justify-between gap-4">
+          <Badge variant={details.verified ? "default" : "secondary"} className={cn(details.verified && "bg-green-500 hover:bg-green-600")}>
+            {details.verified ? "Verified" : "Pending Verification"}
+          </Badge>
           {!details.verified && onVerify && (
             <Button 
                 size="sm" 
@@ -118,17 +131,27 @@ const BankDetailsDisplay: React.FC<{
                 disabled={isVerifying}
             >
                 {isVerifying ? <Loader2 className="h-3 w-3 animate-spin mr-1"/> : <CheckCircle className="h-3 w-3 mr-1"/>}
-                Verify Bank
+                Verify Bank Account
             </Button>
           )}
+        </div>
       </div>
+
       {details.cancelledChequeUrl && (
-         <div className="mt-1">
-            <a href={details.cancelledChequeUrl} target="_blank" rel="noopener noreferrer" className="text-xs text-blue-600 hover:underline">View Cheque ({details.cancelledChequeFileName || 'View'})</a>
-            {details.cancelledChequeUrl.startsWith('http') && <div className="relative w-32 h-20 mt-1 border rounded"><NextImage src={details.cancelledChequeUrl} alt="Cancelled Cheque" fill className="object-contain p-1"/></div>}
+         <div className="py-3">
+            <div className="flex items-center justify-between mb-2">
+              <span className="font-semibold text-muted-foreground text-xs uppercase tracking-wider">Cancelled Cheque</span>
+              <a href={details.cancelledChequeUrl} target="_blank" rel="noopener noreferrer" className="text-xs text-blue-600 hover:underline flex items-center gap-1">
+                View Full Size <ExternalLink className="h-3 w-3"/>
+              </a>
+            </div>
+            {details.cancelledChequeUrl.startsWith('http') && (
+              <div className="relative w-48 h-32 border rounded-lg overflow-hidden bg-white">
+                <NextImage src={details.cancelledChequeUrl} alt="Cancelled Cheque" fill className="object-contain p-1"/>
+              </div>
+            )}
         </div>
       )}
-      <div className="text-xs mt-1">Status: <Badge variant={details.verified ? "default" : "secondary"} className={cn(details.verified && "bg-green-500 hover:bg-green-600")}>{details.verified ? "Verified" : "Pending"}</Badge></div>
     </div>
   );
 };
@@ -146,6 +169,7 @@ export default function ProviderApplicationDetailsModal({
   const { settings: globalCompanySettings } = useGlobalSettings();
   const [isDownloadingPdf, setIsDownloadingPdf] = useState(false);
   const [verifyingDocType, setVerifyingDocType] = useState<string | null>(null);
+  const router = useRouter();
 
   useEffect(() => {
     if (application) {
@@ -229,177 +253,405 @@ export default function ProviderApplicationDetailsModal({
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-3xl w-[95vw] sm:w-[90vw] max-h-[90vh] grid grid-rows-[auto_1fr_auto] p-0 overflow-x-hidden">
-        <DialogHeader className="p-4 sm:p-6 border-b flex-shrink-0 w-full max-w-full overflow-hidden">
+      <DialogContent className="max-w-3xl w-[calc(100vw-6px)] sm:w-[90vw] h-[calc(100vh-6px)] max-h-[calc(100vh-6px)] grid grid-rows-[auto_1fr_auto] p-0 overflow-x-hidden">
+        <DialogHeader className="p-4 sm:p-3 border-b flex-shrink-0 w-full max-w-full overflow-hidden">
           <div className="flex items-start sm:items-center space-x-3 sm:space-x-4">
             <Avatar className="h-12 w-12 sm:h-16 sm:w-16 flex-shrink-0">
               <AvatarImage src={application.profilePhotoUrl || undefined} alt={application.fullName || "Provider"} />
               <AvatarFallback className="text-xl sm:text-2xl">{application.fullName ? application.fullName[0].toUpperCase() : "P"}</AvatarFallback>
             </Avatar>
-            <div className="min-w-0">
-              <DialogTitle className="text-xl sm:text-2xl break-words max-w-full">{application.fullName || "Provider Application"}</DialogTitle>
-              <DialogDescription className="text-xs sm:text-sm break-words max-w-full">ID: {application.id}</DialogDescription>
-              <Badge variant="outline" className="mt-1 text-xs capitalize">{application.status.replace(/_/g, ' ')}</Badge>
+            <div className="min-w-0 flex flex-col sm:flex-row sm:items-center sm:gap-3 flex-wrap">
+              <DialogTitle className="text-xl sm:text-2xl break-words max-w-full font-bold">{application.fullName || "Provider Application"}</DialogTitle>
+              <div className="flex items-center gap-2 sm:gap-3 flex-wrap mt-1 sm:mt-0">
+                <span className="text-xs text-muted-foreground bg-muted/50 px-2 py-0.5 rounded border border-border/40">ID: {application.id}</span>
+                <Badge variant="outline" className="text-xs capitalize bg-background shrink-0">{application.status.replace(/_/g, ' ')}</Badge>
+              </div>
             </div>
           </div>
         </DialogHeader>
 
-        <div className="overflow-y-auto overflow-x-hidden flex-grow min-h-0">
-            <div className="p-4 sm:p-6">
-            <Tabs defaultValue="personal" className="w-full">
-                <div className="relative mb-6">
-                    <TabsList className="h-11 w-full justify-start gap-1 bg-muted p-1 overflow-x-auto no-scrollbar flex-nowrap rounded-lg">
-                        <TabsTrigger value="personal" className="px-3 py-1.5 text-xs sm:text-sm whitespace-nowrap rounded-md data-[state=active]:bg-background data-[state=active]:shadow-sm transition-all"><UserCircle className="mr-1.5 h-4 w-4 shrink-0"/>Personal</TabsTrigger>
-                        <TabsTrigger value="work" className="px-3 py-1.5 text-xs sm:text-sm whitespace-nowrap rounded-md data-[state=active]:bg-background data-[state=active]:shadow-sm transition-all"><Briefcase className="mr-1.5 h-4 w-4 shrink-0"/>Work Info</TabsTrigger>
-                        <TabsTrigger value="kyc" className="px-3 py-1.5 text-xs sm:text-sm whitespace-nowrap rounded-md data-[state=active]:bg-background data-[state=active]:shadow-sm transition-all"><FileText className="mr-1.5 h-4 w-4 shrink-0"/>KYC Docs</TabsTrigger>
-                        <TabsTrigger value="bank" className="px-3 py-1.5 text-xs sm:text-sm whitespace-nowrap rounded-md data-[state=active]:bg-background data-[state=active]:shadow-sm transition-all"><Banknote className="mr-1.5 h-4 w-4 shrink-0"/>Bank & Area</TabsTrigger>
-                        <TabsTrigger value="confirmation" className="px-3 py-1.5 text-xs sm:text-sm whitespace-nowrap rounded-md data-[state=active]:bg-background data-[state=active]:shadow-sm transition-all"><EditIcon className="mr-1.5 h-4 w-4 shrink-0"/>Status</TabsTrigger>
-                    </TabsList>
+        <div className="flex flex-col flex-grow min-h-0 w-full overflow-hidden">
+          <Tabs defaultValue="work" className="flex flex-col flex-grow min-h-0 overflow-hidden w-full">
+            {/* Sticky Tabs List at the top of content */}
+            <div className="px-4 sm:px-6 pt-4 pb-2 border-b flex-shrink-0 w-full bg-muted/10">
+              <TabsList className="h-11 w-full justify-start gap-1 bg-muted p-1 overflow-x-auto no-scrollbar flex-nowrap rounded-lg">
+                <TabsTrigger value="work" className="px-3 py-1.5 text-xs sm:text-sm whitespace-nowrap rounded-md data-[state=active]:bg-background data-[state=active]:shadow-sm transition-all"><Briefcase className="mr-1.5 h-4 w-4 shrink-0"/>Category & Skills</TabsTrigger>
+                <TabsTrigger value="personal" className="px-3 py-1.5 text-xs sm:text-sm whitespace-nowrap rounded-md data-[state=active]:bg-background data-[state=active]:shadow-sm transition-all"><UserCircle className="mr-1.5 h-4 w-4 shrink-0"/>Personal Info</TabsTrigger>
+                <TabsTrigger value="kyc" className="px-3 py-1.5 text-xs sm:text-sm whitespace-nowrap rounded-md data-[state=active]:bg-background data-[state=active]:shadow-sm transition-all"><FileText className="mr-1.5 h-4 w-4 shrink-0"/>KYC Documents</TabsTrigger>
+                <TabsTrigger value="bank" className="px-3 py-1.5 text-xs sm:text-sm whitespace-nowrap rounded-md data-[state=active]:bg-background data-[state=active]:shadow-sm transition-all"><Banknote className="mr-1.5 h-4 w-4 shrink-0"/>Location & Bank</TabsTrigger>
+                <TabsTrigger value="confirmation" className="px-3 py-1.5 text-xs sm:text-sm whitespace-nowrap rounded-md data-[state=active]:bg-background data-[state=active]:shadow-sm transition-all"><EditIcon className="mr-1.5 h-4 w-4 shrink-0"/>Status</TabsTrigger>
+              </TabsList>
+            </div>
+
+            {/* Scrollable Tab Content Wrapper */}
+            <div className="flex-grow overflow-y-auto min-h-0 p-4 sm:p-3 w-full">
+              <TabsContent value="work" className="space-y-1 focus-visible:outline-none focus-visible:ring-0 mt-0 w-full">
+                <DetailRow label="Category" value={application.workCategoryName || 'N/A'} />
+                <DetailRow label="Experience" value={application.experienceLevelLabel || 'N/A'} />
+                <DetailRow label="Skill Level" value={application.skillLevelLabel || 'N/A'} />
+                <div className="pt-4">
+                  <Label className="font-semibold text-xs uppercase tracking-wider text-muted-foreground">Bio / About Me</Label>
+                  <p className="text-muted-foreground whitespace-pre-wrap mt-1.5 border p-4 rounded-xl bg-muted/10 text-sm leading-relaxed border-border/40">
+                    {application.bio || 'No bio provided.'}
+                  </p>
                 </div>
+              </TabsContent>
 
-                <TabsContent value="personal" className="space-y-3 text-sm focus-visible:outline-none focus-visible:ring-0 mt-0">
-                    <p><strong>Full Name:</strong> {application.fullName || 'N/A'}</p>
-                    <p><strong>Email:</strong> {application.email || 'N/A'}</p>
-                    <p><strong>Mobile:</strong> {application.mobileNumber || 'N/A'}</p>
-                    <p><strong>Alternate Mobile:</strong> {application.alternateMobile || 'N/A'}</p>
-                    <p><strong>Address:</strong> {application.address || 'N/A'}</p>
-                    <p><strong>Age:</strong> {application.age || 'N/A'}</p>
-                    <p><strong>Qualification:</strong> {application.qualificationLabel || 'N/A'}</p>
-                    <p><strong>Languages Spoken:</strong> {application.languagesSpokenLabels?.join(', ') || 'N/A'}</p>
-                    <p><strong>Submitted:</strong> {formatTimestampToReadable(application.submittedAt || application.createdAt)}</p>
-                </TabsContent>
-
-                <TabsContent value="work" className="space-y-3 text-sm focus-visible:outline-none focus-visible:ring-0">
-                    <p><strong>Category:</strong> {application.workCategoryName || 'N/A'}</p>
-                    <p><strong>Experience:</strong> {application.experienceLevelLabel || 'N/A'}</p>
-                    <p><strong>Skill Level:</strong> {application.skillLevelLabel || 'N/A'}</p>
-                    <div className="pt-2">
-                        <strong>Bio / About Me:</strong>
-                        <p className="text-muted-foreground whitespace-pre-wrap mt-1 border p-3 rounded-md bg-muted/20">
-                            {application.bio || 'No bio provided.'}
-                        </p>
+              <TabsContent value="personal" className="space-y-1 focus-visible:outline-none focus-visible:ring-0 mt-0 w-full">
+                {application.profilePhotoUrl && (
+                  <div className="py-3 border-b border-border/40 flex flex-col items-start gap-1">
+                    <span className="font-semibold text-muted-foreground text-xs uppercase tracking-wider">Profile Photo</span>
+                    <div className="flex items-center gap-4 mt-1">
+                      <div className="relative w-24 h-24 border-2 border-primary/20 rounded-full overflow-hidden bg-muted shadow-sm">
+                        <NextImage src={application.profilePhotoUrl} alt="Provider Profile Photo" fill className="object-cover"/>
+                      </div>
+                      <a href={application.profilePhotoUrl} target="_blank" rel="noopener noreferrer" className="text-xs text-blue-600 hover:underline flex items-center gap-1 border px-2.5 py-1.5 rounded-lg bg-background hover:bg-muted/30 transition-colors">
+                        View Full Size <ExternalLink className="h-3 w-3"/>
+                      </a>
                     </div>
-                </TabsContent>
-
-                <TabsContent value="kyc" className="space-y-4 text-sm focus-visible:outline-none focus-visible:ring-0">
-                    <KycDocDisplay 
-                        doc={application.aadhaar} 
-                        docName="Aadhaar Card"
-                        onVerify={() => handleVerifyDocument('aadhaar')}
-                        isVerifying={verifyingDocType === 'aadhaar'}
-                    />
-                    <KycDocDisplay 
-                        doc={application.pan} 
-                        docName="PAN Card"
-                        onVerify={() => handleVerifyDocument('pan')}
-                        isVerifying={verifyingDocType === 'pan'}
-                    />
-                    
-                    {application.additionalDocuments && application.additionalDocuments.length > 0 && (
-                        <div className="pt-2">
-                          <h4 className="font-bold text-base mb-3 border-b pb-1">Additional Documents</h4>
-                          <div className="space-y-4">
-                            {application.additionalDocuments.map((doc, idx) => (
-                                <KycDocDisplay 
-                                  key={idx} 
-                                  doc={doc} 
-                                  docName={doc.docLabel || doc.docType || `Additional Document ${idx+1}`}
-                                  onVerify={() => handleVerifyDocument(doc.docType)}
-                                  isVerifying={verifyingDocType === doc.docType}
-                                />
-                            ))}
-                          </div>
+                  </div>
+                )}
+                <DetailRow label="Full Name" value={application.fullName || 'N/A'} />
+                <DetailRow 
+                  label="Email" 
+                  value={
+                    application.email ? (
+                      <div className="flex items-center justify-between w-full gap-2">
+                        <span>{application.email}</span>
+                        <div className="flex items-center gap-1.5 shrink-0">
+                          <Button 
+                            variant="ghost" 
+                            size="icon" 
+                            className="h-6 w-6 text-muted-foreground hover:text-primary hover:bg-muted"
+                            onClick={() => {
+                              navigator.clipboard.writeText(application.email!);
+                              toast({ title: "Copied", description: "Email address copied to clipboard." });
+                            }}
+                            title="Copy Email"
+                          >
+                            <Copy className="h-3.5 w-3.5" />
+                          </Button>
+                          <a 
+                            href={`mailto:${application.email}`} 
+                            className="h-6 w-6 rounded-md hover:bg-muted flex items-center justify-center text-muted-foreground hover:text-primary transition-colors"
+                            title="Send Email"
+                          >
+                            <Mail className="h-3.5 w-3.5" />
+                          </a>
                         </div>
-                    )}
-                </TabsContent>
+                      </div>
+                    ) : 'N/A'
+                  } 
+                />
+                <DetailRow 
+                  label="Mobile" 
+                  value={
+                    application.mobileNumber ? (
+                      <div className="flex items-center justify-between w-full gap-2">
+                        <span>{application.mobileNumber}</span>
+                        <div className="flex items-center gap-1.5 shrink-0">
+                          <Button 
+                            variant="ghost" 
+                            size="icon" 
+                            className="h-6 w-6 text-muted-foreground hover:text-primary hover:bg-muted"
+                            onClick={() => {
+                              navigator.clipboard.writeText(application.mobileNumber!);
+                              toast({ title: "Copied", description: "Mobile number copied to clipboard." });
+                            }}
+                            title="Copy Mobile"
+                          >
+                            <Copy className="h-3.5 w-3.5" />
+                          </Button>
+                          <a 
+                            href={`tel:${application.mobileNumber}`} 
+                            className="h-6 w-6 rounded-md hover:bg-muted flex items-center justify-center text-muted-foreground hover:text-primary transition-colors"
+                            title="Call Mobile"
+                          >
+                            <Phone className="h-3.5 w-3.5" />
+                          </a>
+                        </div>
+                      </div>
+                    ) : 'N/A'
+                  } 
+                />
+                <DetailRow 
+                  label="Alternate Mobile" 
+                  value={
+                    application.alternateMobile && application.alternateMobile !== 'N/A' ? (
+                      <div className="flex items-center justify-between w-full gap-2">
+                        <span>{application.alternateMobile}</span>
+                        <div className="flex items-center gap-1.5 shrink-0">
+                          <Button 
+                            variant="ghost" 
+                            size="icon" 
+                            className="h-6 w-6 text-muted-foreground hover:text-primary hover:bg-muted"
+                            onClick={() => {
+                              navigator.clipboard.writeText(application.alternateMobile!);
+                              toast({ title: "Copied", description: "Alternate mobile number copied to clipboard." });
+                            }}
+                            title="Copy Alternate Mobile"
+                          >
+                            <Copy className="h-3.5 w-3.5" />
+                          </Button>
+                          <a 
+                            href={`tel:${application.alternateMobile}`} 
+                            className="h-6 w-6 rounded-md hover:bg-muted flex items-center justify-center text-muted-foreground hover:text-primary transition-colors"
+                            title="Call Alternate Mobile"
+                          >
+                            <Phone className="h-3.5 w-3.5" />
+                          </a>
+                        </div>
+                      </div>
+                    ) : 'N/A'
+                  } 
+                />
+                <DetailRow label="Address" value={application.address || 'N/A'} />
+                <DetailRow label="Age" value={application.age || 'N/A'} />
+                <DetailRow label="Qualification" value={application.qualificationLabel || 'N/A'} />
+                <DetailRow label="Languages Spoken" value={application.languagesSpokenLabels?.join(', ') || 'N/A'} />
+                <DetailRow label="Submitted" value={formatTimestampToReadable(application.submittedAt || application.createdAt)} />
+              </TabsContent>
 
-                <TabsContent value="bank" className="space-y-4 text-sm focus-visible:outline-none focus-visible:ring-0">
-                    <div>
-                        <h4 className="font-semibold mb-1">Work Area:</h4>
-                        <p><strong>Center:</strong> {application.workAreaCenter ? `${application.workAreaCenter.latitude.toFixed(4)}, ${application.workAreaCenter.longitude.toFixed(4)}` : 'N/A'}</p>
-                        <p><strong>Radius:</strong> {application.workAreaRadiusKm ? `${application.workAreaRadiusKm} km` : 'N/A'}</p>
-                        {application.workAreaCenter && (
-                            <Button variant="link" size="sm" onClick={() => window.open(`https://www.google.com/maps?q=${application.workAreaCenter?.latitude},${application.workAreaCenter?.longitude}`, '_blank')} className="px-0 h-auto">
-                                View on Map <ExternalLink className="ml-1 h-3 w-3"/>
-                            </Button>
-                        )}
-                    </div>
-                    <Separator />
-                    <div>
-                        <h4 className="font-semibold mb-1">Bank Details:</h4>
-                        <BankDetailsDisplay 
-                            details={application.bankDetails} 
-                            onVerify={() => handleVerifyDocument('bank')}
-                            isVerifying={verifyingDocType === 'bank'}
+              <TabsContent value="kyc" className="space-y-4 focus-visible:outline-none focus-visible:ring-0 mt-0 w-full">
+                <KycDocDisplay 
+                  doc={application.aadhaar} 
+                  docName="Aadhaar Card"
+                  onVerify={() => handleVerifyDocument('aadhaar')}
+                  isVerifying={verifyingDocType === 'aadhaar'}
+                />
+                <KycDocDisplay 
+                  doc={application.pan} 
+                  docName="PAN Card"
+                  onVerify={() => handleVerifyDocument('pan')}
+                  isVerifying={verifyingDocType === 'pan'}
+                />
+                
+                {application.additionalDocuments && application.additionalDocuments.length > 0 && (
+                  <div className="pt-2">
+                    <h4 className="font-bold text-sm text-primary uppercase tracking-wider mb-3 border-b pb-1">Additional Documents</h4>
+                    <div className="space-y-4">
+                      {application.additionalDocuments.map((doc, idx) => (
+                        <KycDocDisplay 
+                          key={idx} 
+                          doc={doc} 
+                          docName={doc.docLabel || doc.docType || `Additional Document ${idx+1}`}
+                          onVerify={() => handleVerifyDocument(doc.docType)}
+                          isVerifying={verifyingDocType === doc.docType}
                         />
+                      ))}
                     </div>
-                </TabsContent>
+                  </div>
+                )}
+              </TabsContent>
 
-                <TabsContent value="confirmation" className="space-y-4 text-sm focus-visible:outline-none focus-visible:ring-0">
-                    <div>
-                        <h4 className="font-semibold mb-1">Terms Confirmation:</h4>
-                        {application.termsConfirmedAt ? (
-                            <p className="flex items-center text-green-600"><CheckCircle className="mr-2 h-4 w-4"/>Confirmed on {formatTimestampToReadable(application.termsConfirmedAt)}</p>
-                        ) : (
-                            <p className="flex items-center text-destructive"><XCircle className="mr-2 h-4 w-4"/>Not Confirmed</p>
-                        )}
+              <TabsContent value="bank" className="space-y-4 focus-visible:outline-none focus-visible:ring-0 mt-0 w-full">
+                <div className="space-y-1">
+                  <h4 className="font-bold text-sm text-primary uppercase tracking-wider mb-2">Work Area</h4>
+                  <DetailRow label="Center Coordinates" value={application.workAreaCenter ? `${application.workAreaCenter.latitude.toFixed(6)}, ${application.workAreaCenter.longitude.toFixed(6)}` : 'N/A'} />
+                  <DetailRow label="Service Radius" value={application.workAreaRadiusKm ? `${application.workAreaRadiusKm} km` : 'N/A'} />
+                  {application.workAreaCenter && (
+                    <div className="pt-2">
+                      <Button variant="outline" size="sm" onClick={() => window.open(`https://www.google.com/maps?q=${application.workAreaCenter?.latitude},${application.workAreaCenter?.longitude}`, '_blank')} className="h-8 text-xs">
+                        View on Google Maps <ExternalLink className="ml-1.5 h-3.5 w-3.5"/>
+                      </Button>
                     </div>
-                     <div>
-                        <h4 className="font-semibold mb-1">Signature:</h4>
-                        {application.signatureUrl ? (
-                            <div className="mt-1">
-                                <a href={application.signatureUrl} target="_blank" rel="noopener noreferrer" className="text-xs text-blue-600 hover:underline">View Signature ({application.signatureFileName || 'View Image'})</a>
-                                {application.signatureUrl.startsWith('http') && <div className="relative w-48 h-24 mt-1 border rounded bg-white"><NextImage src={application.signatureUrl} alt="Provider Signature" fill className="object-contain p-1"/></div>}
-                            </div>
-                        ) : (
-                            <p className="text-muted-foreground">No signature provided.</p>
-                        )}
-                    </div>
-                </TabsContent>
-            </Tabs>
+                  )}
+                </div>
+                <Separator className="my-2" />
+                <div className="space-y-1">
+                  <h4 className="font-bold text-sm text-primary uppercase tracking-wider mb-2">Bank Details</h4>
+                  <BankDetailsDisplay 
+                    details={application.bankDetails} 
+                    onVerify={() => handleVerifyDocument('bank')}
+                    isVerifying={verifyingDocType === 'bank'}
+                  />
+                </div>
+              </TabsContent>
 
-            {(application.status === 'pending_review' || application.status === 'needs_update' || application.status === 'rejected') && (
-            <div className="mt-6 pt-4 border-t">
-                <Label htmlFor="adminReviewNotes" className="font-semibold text-sm">Admin Review Notes:</Label>
-                <Textarea
+              <TabsContent value="confirmation" className="space-y-4 focus-visible:outline-none focus-visible:ring-0 mt-0 w-full">
+                <div className="space-y-1">
+                  <h4 className="font-bold text-sm text-primary uppercase tracking-wider mb-2">Terms Confirmation</h4>
+                  <DetailRow 
+                    label="Terms Agreement" 
+                    value={application.termsConfirmedAt ? (
+                      <span className="flex items-center text-green-600 font-semibold"><CheckCircle className="mr-1.5 h-4 w-4 shrink-0"/>Confirmed on {formatTimestampToReadable(application.termsConfirmedAt)}</span>
+                    ) : (
+                      <span className="flex items-center text-destructive font-semibold"><XCircle className="mr-1.5 h-4 w-4 shrink-0"/>Not Confirmed</span>
+                    )} 
+                  />
+                </div>
+                <Separator className="my-2" />
+                <div className="space-y-1">
+                  <h4 className="font-bold text-sm text-primary uppercase tracking-wider mb-2">Signature</h4>
+                  {application.signatureUrl ? (
+                    <div className="py-2.5">
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="font-semibold text-muted-foreground text-xs uppercase tracking-wider">Signature Image</span>
+                        <a href={application.signatureUrl} target="_blank" rel="noopener noreferrer" className="text-xs text-blue-600 hover:underline flex items-center gap-1">
+                          View Full Size <ExternalLink className="h-3 w-3"/>
+                        </a>
+                      </div>
+                      {application.signatureUrl.startsWith('http') && (
+                        <div className="relative w-48 h-24 border rounded-lg overflow-hidden bg-white">
+                          <NextImage src={application.signatureUrl} alt="Provider Signature" fill className="object-contain p-1"/>
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    <p className="text-muted-foreground text-sm">No signature provided.</p>
+                  )}
+                </div>
+              </TabsContent>
+
+              {/* Admin Review Notes (Now scrolls with content) */}
+              {(application.status === 'pending_review' || application.status === 'needs_update' || application.status === 'rejected') && (
+                <div className="mt-6 pt-4 border-t w-full">
+                  <Label htmlFor="adminReviewNotes" className="font-semibold text-sm">Admin Review Notes:</Label>
+                  <Textarea
                     id="adminReviewNotes"
                     value={adminNotes}
                     onChange={(e) => setAdminNotes(e.target.value)}
                     placeholder="Add notes for approval, rejection, or update request..."
-                    rows={3}
-                    className="mt-1.5 text-sm"
+                    rows={2}
+                    className="mt-1.5 text-sm bg-background"
                     disabled={isLoadingStatusUpdate}
-                />
+                  />
+                </div>
+              )}
             </div>
-            )}
-            </div>
+          </Tabs>
         </div>
 
-        <DialogFooter className="p-4 sm:p-6 border-t bg-muted/50 flex flex-col gap-2 sm:gap-0 sm:flex-row sm:justify-between items-center flex-shrink-0">
-          <Button variant="outline" onClick={handleDownloadProviderPdf} disabled={isLoadingStatusUpdate || isDownloadingPdf} className="w-full sm:w-auto order-last sm:order-first">
-             {isDownloadingPdf ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : <Download className="mr-2 h-4 w-4"/>} Download PDF
-          </Button>
-          
-          <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
-            <DialogClose asChild><Button variant="outline" disabled={isLoadingStatusUpdate} className="w-full sm:w-auto">Close</Button></DialogClose>
-            
-            {application.status !== 'approved' && (
-                <Button onClick={() => handleStatusAction('approved')} disabled={isLoadingStatusUpdate} className="bg-green-600 hover:bg-green-700 w-full sm:w-auto">
-                {isLoadingStatusUpdate && <Loader2 className="mr-2 h-4 w-4 animate-spin"/>} <CheckCircle className="mr-2 h-4 w-4"/>Approve
+        <DialogFooter className="p-3 sm:p-3 border-t bg-muted/50 flex flex-col gap-2 sm:gap-0 sm:flex-row sm:justify-between items-center flex-shrink-0 w-full">
+          {/* Mobile Layout (Visible only on mobile) */}
+          <div className="flex flex-col gap-2 w-full sm:hidden">
+            {/* Row 1: Status Actions */}
+            <div className="grid grid-cols-3 gap-1.5 w-full">
+              {application.status !== 'approved' && (
+                <Button 
+                  size="sm"
+                  onClick={() => handleStatusAction('approved')} 
+                  disabled={isLoadingStatusUpdate} 
+                  className="bg-green-600 hover:bg-green-700 text-[11px] h-8 px-1"
+                >
+                  {isLoadingStatusUpdate ? <Loader2 className="h-3.5 w-3.5 animate-spin"/> : <CheckCircle className="mr-1 h-3.5 w-3.5 shrink-0"/>}
+                  Approve
                 </Button>
-            )}
-            
-            {application.status !== 'rejected' && (
-                <Button variant="destructive" onClick={() => handleStatusAction('rejected')} disabled={isLoadingStatusUpdate} className="w-full sm:w-auto">
-                    {isLoadingStatusUpdate && <Loader2 className="mr-2 h-4 w-4 animate-spin"/>} <XCircle className="mr-2 h-4 w-4"/>Reject
+              )}
+              {application.status !== 'rejected' && (
+                <Button 
+                  size="sm"
+                  variant="destructive" 
+                  onClick={() => handleStatusAction('rejected')} 
+                  disabled={isLoadingStatusUpdate} 
+                  className="text-[11px] h-8 px-1"
+                >
+                  {isLoadingStatusUpdate ? <Loader2 className="h-3.5 w-3.5 animate-spin"/> : <XCircle className="mr-1 h-3.5 w-3.5 shrink-0"/>}
+                  Reject
                 </Button>
-            )}
-            
-            {application.status !== 'needs_update' && (
-                <Button variant="outline" onClick={() => handleStatusAction('needs_update')} disabled={isLoadingStatusUpdate} className="border-yellow-500 text-yellow-600 hover:bg-yellow-500/10 w-full sm:w-auto">
-                    {isLoadingStatusUpdate && <Loader2 className="mr-2 h-4 w-4 animate-spin"/>} <AlertTriangle className="mr-2 h-4 w-4"/>Needs Update
+              )}
+              {application.status !== 'needs_update' && (
+                <Button 
+                  size="sm"
+                  variant="outline" 
+                  onClick={() => handleStatusAction('needs_update')} 
+                  disabled={isLoadingStatusUpdate} 
+                  className="border-yellow-500 text-yellow-600 hover:bg-yellow-500/10 text-[11px] h-8 px-0.5"
+                >
+                  {isLoadingStatusUpdate ? <Loader2 className="h-3.5 w-3.5 animate-spin"/> : <AlertTriangle className="mr-1 h-3.5 w-3.5 shrink-0"/>}
+                  Needs Update
                 </Button>
-            )}
+              )}
+            </div>
+
+            {/* Row 2: Secondary Actions */}
+            <div className="grid grid-cols-2 gap-1.5 w-full">
+              <Button 
+                variant="outline" 
+                size="sm"
+                onClick={handleDownloadProviderPdf} 
+                disabled={isLoadingStatusUpdate || isDownloadingPdf} 
+                className="text-[11px] h-8 px-2 w-full flex items-center justify-center gap-1"
+              >
+                {isDownloadingPdf ? <Loader2 className="mr-1 h-3 w-3 animate-spin"/> : <Download className="mr-1 h-3 w-3"/>}
+                PDF
+              </Button>
+              <Button 
+                variant="outline" 
+                size="sm"
+                onClick={() => router.push(`/provider-registration?editApplicationId=${application.id}`)}
+                disabled={isLoadingStatusUpdate}
+                className="text-[11px] h-8 px-2 w-full flex items-center justify-center gap-1"
+              >
+                <EditIcon className="h-3 w-3" />
+                Edit
+              </Button>
+            </div>
+          </div>
+
+          {/* Desktop Layout (Hidden on Mobile) */}
+          <div className="hidden sm:flex sm:justify-between sm:items-center w-full">
+            <Button 
+              variant="outline" 
+              size="sm"
+              onClick={handleDownloadProviderPdf} 
+              disabled={isLoadingStatusUpdate || isDownloadingPdf} 
+              className="text-xs h-9 px-3"
+            >
+              {isDownloadingPdf ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin"/> : <Download className="mr-1.5 h-3.5 w-3.5"/>}
+              Download PDF
+            </Button>
+            
+            <div className="flex items-center gap-2">
+              <Button 
+                variant="outline" 
+                size="sm"
+                onClick={() => router.push(`/provider-registration?editApplicationId=${application.id}`)}
+                disabled={isLoadingStatusUpdate}
+                className="text-xs h-9 px-3 flex items-center gap-1.5"
+              >
+                <EditIcon className="h-3.5 w-3.5 mr-1" />
+                Edit
+              </Button>
+              
+              {application.status !== 'approved' && (
+                <Button 
+                  size="sm"
+                  onClick={() => handleStatusAction('approved')} 
+                  disabled={isLoadingStatusUpdate} 
+                  className="bg-green-600 hover:bg-green-700 text-xs h-9 px-3"
+                >
+                  {isLoadingStatusUpdate ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin"/> : <CheckCircle className="mr-1.5 h-3.5 w-3.5"/>}
+                  Approve
+                </Button>
+              )}
+              
+              {application.status !== 'rejected' && (
+                <Button 
+                  size="sm"
+                  variant="destructive" 
+                  onClick={() => handleStatusAction('rejected')} 
+                  disabled={isLoadingStatusUpdate} 
+                  className="text-xs h-9 px-3"
+                >
+                  {isLoadingStatusUpdate ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin"/> : <XCircle className="mr-1.5 h-3.5 w-3.5"/>}
+                  Reject
+                </Button>
+              )}
+              
+              {application.status !== 'needs_update' && (
+                <Button 
+                  size="sm"
+                  variant="outline" 
+                  onClick={() => handleStatusAction('needs_update')} 
+                  disabled={isLoadingStatusUpdate} 
+                  className="border-yellow-500 text-yellow-600 hover:bg-yellow-500/10 text-xs h-9 px-3"
+                >
+                  {isLoadingStatusUpdate ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin"/> : <AlertTriangle className="mr-1.5 h-3.5 w-3.5"/>}
+                  Needs Update
+                </Button>
+              )}
+            </div>
           </div>
         </DialogFooter>
       </DialogContent>

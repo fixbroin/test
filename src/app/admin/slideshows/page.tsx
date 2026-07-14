@@ -232,7 +232,7 @@ export default function AdminSlideshowsPage() {
 
       <Dialog open={isFormOpen} onOpenChange={(open) => { if (!isSubmitting) { setIsFormOpen(open); if (!open) setEditingSlide(null); } }}>
         <DialogContent className="w-full max-w-3xl p-0 overflow-hidden rounded-2xl flex flex-col max-h-[90vh]">
-          <DialogHeader className="p-6 pb-4 border-b bg-muted/20 flex-shrink-0">
+          <DialogHeader className="p-3 pb-4 border-b bg-muted/20 flex-shrink-0">
             <DialogTitle>{editingSlide ? 'Edit Slide' : 'Add New Slide'}</DialogTitle>
             <DialogDescription>
               {editingSlide ? 'Update the details for this slide.' : 'Fill in the details for a new slide.'}

@@ -17,6 +17,7 @@ import { ref as storageRefStandard, uploadBytesResumable, getDownloadURL, delete
 import type { GlobalWebSettings, ContentPage } from '@/types/firestore';
 import NextImage from 'next/image';
 import { Progress } from '@/components/ui/progress';
+import { compressImage } from "@/lib/imageCompressor";
 
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
@@ -476,10 +477,10 @@ export default function WebSettingsPage() {
     }
   };
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>, assetType: 'logo' | 'favicon' | 'websiteIcon') => {
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>, assetType: 'logo' | 'favicon' | 'websiteIcon') => {
     if (e.target.files && e.target.files[0]) {
       const file = e.target.files[0];
-      const maxSizeMB = assetType === 'logo' ? 2 : (assetType === 'favicon' ? 0.5 : 1);
+      const maxSizeMB = assetType === 'logo' ? 50 : (assetType === 'favicon' ? 0.5 : 50);
       const expectedTypes = assetType === 'favicon' ? ["image/x-icon", "image/png", "image/svg+xml"] : ["image/png", "image/jpeg", "image/gif", "image/svg+xml", "image/webp"];
       
       if (!expectedTypes.includes(file.type)) {
@@ -491,9 +492,18 @@ export default function WebSettingsPage() {
         e.target.value = ""; return;
       }
 
-      if (assetType === 'logo') { setLogoFile(file); setLogoPreview(URL.createObjectURL(file)); }
-      if (assetType === 'favicon') { setFaviconFile(file); setFaviconPreview(URL.createObjectURL(file)); }
-      if (assetType === 'websiteIcon') { setWebsiteIconFile(file); setWebsiteIconPreview(URL.createObjectURL(file)); }
+      let fileToSet = file;
+      if (assetType !== 'favicon') {
+        try {
+          fileToSet = await compressImage(file);
+        } catch (err) {
+          console.error("Compression failed", err);
+        }
+      }
+
+      if (assetType === 'logo') { setLogoFile(fileToSet); setLogoPreview(URL.createObjectURL(fileToSet)); }
+      if (assetType === 'favicon') { setFaviconFile(fileToSet); setFaviconPreview(URL.createObjectURL(fileToSet)); }
+      if (assetType === 'websiteIcon') { setWebsiteIconFile(fileToSet); setWebsiteIconPreview(URL.createObjectURL(fileToSet)); }
     }
   };
 
@@ -647,9 +657,19 @@ export default function WebSettingsPage() {
   const handleContentAssetUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
         const file = e.target.files[0];
+        if (file.size > 50 * 1024 * 1024) {
+            toast({ title: "File Too Large", description: "Asset must be < 50MB.", variant: "destructive"});
+            return;
+        }
+        let fileToUpload = file;
+        try {
+          fileToUpload = await compressImage(file);
+        } catch (err) {
+          console.error("Compression failed", err);
+        }
         setIsUploadingAsset(true);
         try {
-            const url = await handleFileUpload(file, 'content_asset');
+            const url = await handleFileUpload(fileToUpload, 'content_asset');
             setLastUploadedAssetUrl(url);
             toast({ title: "Asset Uploaded", description: "You can now copy the URL and use it in your content." });
         } catch (error) {
@@ -661,15 +681,21 @@ export default function WebSettingsPage() {
     }
   };
 
-  const handlePageImageFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handlePageImageFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
         const file = e.target.files[0];
-        if (file.size > 5 * 1024 * 1024) {
-            toast({ title: "File Too Large", description: "Banner image must be < 5MB.", variant: "destructive"});
+        if (file.size > 50 * 1024 * 1024) {
+            toast({ title: "File Too Large", description: "Banner image must be < 50MB.", variant: "destructive"});
             return;
         }
-        setPageImageFile(file);
-        setPageImagePreview(URL.createObjectURL(file));
+        let fileToSet = file;
+        try {
+          fileToSet = await compressImage(file);
+        } catch (err) {
+          console.error("Compression failed", err);
+        }
+        setPageImageFile(fileToSet);
+        setPageImagePreview(URL.createObjectURL(fileToSet));
         contentPageForm.setValue('imageUrl', '');
     }
   };

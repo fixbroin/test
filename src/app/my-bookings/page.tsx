@@ -485,32 +485,69 @@ export default function MyBookingsPage() {
           </div>
         ) : (
           <div className="space-y-6">
-            {myBookings.map((booking, index) => (
-              <Card key={booking.id} className="shadow-sm hover:shadow-md transition-shadow overflow-hidden">
-                <div className="flex flex-col md:flex-row">
-                  {/* Service Image Section */}
-                  <div className="relative w-full aspect-square md:w-80 md:h-81 bg-muted">
-                    <AppImage 
-                      src={booking.services[0]?.imageUrl || "/default-image.png"} 
-                      alt={booking.services[0]?.name || "Service Image"}
-                      fill
-                      priority={index === 0}
-                      className="object-cover"
-                    />
-                  </div>
-
-                  <div className="flex-1 flex flex-col">
-                    <CardHeader>
-                      <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-2">
-                        <CardTitle className="text-xl font-headline">
-                          {booking.services.map(s => s.name).join(', ')}
-                        </CardTitle>
-                        <Badge variant={getStatusBadgeVariant(booking.status)} className={`capitalize text-xs w-fit ${getStatusBadgeClass(booking.status)}`}>
-                            {booking.status}
-                        </Badge>
+            {myBookings.map((booking, index) => {
+              const hasMultipleServices = booking.services && booking.services.length > 1;
+              return (
+                <Card key={booking.id} className="shadow-sm hover:shadow-md transition-shadow overflow-hidden">
+                  <div className="flex flex-col md:flex-row">
+                    {/* Service Image Section / Services List */}
+                    {hasMultipleServices ? (
+                      <div className="w-full md:w-96 p-3 bg-muted/10 border-b md:border-b-0 md:border-r border-border/40 flex flex-col justify-start gap-4 shrink-0">
+                        <div className="flex justify-between items-center">
+                          <span className="text-sm font-bold text-muted-foreground uppercase tracking-wider">Booked Services ({booking.services.length})</span>
+                        </div>
+                        <div className="space-y-3 max-h-[350px] overflow-y-auto pr-1">
+                          {booking.services.map((service) => (
+                            <div key={service.serviceId} className="flex items-center justify-between p-3 border rounded-xl bg-background shadow-xs gap-3">
+                              <div className="flex items-center gap-3 min-w-0">
+                                <div className="relative h-12 w-12 rounded-lg overflow-hidden bg-muted shrink-0">
+                                  <AppImage 
+                                    src={service.imageUrl || "/default-image.png"} 
+                                    alt={service.name}
+                                    fill
+                                    className="object-cover"
+                                  />
+                                </div>
+                                <div className="min-w-0">
+                                  <p className="font-bold text-xs truncate text-foreground" title={service.name}>{service.name}</p>
+                                  <p className="text-[10px] text-muted-foreground">₹{service.pricePerUnit} per unit</p>
+                                </div>
+                              </div>
+                              <div className="text-right shrink-0">
+                                <p className="text-[10px] font-black text-primary">Qty: {service.quantity}</p>
+                                <p className="font-black text-xs text-foreground">₹{service.pricePerUnit * service.quantity}</p>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
                       </div>
-                      <CardDescription>Booking ID: {booking.bookingId}</CardDescription>
-                    </CardHeader>
+                    ) : (
+                      <div className="relative w-full aspect-square md:w-80 md:h-81 bg-muted shrink-0">
+                        <AppImage 
+                          src={booking.services[0]?.imageUrl || "/default-image.png"} 
+                          alt={booking.services[0]?.name || "Service Image"}
+                          fill
+                          priority={index === 0}
+                          className="object-cover"
+                        />
+                      </div>
+                    )}
+
+                    <div className="flex-1 flex flex-col">
+                      <CardHeader>
+                        <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-2">
+                          <CardTitle className="text-xl font-headline">
+                            {hasMultipleServices 
+                              ? booking.services.map(s => s.name).join(', ') 
+                              : (booking.services[0]?.name || "Service Image")
+                            }
+                          </CardTitle>
+                          <Badge variant={getStatusBadgeVariant(booking.status)} className={`capitalize text-xs w-fit ${getStatusBadgeClass(booking.status)}`}>
+                              {booking.status}
+                          </Badge>
+                        </div>
+                        <CardDescription>Booking ID: {booking.bookingId}</CardDescription>
+                      </CardHeader>
                     <CardContent className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 text-sm flex-grow">
                   <div>
                     <p className="text-muted-foreground">Scheduled Date</p>
@@ -630,7 +667,8 @@ export default function MyBookingsPage() {
                   </div>
                   </div>
                   </Card>
-                  ))}
+              );
+            })}
 
           </div>
         )}

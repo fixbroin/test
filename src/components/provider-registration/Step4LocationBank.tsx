@@ -9,6 +9,7 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDes
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Badge } from "@/components/ui/badge";
 import type { ProviderApplication, ProviderControlOptions, BankDetails } from '@/types/firestore';
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Loader2, MapPin, Banknote, Camera, Image as ImageIcon, Trash2, Check, Lock, ChevronRight, AlertCircle, FileText } from "lucide-react";
@@ -22,6 +23,7 @@ import { Timestamp, doc, getDoc } from "firebase/firestore";
 import { nanoid } from 'nanoid';
 import { useApplicationConfig } from '@/hooks/useApplicationConfig';
 import dynamic from 'next/dynamic';
+import { compressImage } from "@/lib/imageCompressor";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
 
@@ -268,6 +270,9 @@ export default function Step4LocationBank({
     }
     
     const errors: string[] = [];
+    if (appConfig.isCancelledChequeCompulsory && !selectedChequeFile && !data.cancelledChequeUrl && !initialData.bankDetails?.cancelledChequeUrl) {
+        errors.push("Cancelled Cheque Image");
+    }
     if (!selectedSignatureFile && !data.signatureUrl && !initialData.signatureUrl) {
         errors.push("Signature Image");
     }
@@ -369,84 +374,156 @@ export default function Step4LocationBank({
                 <FormField control={form.control} name="confirmAccountNumber" render={({ field }) => (<FormItem><FormLabel>Confirm Account Number *</FormLabel><FormControl><Input placeholder="Re-enter account number" {...field} disabled={effectiveIsSaving}/></FormControl><FormMessage /></FormItem>)}/>
               </div>
               <FormField control={form.control} name="ifscCode" render={({ field }) => (<FormItem><FormLabel>IFSC Code *</FormLabel><FormControl><Input placeholder="e.g., SBIN0001234" {...field} onChange={(e) => field.onChange(e.target.value.toUpperCase())} disabled={effectiveIsSaving}/></FormControl><FormMessage /></FormItem>)}/>
-              <FormItem>
-                <FormLabel className="flex items-center"><Camera className="mr-2 h-4 w-4 text-muted-foreground"/>Upload Cancelled Cheque (Optional)</FormLabel>
-                <div 
-                  onClick={() => !effectiveIsSaving && chequeFileInputRef.current?.click()}
-                  className="relative aspect-video rounded-lg border-2 border-dashed border-muted-foreground/25 hover:border-primary/50 bg-muted/30 flex flex-col items-center justify-center cursor-pointer overflow-hidden transition-all shadow-sm"
-                >
-                  {displayChequePreviewUrl ? (
-                    <>
-                      <NextImage src={displayChequePreviewUrl} alt="Cheque preview" fill className="object-contain p-1" unoptimized={displayChequePreviewUrl.startsWith('blob:')} sizes="(max-width: 640px) 100vw, 50vw"/>
-                      <div className="absolute inset-0 bg-black/40 opacity-0 hover:opacity-100 transition-opacity flex items-center justify-center"><Camera className="h-8 w-8 text-white" /></div>
-                    </>
-                  ) : (
-                    <div className="flex flex-col items-center gap-2">
-                      <Camera className="h-10 w-10 text-muted-foreground" />
-                      <span className="text-[10px] font-bold text-muted-foreground">CLICK TO UPLOAD</span>
+              <FormItem className="space-y-2">
+                <FormLabel className="flex items-center text-sm font-semibold">
+                  <Camera className="mr-2 h-4 w-4 text-muted-foreground"/>Upload Cancelled Cheque {appConfig.isCancelledChequeCompulsory ? "*" : "(Optional)"}
+                </FormLabel>
+                <FormDescription className="text-[11px] text-muted-foreground leading-normal mb-2">
+                  Please upload a clear picture of your cancelled cheque. Make sure the account number, IFSC code, and your name are clearly visible. See the example on the right.
+                </FormDescription>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {/* Left: Upload Box */}
+                  <div className="flex flex-col space-y-1 max-w-[220px] mx-auto w-full">
+                    <div className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-1 flex items-center justify-between w-full">
+                      <span>Your Document</span>
+                      {validationErrors.includes("Cancelled Cheque Image") && <Badge variant="destructive" className="h-4 px-1.5 text-[10px] animate-pulse">REQUIRED</Badge>}
                     </div>
-                  )}
-                  {chequeUploadProgress !== null && selectedChequeFile && (
-                    <div className="absolute inset-0 bg-black/60 flex flex-col items-center justify-center p-4">
-                      <Loader2 className="h-8 w-8 text-white animate-spin mb-2" />
-                      <Progress value={chequeUploadProgress} className="h-1.5 w-full bg-white/20" />
+                    <div 
+                      onClick={() => !effectiveIsSaving && chequeFileInputRef.current?.click()}
+                      className={cn(
+                        "relative aspect-square w-full max-w-[220px] mx-auto rounded-lg border-2 border-dashed transition-all flex flex-col items-center justify-center cursor-pointer overflow-hidden shadow-sm",
+                        validationErrors.includes("Cancelled Cheque Image") ? "border-destructive bg-destructive/5 animate-pulse" : "border-muted-foreground/25 hover:border-primary/50 bg-muted/30"
+                      )}
+                    >
+                      {displayChequePreviewUrl ? (
+                        <>
+                          <NextImage src={displayChequePreviewUrl} alt="Cheque preview" fill className="object-contain p-1" unoptimized={displayChequePreviewUrl.startsWith('blob:')} sizes="(max-width: 640px) 100vw, 50vw"/>
+                          <div className="absolute inset-0 bg-black/40 opacity-0 hover:opacity-100 transition-opacity flex items-center justify-center"><Camera className="h-8 w-8 text-white" /></div>
+                        </>
+                      ) : (
+                        <div className="flex flex-col items-center gap-2">
+                          <Camera className={cn("h-8 w-8", validationErrors.includes("Cancelled Cheque Image") ? "text-destructive" : "text-muted-foreground")} />
+                          {validationErrors.includes("Cancelled Cheque Image") && <AlertCircle className="h-5 w-5 text-destructive animate-bounce" />}
+                          <span className={cn("text-[10px] font-bold", validationErrors.includes("Cancelled Cheque Image") ? "text-destructive" : "text-muted-foreground")}>CLICK TO UPLOAD</span>
+                        </div>
+                      )}
+                      {chequeUploadProgress !== null && selectedChequeFile && (
+                        <div className="absolute inset-0 bg-black/60 flex flex-col items-center justify-center p-4">
+                          <Loader2 className="h-8 w-8 text-white animate-spin mb-2" />
+                          <Progress value={chequeUploadProgress} className="h-1.5 w-full bg-white/20" />
+                        </div>
+                      )}
                     </div>
-                  )}
+                    <FormControl><Input type="file" accept="image/png, image/jpeg, image/webp" onChange={async (e) => { if (e.target.files?.[0]) { const file = e.target.files[0]; if (file.size > 50 * 1024 * 1024) { toast({ title: "File Too Large", description: "Image must be < 50MB.", variant: "destructive" }); e.target.value = ""; return; } let fileToSet = file; try { fileToSet = await compressImage(file); } catch (err) { console.error("Compression failed", err); } setSelectedChequeFile(fileToSet); setCurrentChequePreview(URL.createObjectURL(fileToSet)); form.setValue('cancelledChequeUrl', null, { shouldValidate: false }); } }} ref={chequeFileInputRef} className="hidden" disabled={effectiveIsSaving}/></FormControl>
+                    <div className="flex justify-between items-center text-[10px] text-muted-foreground mt-1">
+                      <span>Max size: 50MB</span>
+                      {(displayChequePreviewUrl || selectedChequeFile) && (
+                        <Button type="button" variant="ghost" size="sm" onClick={() => { setSelectedChequeFile(null); setCurrentChequePreview(null); form.setValue('cancelledChequeUrl', null); }} disabled={effectiveIsSaving} className="text-[10px] h-6 px-2 text-destructive hover:bg-destructive/10">
+                          <Trash2 className="h-3 w-3 mr-1 text-destructive"/>Remove Image
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Right: Example Box */}
+                  <div className="flex flex-col space-y-1 max-w-[220px] mx-auto w-full">
+                    <div className="text-[10px] font-bold text-green-600 uppercase tracking-wider mb-1 flex items-center gap-1">
+                      <Check className="h-3.5 w-3.5" /> Example / Demo
+                    </div>
+                    <div className="relative aspect-square w-full max-w-[220px] mx-auto rounded-lg border border-border/70 bg-background flex flex-col items-center justify-center overflow-hidden transition-all shadow-sm">
+                      <NextImage src="/sample-cheque.png" alt="Sample cancelled cheque" fill className="object-contain p-1" />
+                    </div>
+                    <span className="text-[10px] text-muted-foreground text-center">Reference Image</span>
+                  </div>
                 </div>
-                <FormControl><Input type="file" accept="image/png, image/jpeg, image/webp" onChange={(e) => { if (e.target.files?.[0]) { const file = e.target.files[0]; if (file.size > 15 * 1024 * 1024) { toast({ title: "File Too Large", description: "Image must be < 15MB.", variant: "destructive" }); e.target.value = ""; return; } setSelectedChequeFile(file); setCurrentChequePreview(URL.createObjectURL(file)); form.setValue('cancelledChequeUrl', null, { shouldValidate: false }); } }} ref={chequeFileInputRef} className="hidden" disabled={effectiveIsSaving}/></FormControl>
-                <FormDescription className="text-[10px]">Clear image of a cancelled cheque. Max 15MB.</FormDescription>
-                {(displayChequePreviewUrl || selectedChequeFile) && (<Button type="button" variant="ghost" size="sm" onClick={() => { setSelectedChequeFile(null); setCurrentChequePreview(null); form.setValue('cancelledChequeUrl', null); }} disabled={effectiveIsSaving} className="text-xs mt-1 text-destructive"><Trash2 className="h-3 w-3 mr-1 text-destructive"/>Remove Image</Button>)}
+                <FormMessage />
               </FormItem>
             </CardContent>
           </Card>
 
-          <div className="space-y-3">
-            {validationErrors.includes("Signature Image") && (
-              <div className="flex justify-center">
-                <span className="text-[10px] bg-destructive text-white px-2 py-0.5 rounded animate-pulse">REQUIRED</span>
-              </div>
-            )}
-            
-            <div 
-              onClick={() => !effectiveIsSaving && signatureFileInputRef.current?.click()}
-              className={cn(
-                "relative aspect-[3/1] max-h-32 w-full max-w-sm rounded-lg border-2 border-dashed transition-all flex flex-col items-center justify-center cursor-pointer overflow-hidden shadow-sm mx-auto",
-                validationErrors.includes("Signature Image") ? "border-destructive bg-destructive/5" : "border-muted-foreground/25 hover:border-primary/50 bg-background",
-                !displaySignaturePreviewUrl && !selectedSignatureFile && "animate-pulse"
-              )}
-            >
-              {displaySignaturePreviewUrl ? (
-                <>
-                  <NextImage src={displaySignaturePreviewUrl} alt="Signature preview" fill className="object-contain p-1" unoptimized={displaySignaturePreviewUrl.startsWith('blob:')} sizes="(max-width: 640px) 100vw, 50vw"/>
-                  <div className="absolute inset-0 bg-black/40 opacity-0 hover:opacity-100 transition-opacity flex items-center justify-center"><Camera className="h-8 w-8 text-white" /></div>
-                </>
-              ) : (
-               <div className="flex flex-col items-center gap-2">
-                  <Camera className={cn("h-10 w-10", validationErrors.includes("Signature Image") ? "text-destructive" : "text-muted-foreground")} />
-                  {validationErrors.includes("Signature Image") && <AlertCircle className="h-5 w-5 text-destructive animate-bounce" />}
-                  <span className="text-[10px] font-bold text-muted-foreground">CLICK TO UPLOAD</span>
-                </div>
-              )}
-              {signatureUploadProgress !== null && selectedSignatureFile && (
-                <div className="absolute inset-0 bg-black/60 flex flex-col items-center justify-center p-4">
-                  <Loader2 className="h-8 w-8 text-white animate-spin mb-2" />
-                  <Progress value={signatureUploadProgress} className="h-1.5 w-full bg-white/20" />
-                </div>
-              )}
-            </div>
-            <FormControl>
-                <input 
-                    type="file" 
-                    accept="image/png, image/jpeg" 
-                    className="hidden"
-                    onChange={(e) => { if (e.target.files?.[0]) { const file = e.target.files[0]; if (file.size > 15 * 1024 * 1024) { toast({ title: "File Too Large", description: "Image must be < 15MB.", variant: "destructive" }); return; } setSelectedSignatureFile(file); setCurrentSignaturePreview(URL.createObjectURL(file)); form.setValue('signatureUrl', null, { shouldValidate: false }); } }}
-                    ref={signatureFileInputRef} 
-                    disabled={effectiveIsSaving}
-                />
-            </FormControl>
-            <FormDescription className="text-center text-[10px]">Clear image of your signature. Max 15MB.</FormDescription>
-            {currentSignaturePreview && <div className="flex justify-center"><Button type="button" variant="ghost" size="sm" className="h-8 text-[10px] text-destructive" onClick={() => { setSelectedSignatureFile(null); setCurrentSignaturePreview(null); form.setValue('signatureUrl', null); }} disabled={effectiveIsSaving}><Trash2 className="h-3 w-3 mr-1" /> Remove Signature</Button></div>}
-          </div>
+          <Card className="p-4 border shadow-sm">
+            <CardContent className="p-0">
+              <FormField
+                control={form.control}
+                name="signatureUrl"
+                render={() => (
+                  <FormItem className="space-y-2">
+                    <FormLabel className="flex items-center text-sm font-semibold">
+                      <Camera className="mr-2 h-4 w-4 text-muted-foreground"/>Upload Signature *
+                    </FormLabel>
+                    <FormDescription className="text-[11px] text-muted-foreground leading-normal mb-2">
+                      Please upload a clear image of your signature on a clean white paper. See the example on the right.
+                    </FormDescription>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {/* Left: Upload Box */}
+                      <div className="flex flex-col space-y-1 max-w-[220px] mx-auto w-full">
+                        <div className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-1 flex items-center justify-between w-full">
+                          <span>Your Document</span>
+                          {validationErrors.includes("Signature Image") && <Badge variant="destructive" className="h-4 px-1.5 text-[10px] animate-pulse">REQUIRED</Badge>}
+                        </div>
+                        <div 
+                          onClick={() => !effectiveIsSaving && signatureFileInputRef.current?.click()}
+                          className={cn(
+                            "relative aspect-square w-full max-w-[220px] mx-auto rounded-lg border-2 border-dashed transition-all flex flex-col items-center justify-center cursor-pointer overflow-hidden shadow-sm",
+                            validationErrors.includes("Signature Image") ? "border-destructive bg-destructive/5 animate-pulse" : "border-muted-foreground/25 hover:border-primary/50 bg-muted/30"
+                          )}
+                        >
+                          {displaySignaturePreviewUrl ? (
+                            <>
+                              <NextImage src={displaySignaturePreviewUrl} alt="Signature preview" fill className="object-contain p-1" unoptimized={displaySignaturePreviewUrl.startsWith('blob:')} sizes="(max-width: 640px) 100vw, 50vw"/>
+                              <div className="absolute inset-0 bg-black/40 opacity-0 hover:opacity-100 transition-opacity flex items-center justify-center"><Camera className="h-8 w-8 text-white" /></div>
+                            </>
+                          ) : (
+                            <div className="flex flex-col items-center gap-2">
+                              <Camera className={cn("h-8 w-8", validationErrors.includes("Signature Image") ? "text-destructive" : "text-muted-foreground")} />
+                              {validationErrors.includes("Signature Image") && <AlertCircle className="h-5 w-5 text-destructive animate-bounce" />}
+                              <span className={cn("text-[10px] font-bold", validationErrors.includes("Signature Image") ? "text-destructive" : "text-muted-foreground")}>CLICK TO UPLOAD</span>
+                            </div>
+                          )}
+                          {signatureUploadProgress !== null && selectedSignatureFile && (
+                            <div className="absolute inset-0 bg-black/60 flex flex-col items-center justify-center p-4">
+                              <Loader2 className="h-8 w-8 text-white animate-spin mb-2" />
+                              <Progress value={signatureUploadProgress} className="h-1.5 w-full bg-white/20" />
+                            </div>
+                          )}
+                        </div>
+                        <FormControl>
+                          <input 
+                            type="file" 
+                            accept="image/png, image/jpeg, image/webp" 
+                            className="hidden"
+                            onChange={async (e) => { if (e.target.files?.[0]) { const file = e.target.files[0]; if (file.size > 50 * 1024 * 1024) { toast({ title: "File Too Large", description: "Image must be < 50MB.", variant: "destructive" }); return; } let fileToSet = file; try { fileToSet = await compressImage(file); } catch (err) { console.error("Compression failed", err); } setSelectedSignatureFile(fileToSet); setCurrentSignaturePreview(URL.createObjectURL(fileToSet)); form.setValue('signatureUrl', null, { shouldValidate: false }); } }}
+                            ref={signatureFileInputRef} 
+                            disabled={effectiveIsSaving}
+                          />
+                        </FormControl>
+                        <div className="flex justify-between items-center text-[10px] text-muted-foreground mt-1">
+                          <span>Max size: 50MB</span>
+                          {currentSignaturePreview && (
+                            <Button type="button" variant="ghost" size="sm" onClick={() => { setSelectedSignatureFile(null); setCurrentSignaturePreview(null); form.setValue('signatureUrl', null); }} disabled={effectiveIsSaving} className="text-[10px] h-6 px-2 text-destructive hover:bg-destructive/10">
+                              <Trash2 className="h-3 w-3 mr-1"/>Remove Signature
+                            </Button>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Right: Example Box */}
+                      <div className="flex flex-col space-y-1 max-w-[220px] mx-auto w-full">
+                        <div className="text-[10px] font-bold text-green-600 uppercase tracking-wider mb-1 flex items-center gap-1">
+                          <Check className="h-3.5 w-3.5" /> Example / Demo
+                        </div>
+                        <div className="relative aspect-square w-full max-w-[220px] mx-auto rounded-lg border border-border/70 bg-background flex flex-col items-center justify-center overflow-hidden transition-all shadow-sm">
+                          <NextImage src="/sample-signature.png" alt="Sample signature" fill className="object-contain p-1" />
+                        </div>
+                        <span className="text-[10px] text-muted-foreground text-center">Reference Image</span>
+                      </div>
+                    </div>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </CardContent>
+          </Card>
 
           <div className="space-y-4 pt-4 border-t">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
@@ -519,17 +596,17 @@ export default function Step4LocationBank({
           onEscapeKeyDown={(e) => e.preventDefault()}
           hideCloseButton={true}
         >
-          <DialogHeader className="p-6 border-b bg-primary text-primary-foreground">
+          <DialogHeader className="p-3 border-b bg-primary text-primary-foreground">
             <DialogTitle className="text-xl">Provider Terms & Conditions</DialogTitle>
             <DialogDescription className="text-primary-foreground/80">Please read and accept our terms to join the network.</DialogDescription>
           </DialogHeader>
           <div 
             ref={termsScrollRef}
             onScroll={handleScrollTerms}
-            className="flex-grow overflow-y-auto max-h-[60vh] p-6 text-sm leading-relaxed prose prose-sm dark:prose-invert"
+            className="flex-grow overflow-y-auto max-h-[60vh] p-3 text-sm leading-relaxed prose prose-sm dark:prose-invert"
             dangerouslySetInnerHTML={{ __html: termsContent || "<p>Loading terms...</p>" }}
           />
-          <DialogFooter className="p-6 border-t bg-muted/50 flex flex-col gap-3">
+          <DialogFooter className="p-3 border-t bg-muted/50 flex flex-col gap-3">
             <div className="flex items-center space-x-2 text-xs text-muted-foreground italic">
               {!canAgreeTerms && <span>Please scroll to the bottom to enable the Agree button.</span>}
               {canAgreeTerms && <span className="text-green-600 flex items-center gap-1"><Check className="h-3 w-3"/> Content read. You may proceed.</span>}

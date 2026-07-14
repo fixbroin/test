@@ -33,12 +33,12 @@ export default function CustomRequestDetailsModal({ isOpen, onClose, request }: 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="max-w-2xl w-[90vw] max-h-[90vh] flex flex-col p-0">
-        <DialogHeader className="p-4 sm:p-6 border-b">
+        <DialogHeader className="p-4 sm:p-3 border-b">
           <DialogTitle className="text-xl sm:text-2xl">{request.serviceTitle}</DialogTitle>
           <DialogDescription>Submitted by {request.userName || "Guest"} on {formatDate(request.submittedAt)}</DialogDescription>
         </DialogHeader>
         <ScrollArea className="flex-grow">
-          <div className="p-4 sm:p-6 space-y-4">
+          <div className="p-4 sm:p-3 space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <DetailItem label="Customer Name" value={request.userName} />
                 <DetailItem label="Category" value={request.categoryName || request.customCategory} />
@@ -67,7 +67,7 @@ export default function CustomRequestDetailsModal({ isOpen, onClose, request }: 
             )}
           </div>
         </ScrollArea>
-        <DialogFooter className="p-4 sm:p-6 border-t bg-muted/50">
+        <DialogFooter className="p-4 sm:p-3 border-t bg-muted/50">
           <DialogClose asChild>
             <Button variant="outline">Close</Button>
           </DialogClose>

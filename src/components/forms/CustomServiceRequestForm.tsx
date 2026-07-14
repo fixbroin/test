@@ -43,6 +43,7 @@ import { ADMIN_EMAIL } from "@/contexts/AuthContext";
 import { Progress } from "../ui/progress";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useGlobalSettings } from "@/hooks/useGlobalSettings"; // Import useGlobalSettings
+import { compressImage } from "@/lib/imageCompressor";
 
 const OTHER_CATEGORY_VALUE = "__OTHER__";
 
@@ -122,7 +123,7 @@ export default function CustomServiceRequestForm({
 
   const watchedCategoryId = form.watch("categoryId");
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files) {
       const newFiles = Array.from(e.target.files);
       if (files.length + newFiles.length > 5) {
@@ -133,9 +134,31 @@ export default function CustomServiceRequestForm({
         });
         return;
       }
-      setFiles((prev) => [...prev, ...newFiles]);
-      const newPreviews = newFiles.map((file) => URL.createObjectURL(file));
-      setPreviews((prev) => [...prev, ...newPreviews]);
+
+      // Enforce 50MB limit check
+      const oversized = newFiles.filter((file) => file.size > 50 * 1024 * 1024);
+      if (oversized.length > 0) {
+        toast({
+          title: "File Too Large",
+          description: "One or more files exceed the 50MB limit.",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      try {
+        const compressedFiles = await Promise.all(
+          newFiles.map((file) => compressImage(file))
+        );
+        setFiles((prev) => [...prev, ...compressedFiles]);
+        const newPreviews = compressedFiles.map((file) => URL.createObjectURL(file));
+        setPreviews((prev) => [...prev, ...newPreviews]);
+      } catch (err) {
+        console.error("Compression failed, uploading original files", err);
+        setFiles((prev) => [...prev, ...newFiles]);
+        const newPreviews = newFiles.map((file) => URL.createObjectURL(file));
+        setPreviews((prev) => [...prev, ...newPreviews]);
+      }
     }
   };
 
@@ -318,7 +341,7 @@ export default function CustomServiceRequestForm({
 
   return (
     <Form {...form}>
-      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6 p-6">
+      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6 p-3">
         {/* Title */}
         <FormField
           control={form.control}
@@ -552,7 +575,7 @@ export default function CustomServiceRequestForm({
                     <span className="font-semibold">Click to upload</span> or drag and drop
                   </p>
                   <p className="text-xs text-muted-foreground">
-                    PNG, JPG, WEBP (MAX 2MB each)
+                    PNG, JPG, WEBP (MAX 50MB each)
                   </p>
                 </div>
                 <Input

@@ -45,7 +45,7 @@ export function openWhatsAppChooser(phone: string, message: string) {
   modal.className = "fixed inset-0 z-[2147483647] flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 animate-in fade-in duration-200";
 
   const content = document.createElement('div');
-  content.className = "bg-background border border-muted rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden flex flex-col p-6 space-y-5 text-center text-foreground animate-in zoom-in-95 duration-200";
+  content.className = "bg-background border border-muted rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden flex flex-col p-3 space-y-5 text-center text-foreground animate-in zoom-in-95 duration-200";
   content.style.pointerEvents = 'auto';
 
   content.innerHTML = `

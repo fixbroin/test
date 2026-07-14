@@ -437,7 +437,7 @@ export default function ProviderLayout({ children }: PropsWithChildren) {
                 )}
               </div>
             </header>
-            <main className={cn("p-2 sm:p-4 md:p-6 relative", { "pb-20": isMobile })}>
+            <main className={cn("p-2 sm:p-4 md:p-3 relative", { "pb-20": isMobile })}>
               <Suspense fallback={<ProviderPageLoader />}>
                 {children}
               </Suspense>

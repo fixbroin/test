@@ -45,7 +45,7 @@ export default function OfflinePage() {
         </Link>
       </div>
       
-      <div className="mt-12 p-6 bg-primary/5 rounded-2xl border border-primary/10 max-w-sm">
+      <div className="mt-12 p-3 bg-primary/5 rounded-2xl border border-primary/10 max-w-sm">
         <p className="text-xs text-muted-foreground leading-relaxed">
           <strong>Tip:</strong> You can still browse some previously visited pages while offline, but booking and account features require an active connection.
         </p>

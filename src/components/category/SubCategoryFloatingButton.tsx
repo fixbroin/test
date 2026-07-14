@@ -101,7 +101,7 @@ export default function SubCategoryFloatingButton({
             </Button>
           </div>
           <ScrollArea className="h-[70vh] sm:h-[60vh]">
-            <div className="p-6 grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-5 gap-4">
+            <div className="p-3 grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-5 gap-4">
               {subCategories.map((subCat) => (
                 <SubCategoryCard 
                     key={subCat.id}

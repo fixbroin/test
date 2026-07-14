@@ -3,7 +3,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
-import { Search, Bell, Menu, X, ShoppingCart, LogOut, UserCircle, Briefcase, Settings2, Moon, Sun, MessageSquare, UserPlus, MapPin as AddressIcon, Construction, Handshake, ChevronDown } from 'lucide-react'; // Added Handshake
+import { Search, Bell, Menu, X, ShoppingCart, LogOut, UserCircle, Briefcase, Settings2, Moon, Sun, MessageSquare, UserPlus, MapPin as AddressIcon, Construction, Handshake, ChevronDown, LayoutDashboard, ClipboardList } from 'lucide-react'; // Added Handshake
 import Logo from '@/components/shared/Logo';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
@@ -63,7 +63,7 @@ const Header = () => {
   const [isSearchPopupOpen, setIsSearchPopupOpen] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isMounted, setIsMounted] = useState(false);
-  const { user, firestoreUser, logOut, isLoading: authIsLoading, triggerAuthRedirect } = useAuth();
+  const { user, firestoreUser, logOut, isLoading: authIsLoading, triggerAuthRedirect, providerStatus } = useAuth();
   const { settings: globalSettings, isLoading: settingsAreLoading } = useGlobalSettings();
   const { config: appConfig, isLoading: isLoadingAppConfig } = useApplicationConfig(); 
   const { featuresConfig, isLoading: isLoadingFeaturesConfig } = useFeaturesConfig(); 
@@ -259,19 +259,43 @@ const Header = () => {
                     <Construction className="mr-2 h-4 w-4" /> Custom Service
                  </button>
               )}
-              { (appConfig.isProviderRegistrationEnabled || (user && user.email === ADMIN_EMAIL)) && (
-                <button
-                  onClick={(e) => handleSimpleNav(e, '/provider-registration')}
-                  className={cn(
-                    "px-4 py-2 text-sm font-semibold rounded-full transition-all duration-300 flex items-center",
-                    currentPathnameFromHook === '/provider-registration'
-                      ? "bg-primary text-primary-foreground shadow-md"
-                      : "bg-muted/50 text-foreground/70 hover:bg-primary hover:text-primary-foreground hover:shadow-md"
-                  )}
-                >
-                  <UserPlus className="mr-2 h-4 w-4" /> Join as Provider
-                </button>
-              )}
+              { (appConfig.isProviderRegistrationEnabled || (user && user.email === ADMIN_EMAIL) || providerStatus === 'approved') && (() => {
+                const getProviderButtonDetails = () => {
+                  if (providerStatus === 'approved') {
+                    return {
+                      label: 'Go to Provider Panel',
+                      path: '/provider',
+                      icon: <LayoutDashboard className="mr-2 h-4 w-4" />,
+                    };
+                  } else if (providerStatus) {
+                    return {
+                      label: 'Provider Status',
+                      path: '/provider-registration',
+                      icon: <ClipboardList className="mr-2 h-4 w-4" />,
+                    };
+                  } else {
+                    return {
+                      label: 'Join as Provider',
+                      path: '/provider-registration',
+                      icon: <UserPlus className="mr-2 h-4 w-4" />,
+                    };
+                  }
+                };
+                const providerBtn = getProviderButtonDetails();
+                return (
+                  <button
+                    onClick={(e) => handleSimpleNav(e, providerBtn.path)}
+                    className={cn(
+                      "px-4 py-2 text-sm font-semibold rounded-full transition-all duration-300 flex items-center",
+                      currentPathnameFromHook === providerBtn.path
+                        ? "bg-primary text-primary-foreground shadow-md"
+                        : "bg-muted/50 text-foreground/70 hover:bg-primary hover:text-primary-foreground hover:shadow-md"
+                    )}
+                  >
+                    {providerBtn.icon} {providerBtn.label}
+                  </button>
+                );
+              })()}
             </nav>
           </div>
 

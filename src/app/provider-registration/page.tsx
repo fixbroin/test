@@ -233,6 +233,12 @@ export default function ProviderRegistrationPage() {
     }
   }, [user, authLoading, fetchApplicationAndUserData, fetchControlOptions, isLoadingAppConfig, isEditModeByAdmin, editingApplicationIdForAdmin]);
 
+  useEffect(() => {
+    if (!isEditModeByAdmin && applicationStatus === 'approved') {
+      router.push('/provider');
+    }
+  }, [applicationStatus, isEditModeByAdmin, router]);
+
   const handleSaveStep = async (stepData: Partial<ProviderApplication>, nextStepStatus: ProviderApplicationStatus) => {
     const targetUserIdForSave = editingApplicationIdForAdmin || user?.uid;
     if (!targetUserIdForSave) return;

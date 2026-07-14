@@ -23,7 +23,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { useRouter } from 'next/navigation';
 import { useCallback, useState, useEffect, useMemo } from 'react';
 import { useLoading } from '@/contexts/LoadingContext';
-import { getCache, setCache } from '@/lib/client-cache';
+import { getCache, setCache, getRemoteCacheVersions } from '@/lib/client-cache';
 import { cn } from "@/lib/utils";
 
 export function HeroCarousel() {
@@ -51,19 +51,33 @@ export function HeroCarousel() {
     return [];
   }, [autoplayEnabled, autoplayDelay, slides.length]);
 
-  // Real-time listener for slides
+  // Load slides with smart caching and version check
   useEffect(() => {
     // Initial Hydration from Cache
     const cached = getCache<FirestoreSlide[]>('hero-slides', true);
     if (cached) setSlides(cached);
 
-    const slidesCollectionRef = collection(db, "adminSlideshows");
-    const q = query(slidesCollectionRef, where("isActive", "==", true), orderBy("order", "asc"));
-    
-    const unsubscribe = onSnapshot(q, (snapshot) => {
+    const fetchSlides = async () => {
+      try {
+        // Smart Cache check
+        const remoteVersions = await getRemoteCacheVersions();
+        const remoteVersion = remoteVersions.content || 0;
+        
+        const localVersion = parseInt(localStorage.getItem('hero-slides-version') || "0");
+        
+        if (cached && remoteVersion <= localVersion) {
+          setIsLoadingSlides(false);
+          return;
+        }
+
+        const slidesCollectionRef = collection(db, "adminSlideshows");
+        const q = query(slidesCollectionRef, where("isActive", "==", true), orderBy("order", "asc"));
+        const snapshot = await getDocs(q);
         const fetchedSlides = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as FirestoreSlide));
+        
         setSlides(fetchedSlides);
         setCache('hero-slides', fetchedSlides, true);
+        localStorage.setItem('hero-slides-version', remoteVersion.toString());
         setIsLoadingSlides(false);
 
         // --- PRE-LOAD IMAGES FOR CACHING ---
@@ -75,12 +89,13 @@ export function HeroCarousel() {
                 }
             });
         }
-    }, (err) => {
-        console.error("Error listening to slides:", err);
+      } catch (err) {
+        console.error("Error fetching slides:", err);
         setIsLoadingSlides(false);
-    });
+      }
+    };
 
-    return () => unsubscribe();
+    fetchSlides();
   }, []);
 
   useEffect(() => {

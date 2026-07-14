@@ -20,7 +20,7 @@ import { initializeFCM, onForegroundMessage } from '@/lib/fcmUtils';
 import { doc, setDoc, Timestamp, getDoc, onSnapshot, collection, query, where, getDocs, limit, runTransaction, or } from "firebase/firestore";
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useToast } from '@/hooks/use-toast';
-import type { FirestoreUser, MarketingAutomationSettings, ReferralSettings, Referral, FirestoreNotification } from '@/types/firestore';
+import type { FirestoreUser, MarketingAutomationSettings, ReferralSettings, Referral, FirestoreNotification, ProviderApplicationStatus } from '@/types/firestore';
 import { logUserActivity } from '@/lib/activityLogger';
 import { assignNewUserNumber } from '@/lib/webServerUtils';
 import { getGuestId, clearGuestId } from '@/lib/guestIdManager';
@@ -36,9 +36,7 @@ import { SUPER_ADMIN_PERMISSIONS, getFirstAccessiblePath } from '@/config/rbac';
 export const ADMIN_EMAIL = "fixbro.in@gmail.com";
 
 export interface SignUpData {
-  fullName: string;
   email: string;
-  mobileNumber: string;
   password: string;
 }
 
@@ -54,6 +52,8 @@ interface AuthContextType {
   adminRole: AdminRole | null;
   isSuperAdmin: boolean;
   isLoading: boolean;
+  isInitialAuthCheckComplete: boolean;
+  providerStatus: ProviderApplicationStatus | null;
   isAdminLoading: boolean;
   authActionRedirectPath: string | null;
   triggerAuthRedirect: (intendedPath: string) => void;
@@ -103,10 +103,12 @@ const getSimpleDeviceId = (): string => {
 export const AuthProvider: React.FC<PropsWithChildren> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   const [firestoreUser, setFirestoreUser] = useState<FirestoreUser | null>(null);
+  const [providerStatus, setProviderStatus] = useState<ProviderApplicationStatus | null>(null);
   const [adminPermissions, setAdminPermissions] = useState<AdminPermissions | null>(null);
   const [adminRole, setAdminRole] = useState<AdminRole | null>(null);
   const [isSuperAdmin, setIsSuperAdmin] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const [isInitialAuthCheckComplete, setIsInitialAuthCheckComplete] = useState(false);
   const [adminCheckCompleteFor, setAdminCheckCompleteFor] = useState<string | null>(null);
   const isAdminLoading = user ? adminCheckCompleteFor !== user.uid : false;
   const [authActionRedirectPath, setAuthActionRedirectPath] = useState<string | null>(null);
@@ -127,6 +129,7 @@ export const AuthProvider: React.FC<PropsWithChildren> = ({ children }) => {
         setUser(currentUser);
       }
       setIsLoading(false);
+      setIsInitialAuthCheckComplete(true);
     });
     return () => unsubscribe();
   }, [isCompletingProfile, isCompletingProfileAsAdmin]);
@@ -147,6 +150,26 @@ export const AuthProvider: React.FC<PropsWithChildren> = ({ children }) => {
         return () => unsubscribe();
     } else {
         setFirestoreUser(null);
+    }
+  }, [user]);
+
+  // NEW: Real-time Provider Application Status Sync
+  useEffect(() => {
+    if (user?.uid) {
+        const appDocRef = doc(db, 'providerApplications', user.uid);
+        const unsubscribe = onSnapshot(appDocRef, (docSnap) => {
+            if (docSnap.exists()) {
+                setProviderStatus(docSnap.data()?.status as ProviderApplicationStatus || null);
+            } else {
+                setProviderStatus(null);
+            }
+        }, (error) => {
+            console.error("AuthContext: Error fetching Provider Application status:", error);
+            setProviderStatus(null);
+        });
+        return () => unsubscribe();
+    } else {
+        setProviderStatus(null);
     }
   }, [user]);
 
@@ -576,11 +599,8 @@ export const AuthProvider: React.FC<PropsWithChildren> = ({ children }) => {
     try {
       const userCredential = await createUserWithEmailAndPassword(auth, data.email, data.password);
       setUserCredentialForProfileCompletion(userCredential);
-      await completeProfileSetup({
-          fullName: data.fullName,
-          email: data.email,
-          mobileNumber: data.mobileNumber,
-      });
+      setIsCompletingProfile(true);
+      setIsLoading(false);
     } catch (error) {
       const authError = error as AuthError;
       console.error("Signup error:", authError);
@@ -588,7 +608,7 @@ export const AuthProvider: React.FC<PropsWithChildren> = ({ children }) => {
       setIsLoading(false);
       throw authError;
     }
-  }, [toast, completeProfileSetup]);
+  }, [toast]);
 
   const logIn = useCallback(async (data: LogInData) => {
     if (!data.password) {
@@ -597,14 +617,38 @@ export const AuthProvider: React.FC<PropsWithChildren> = ({ children }) => {
     }
     setIsLoading(true);
     try {
+      // 1. Verify if the email is registered first using server API
+      const checkRes = await fetch('/api/auth/check-email', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: data.email }),
+      });
+      const checkData = await checkRes.json();
+      
+      if (checkRes.ok && checkData.exists === false) {
+        throw { code: 'auth/user-not-found', message: 'You are not registered' } as AuthError;
+      }
+
+      // 2. If it exists, attempt Firebase Auth sign-in
       const userCredential = await signInWithEmailAndPassword(auth, data.email, data.password);
       await handleSuccessfulAuth(userCredential);
     } catch (error) {
       const authError = error as AuthError;
       console.error("Login error:", authError);
-      toast({ title: "Login Failed", description: authError.message, variant: "destructive" });
+      
+      let message = authError.message;
+      if (authError.code === 'auth/user-not-found') {
+        message = "You are not registered";
+      } else if (
+        authError.code === 'auth/invalid-credential' || 
+        authError.code === 'auth/wrong-password'
+      ) {
+        message = "Wrong password you entered";
+      }
+
+      toast({ title: "Login Failed", description: message, variant: "destructive" });
       setIsLoading(false);
-      throw authError;
+      throw new Error(message);
     }
   }, [toast, handleSuccessfulAuth]);
   
@@ -634,7 +678,11 @@ export const AuthProvider: React.FC<PropsWithChildren> = ({ children }) => {
     const userEmailForLog = user?.email;
     try {
       if (userIdForLog) {
-        logUserActivity('userLogout', { logoutMethod: 'manual', email: userEmailForLog ?? undefined }, userIdForLog, null);
+        try {
+          await logUserActivity('userLogout', { logoutMethod: 'manual', email: userEmailForLog ?? undefined }, userIdForLog, null);
+        } catch (logErr) {
+          console.error("Error logging logout activity:", logErr);
+        }
       }
       await signOut(auth);
       setUser(null);
@@ -672,6 +720,8 @@ export const AuthProvider: React.FC<PropsWithChildren> = ({ children }) => {
       adminRole,
       isSuperAdmin,
       isLoading,
+      isInitialAuthCheckComplete,
+      providerStatus,
       isAdminLoading,
       authActionRedirectPath,
       triggerAuthRedirect: internalTriggerAuthRedirect,
@@ -687,7 +737,7 @@ export const AuthProvider: React.FC<PropsWithChildren> = ({ children }) => {
       cancelProfileCompletion,
       setUser,
     };
-  }, [user, firestoreUser, adminPermissions, adminRole, isSuperAdmin, isLoading, isAdminLoading, authActionRedirectPath, internalTriggerAuthRedirect, signUp, logIn, logOut, signInWithGoogle, handleSuccessfulAuth, isCompletingProfile, isCompletingProfileAsAdmin, userCredentialForProfileCompletion, completeProfileSetup, cancelProfileCompletion, setUser]);
+  }, [user, firestoreUser, adminPermissions, adminRole, isSuperAdmin, isLoading, isInitialAuthCheckComplete, providerStatus, isAdminLoading, authActionRedirectPath, internalTriggerAuthRedirect, signUp, logIn, logOut, signInWithGoogle, handleSuccessfulAuth, isCompletingProfile, isCompletingProfileAsAdmin, userCredentialForProfileCompletion, completeProfileSetup, cancelProfileCompletion, setUser]);
 
   return <AuthContext.Provider value={contextValue}>{children}</AuthContext.Provider>;
 };

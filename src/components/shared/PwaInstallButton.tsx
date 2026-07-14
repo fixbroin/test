@@ -87,7 +87,7 @@ const PwaInstallButton = () => {
     if (installPrompt || isIos) {
         const timer = setTimeout(() => {
             setIsMinimized(true);
-        }, 10000);
+        }, 5000);
         return () => clearTimeout(timer);
     }
   }, [isMounted, isAppInstalled, isDismissed, isMobile, installPrompt, isIos, isMinimized]);

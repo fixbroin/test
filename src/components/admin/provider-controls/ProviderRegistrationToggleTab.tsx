@@ -21,10 +21,12 @@ export default function ProviderRegistrationToggleTab() {
   const { config: appConfig, isLoading: isLoadingAppConfig } = useApplicationConfig();
   const [isSaving, setIsSaving] = useState(false);
   const [isRegistrationEnabled, setIsRegistrationEnabled] = useState(true);
+  const [isChequeCompulsory, setIsChequeCompulsory] = useState(false);
 
   useEffect(() => {
     if (!isLoadingAppConfig && appConfig) {
       setIsRegistrationEnabled(appConfig.isProviderRegistrationEnabled === undefined ? true : appConfig.isProviderRegistrationEnabled);
+      setIsChequeCompulsory(appConfig.isCancelledChequeCompulsory === undefined ? false : appConfig.isCancelledChequeCompulsory);
     }
   }, [appConfig, isLoadingAppConfig]);
 
@@ -38,11 +40,12 @@ export default function ProviderRegistrationToggleTab() {
       const settingsDocRef = doc(db, APP_CONFIG_COLLECTION, APP_CONFIG_DOC_ID);
       const dataToSave: Partial<AppSettings> = {
         isProviderRegistrationEnabled: isRegistrationEnabled,
+        isCancelledChequeCompulsory: isChequeCompulsory,
         updatedAt: Timestamp.now(),
       };
       await setDoc(settingsDocRef, dataToSave, { merge: true });
       await triggerRefresh('global-cache');
-      toast({ title: "Success", description: "Provider registration access updated." });
+      toast({ title: "Success", description: "Provider registration settings updated." });
     } catch (error) {
       console.error("Error saving registration access setting:", error);
       toast({ title: "Error", description: "Could not update setting.", variant: "destructive" });
@@ -55,10 +58,10 @@ export default function ProviderRegistrationToggleTab() {
     return (
       <Card>
         <CardHeader>
-          <CardTitle className="flex items-center"><Power className="mr-2 h-5 w-5"/>Provider Registration Access</CardTitle>
-          <CardDescription>Control whether new providers can register.</CardDescription>
+          <CardTitle className="flex items-center"><Power className="mr-2 h-5 w-5"/>Provider Registration Settings</CardTitle>
+          <CardDescription>Control options and requirements for provider registration.</CardDescription>
         </CardHeader>
-        <CardContent className="space-y-4 p-6"><Loader2 className="h-8 w-8 animate-spin text-primary mx-auto" /></CardContent>
+        <CardContent className="space-y-4 p-3"><Loader2 className="h-8 w-8 animate-spin text-primary mx-auto" /></CardContent>
       </Card>
     );
   }
@@ -66,32 +69,52 @@ export default function ProviderRegistrationToggleTab() {
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="flex items-center"><Power className="mr-2 h-5 w-5"/>Provider Registration Access</CardTitle>
-        <CardDescription>Enable or disable the provider registration form for new applicants.</CardDescription>
+        <CardTitle className="flex items-center"><Power className="mr-2 h-5 w-5"/>Provider Registration Settings</CardTitle>
+        <CardDescription>Configure provider registration form requirements and access.</CardDescription>
       </CardHeader>
-      <CardContent className="p-6">
-        <div className="flex flex-row items-center justify-between rounded-lg border p-4 shadow-sm">
-          <div className="space-y-0.5">
-            <label htmlFor="registration-toggle" className="text-base font-medium">
-              Provider Registration
-            </label>
-            <p className="text-sm text-muted-foreground">
-              {isRegistrationEnabled ? "Enabled: New providers can register." : "Disabled: Registration page will show 'currently closed'."}
-            </p>
+      <CardContent className="p-3">
+        <div className="space-y-4">
+          <div className="flex flex-row items-center justify-between rounded-lg border p-4 shadow-sm">
+            <div className="space-y-0.5">
+              <label htmlFor="registration-toggle" className="text-base font-medium">
+                Provider Registration
+              </label>
+              <p className="text-sm text-muted-foreground">
+                {isRegistrationEnabled ? "Enabled: New providers can register." : "Disabled: Registration page will show 'currently closed'."}
+              </p>
+            </div>
+            <Switch
+              id="registration-toggle"
+              checked={isRegistrationEnabled}
+              onCheckedChange={handleToggleChange}
+              disabled={isSaving}
+              aria-label="Toggle provider registration"
+            />
           </div>
-          <Switch
-            id="registration-toggle"
-            checked={isRegistrationEnabled}
-            onCheckedChange={handleToggleChange}
-            disabled={isSaving}
-            aria-label="Toggle provider registration"
-          />
+
+          <div className="flex flex-row items-center justify-between rounded-lg border p-4 shadow-sm">
+            <div className="space-y-0.5">
+              <label htmlFor="cheque-compulsory-toggle" className="text-base font-medium">
+                Cancelled Cheque Requirement
+              </label>
+              <p className="text-sm text-muted-foreground">
+                {isChequeCompulsory ? "Compulsory: Cancelled cheque upload is required to submit the application." : "Optional: Cancelled cheque upload can be skipped."}
+              </p>
+            </div>
+            <Switch
+              id="cheque-compulsory-toggle"
+              checked={isChequeCompulsory}
+              onCheckedChange={(checked) => setIsChequeCompulsory(checked)}
+              disabled={isSaving}
+              aria-label="Toggle cancelled cheque requirement"
+            />
+          </div>
         </div>
       </CardContent>
       <CardFooter className="border-t px-6 py-4">
         <Button onClick={handleSaveChanges} disabled={isSaving}>
           {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
-          Save Access Setting
+          Save Settings
         </Button>
       </CardFooter>
     </Card>

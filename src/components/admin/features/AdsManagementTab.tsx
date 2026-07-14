@@ -157,7 +157,7 @@ export default function AdsManagementTab({ allCategories, allServices, isLoading
     return (
       <Card>
         <CardHeader><CardTitle className="flex items-center"><ImageIconLucide className="mr-2 h-5 w-5"/>Ad Banners Management</CardTitle><CardDescription>Manage promotional ad banners for your homepage.</CardDescription></CardHeader>
-        <CardContent className="space-y-4 p-6"><Loader2 className="h-8 w-8 animate-spin text-primary mx-auto" /></CardContent>
+        <CardContent className="space-y-4 p-3"><Loader2 className="h-8 w-8 animate-spin text-primary mx-auto" /></CardContent>
       </Card>
     );
   }
@@ -234,7 +234,7 @@ export default function AdsManagementTab({ allCategories, allServices, isLoading
        {/* Form Dialog */}
       <Dialog open={isFormOpen} onOpenChange={(open) => { if (!isSaving) { setIsFormOpen(open); if (!open) setEditingAd(null); } }}>
         <DialogContent className="w-[90vw] max-w-lg md:max-w-2xl lg:max-w-3xl max-h-[90vh] p-0 flex flex-col">
-          <DialogHeader className="p-6 pb-4 border-b">
+          <DialogHeader className="p-3 pb-4 border-b">
             <DialogTitle>{editingAd ? 'Edit Ad Banner' : 'Add New Ad Banner'}</DialogTitle>
           </DialogHeader>
           <AdForm

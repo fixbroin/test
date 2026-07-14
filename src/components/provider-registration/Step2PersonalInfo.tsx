@@ -18,6 +18,7 @@ import { Loader2, User, Mail, Phone, MapPin, BookOpen, Languages, Camera, Image 
 import NextImage from 'next/image';
 import { useToast } from "@/hooks/use-toast";
 import { storage } from '@/lib/firebase';
+import { compressImage } from "@/lib/imageCompressor";
 import { ref as storageRefStandard, uploadBytesResumable, getDownloadURL, deleteObject } from "firebase/storage";
 import { Progress } from "@/components/ui/progress";
 import { useEffect, useRef, useState } from "react";
@@ -144,16 +145,24 @@ export default function Step2PersonalInfo({
     }
   }, [initialData, firestoreUser, user, form, isMounted]);
 
-
-  const handleFileSelected = (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileSelected = async (event: React.ChangeEvent<HTMLInputElement>) => {
     if (event.target.files && event.target.files[0]) {
       const file = event.target.files[0];
-      if (file.size > 15 * 1024 * 1024) {
-        toast({ title: "File Too Large", description: "Image must be < 15MB.", variant: "destructive" });
+      if (file.size > 50 * 1024 * 1024) {
+        toast({ title: "File Too Large", description: "Image must be < 50MB.", variant: "destructive" });
         if (fileInputRef.current) fileInputRef.current.value = "";
         setSelectedFile(null); setCurrentImagePreview(form.getValues('profilePhotoUrl') || initialData.profilePhotoUrl || null); return;
       }
-      setSelectedFile(file); setCurrentImagePreview(URL.createObjectURL(file));
+      
+      let fileToSet = file;
+      try {
+        fileToSet = await compressImage(file);
+      } catch (err) {
+        console.error("Compression failed, using original file", err);
+      }
+
+      setSelectedFile(fileToSet); 
+      setCurrentImagePreview(URL.createObjectURL(fileToSet));
       form.setValue('profilePhotoUrl', null, { shouldValidate: false });
       setShowPhotoError(false);
     } else {
@@ -380,86 +389,87 @@ export default function Step2PersonalInfo({
              <FormMessage>{form.formState.errors.languagesSpokenIds?.message}</FormMessage>
           </FormItem>
 
-          <div className="space-y-3">
+          <div className="space-y-3 mt-4">
             <div className="flex justify-between items-center">
               <FormLabel className={cn("flex items-center", showPhotoError && "text-destructive")}>
                 <Camera className="mr-2 h-4 w-4" />Passport Size Profile Photo <span className="text-destructive ml-1">*</span>
               </FormLabel>
-              {showPhotoError && <Badge variant="destructive" className="h-4 px-1 text-[10px] animate-pulse">REQUIRED</Badge>}
             </div>
-            
-            <div 
-              onClick={() => !effectiveIsSaving && fileInputRef.current?.click()}
-              className={cn(
-                "relative w-32 h-32 rounded-full border-2 transition-all flex flex-col items-center justify-center cursor-pointer overflow-hidden mx-auto shadow-sm",
-                showPhotoError ? "border-destructive bg-destructive/5 animate-pulse" : "border-muted-foreground/25 hover:border-primary/50 bg-muted/30"
-              )}
-            >
-              {displayPreviewUrl ? (
-                <>
-                  <NextImage src={displayPreviewUrl} alt="Profile preview" fill className="object-cover" data-ai-hint="person profile" unoptimized={displayPreviewUrl.startsWith('blob:')} sizes="128px"/>
-                  <div className="absolute inset-0 bg-black/40 opacity-0 hover:opacity-100 transition-opacity flex items-center justify-center">
-                    <Camera className="h-8 w-8 text-white" />
-                  </div>
-                </>
-              ) : (
-                <div className="flex flex-col items-center gap-1">
-                  <Camera className={cn("h-10 w-10", showPhotoError ? "text-destructive" : "text-muted-foreground")} />
-                  {showPhotoError && <AlertCircle className="h-5 w-5 text-destructive animate-bounce" />}
-                </div>
-              )}
-              
-              {uploadProgress !== null && selectedFile && (
-                <div className="absolute inset-0 bg-black/60 flex flex-col items-center justify-center p-2">
-                  <Loader2 className="h-6 w-6 text-white animate-spin mb-1" />
-                  <Progress value={uploadProgress} className="h-1 w-10/12 bg-white/20" />
-                  <span className="text-[9px] text-white mt-1 font-bold">{Math.round(uploadProgress)}%</span>
-                </div>
-              )}
-            </div>
+            <FormDescription className="text-[11px] text-muted-foreground leading-normal mb-2">
+              Please upload a clear, professional passport-size photo. Do not upload selfies, casual photos, group photos, or pictures with filters. The photo should show your face clearly facing forward against a plain light background.
+            </FormDescription>
 
-            <FormControl>
-              <Input 
-                type="file" 
-                accept="image/png, image/jpeg, image/webp" 
-                onChange={handleFileSelected} 
-                ref={fileInputRef} 
-                className="hidden" 
-                disabled={effectiveIsSaving}
-              />
-            </FormControl>
-
-            <div className="flex flex-col items-center gap-2">
-              <div className="flex items-center gap-2">
-                <Button 
-                  type="button" 
-                  variant={showPhotoError ? "destructive" : "outline"} 
-                  size="sm" 
-                  onClick={() => fileInputRef.current?.click()}
-                  disabled={effectiveIsSaving}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-w-[460px] mx-auto w-full">
+              {/* Left: Upload Box */}
+              <div className="flex flex-col space-y-1 max-w-[180px] mx-auto w-full">
+                <div className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-1 flex items-center justify-between w-full">
+                  <span>Your Photo</span>
+                  {showPhotoError && <Badge variant="destructive" className="h-4 px-1.5 text-[10px] animate-pulse">REQUIRED</Badge>}
+                </div>
+                <div 
+                  onClick={() => !effectiveIsSaving && fileInputRef.current?.click()}
+                  className={cn(
+                    "relative aspect-square w-full max-w-[180px] mx-auto rounded-lg border-2 border-dashed transition-all flex flex-col items-center justify-center cursor-pointer overflow-hidden shadow-sm",
+                    showPhotoError ? "border-destructive bg-destructive/5 animate-pulse" : "border-muted-foreground/25 hover:border-primary/50 bg-muted/30"
+                  )}
                 >
-                  Choose File
-                </Button>
-                {showPhotoError && (
-                  <span className="text-xs font-bold text-destructive animate-pulse flex items-center">
-                    <ArrowLeft className="h-3 w-3 mr-1 animate-bounce" /> THIS FIELD IS REQUIRED
-                  </span>
-                )}
+                  {displayPreviewUrl ? (
+                    <>
+                      <NextImage src={displayPreviewUrl} alt="Profile preview" fill className="object-cover" unoptimized={displayPreviewUrl.startsWith('blob:')} sizes="180px"/>
+                      <div className="absolute inset-0 bg-black/40 opacity-0 hover:opacity-100 transition-opacity flex items-center justify-center">
+                        <Camera className="h-6 w-6 text-white" />
+                      </div>
+                    </>
+                  ) : (
+                    <div className="flex flex-col items-center gap-2">
+                      <Camera className={cn("h-8 w-8", showPhotoError ? "text-destructive" : "text-muted-foreground")} />
+                      {showPhotoError && <AlertCircle className="h-5 w-5 text-destructive animate-bounce" />}
+                      <span className={cn("text-[9px] font-bold", showPhotoError ? "text-destructive" : "text-muted-foreground")}>CLICK TO UPLOAD</span>
+                    </div>
+                  )}
+                  
+                  {uploadProgress !== null && selectedFile && (
+                    <div className="absolute inset-0 bg-black/60 flex flex-col items-center justify-center p-2">
+                      <Loader2 className="h-5 w-5 text-white animate-spin mb-1" />
+                      <Progress value={uploadProgress} className="h-1 w-10/12 bg-white/20" />
+                      <span className="text-[9px] text-white mt-1 font-bold">{Math.round(uploadProgress)}%</span>
+                    </div>
+                  )}
+                </div>
+
+                <FormControl>
+                  <Input 
+                    type="file" 
+                    accept="image/png, image/jpeg, image/webp" 
+                    onChange={handleFileSelected} 
+                    ref={fileInputRef} 
+                    className="hidden" 
+                    disabled={effectiveIsSaving}
+                  />
+                </FormControl>
+
+                <div className="flex justify-between items-center text-[10px] text-muted-foreground mt-1">
+                  <span>Max size: 50MB</span>
+                  {(displayPreviewUrl || selectedFile) && (
+                    <Button type="button" variant="ghost" size="sm" onClick={handleRemoveImage} disabled={effectiveIsSaving} className="text-[10px] h-6 px-1.5 text-destructive hover:bg-destructive/10">
+                      <Trash2 className="h-3 w-3 mr-1" />Remove
+                    </Button>
+                  )}
+                </div>
               </div>
-              <span className="text-xs text-muted-foreground">
-                {selectedFile ? selectedFile.name : "PNG, JPG, WEBP (Max 15MB)"}
-              </span>
+
+              {/* Right: Example Box */}
+              <div className="flex flex-col space-y-1 max-w-[180px] mx-auto w-full">
+                <div className="text-[10px] font-bold text-green-600 uppercase tracking-wider mb-1 flex items-center gap-1">
+                  <Check className="h-3.5 w-3.5" /> Example / Demo
+                </div>
+                <div className="relative aspect-square w-full max-w-[180px] mx-auto rounded-lg border border-border/70 bg-background flex flex-col items-center justify-center overflow-hidden transition-all shadow-sm">
+                  <NextImage src="/sample-passport.png" alt="Sample passport photo" fill className="object-cover" />
+                </div>
+                <span className="text-[10px] text-muted-foreground text-center">Formal Passport Size</span>
+              </div>
             </div>
-
-            {(displayPreviewUrl || selectedFile) && !showPhotoError && (
-              <div className="flex justify-center">
-                <Button type="button" variant="ghost" size="sm" onClick={handleRemoveImage} disabled={effectiveIsSaving} className="text-xs text-destructive">
-                  <Trash2 className="h-3 w-3 mr-1" /> Remove Photo
-                </Button>
-              </div>
-            )}
           </div>
-
         </CardContent>
         <CardFooter className="flex justify-between">
           <Button type="button" variant="outline" onClick={onPrevious} disabled={effectiveIsSaving}>Previous</Button>

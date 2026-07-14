@@ -72,7 +72,7 @@ export default function NearMeLocationDetector({
   };
 
   return (
-    <div className="bg-primary/5 border border-primary/20 rounded-3xl p-6 md:p-10 text-center">
+    <div className="bg-primary/5 border border-primary/20 rounded-3xl p-3 md:p-10 text-center">
       <div className="bg-primary/10 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-6">
         <Navigation className="h-8 w-8 text-primary" />
       </div>

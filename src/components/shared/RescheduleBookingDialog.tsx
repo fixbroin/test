@@ -94,7 +94,7 @@ export default function RescheduleBookingDialog({ isOpen, onClose, booking, onRe
     return (
         <Dialog open={isOpen} onOpenChange={onClose}>
             <DialogContent className="max-w-3xl sm:max-w-[700px] max-h-[90vh] flex flex-col p-0 overflow-hidden">
-                <DialogHeader className="p-6 border-b bg-muted/20">
+                <DialogHeader className="p-3 border-b bg-muted/20">
                     <DialogTitle className="text-2xl flex items-center gap-2">
                         <CalendarDays className="h-6 w-6 text-primary" />
                         Reschedule Booking
@@ -107,7 +107,7 @@ export default function RescheduleBookingDialog({ isOpen, onClose, booking, onRe
                 <div className="flex-grow overflow-auto">
                     <div className="grid grid-cols-1 md:grid-cols-2">
                         {/* Calendar Section */}
-                        <div className="p-6 border-b md:border-b-0 md:border-r bg-muted/5">
+                        <div className="p-3 border-b md:border-b-0 md:border-r bg-muted/5">
                             <h3 className="text-sm font-semibold mb-4 uppercase tracking-wider text-muted-foreground">1. Select Date</h3>
                             <div className="flex justify-center bg-background p-2 rounded-xl shadow-sm border">
                                 <Calendar
@@ -126,7 +126,7 @@ export default function RescheduleBookingDialog({ isOpen, onClose, booking, onRe
                         </div>
 
                         {/* Slots Section */}
-                        <div className="p-6 flex flex-col">
+                        <div className="p-3 flex flex-col">
                             <h3 className="text-sm font-semibold mb-4 uppercase tracking-wider text-muted-foreground flex justify-between items-center">
                                 2. Select Time Slot
                                 {selectedDate && (
@@ -195,7 +195,7 @@ export default function RescheduleBookingDialog({ isOpen, onClose, booking, onRe
                     </div>
                 </div>
 
-                <DialogFooter className="p-6 border-t bg-muted/20 gap-3">
+                <DialogFooter className="p-3 border-t bg-muted/20 gap-3">
                     <Button variant="outline" onClick={onClose} disabled={isRescheduling}>
                         Cancel
                     </Button>

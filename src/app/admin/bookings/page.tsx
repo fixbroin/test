@@ -495,16 +495,21 @@ export default function AdminBookingsPage() {
   const renderBookingCard = (booking: FirestoreBooking) => (
     <Card key={booking.id} className="mb-4 border-l-4 shadow-md overflow-hidden" style={{ borderLeftColor: getStatusBadgeClass(booking.status).split(' ')[0].replace('bg-', 'var(--') }}>
       <CardHeader className="p-4 bg-muted/20 pb-3">
-        <div className="flex justify-between items-start">
-            <div className="space-y-1">
-                <div className="flex items-center gap-2">
-                  <span className="text-[10px] font-black bg-primary text-white px-2 py-0.5 rounded-lg shadow-sm">#{booking.bookingNumber || '...'}</span>
-                  <CardTitle className="text-sm font-mono text-primary font-bold">{booking.bookingId}</CardTitle>
-                  <div className="ml-auto">{getCoverageBadge(booking)}</div>
-                </div>
-                <div className="text-sm font-bold">{booking.customerName}</div>
+        <div className="flex flex-col gap-2">
+            {/* Row 1: Booking Number & ID */}
+            <div className="flex items-center gap-2">
+              <span className="text-[10px] font-black bg-primary text-white px-2 py-0.5 rounded-lg shadow-sm">#{booking.bookingNumber || '...'}</span>
+              <CardTitle className="text-sm font-mono text-primary font-bold">{booking.bookingId}</CardTitle>
             </div>
-            <Badge className={cn("capitalize px-3 py-0.5 font-bold shadow-sm", getStatusBadgeClass(booking.status))}>{booking.status}</Badge>
+            
+            {/* Row 2: Dispatch/Coverage Badge & Status Badge side-by-side */}
+            <div className="flex items-center gap-2 flex-wrap">
+              {getCoverageBadge(booking)}
+              <Badge className={cn("capitalize px-3 py-0.5 font-bold shadow-sm", getStatusBadgeClass(booking.status))}>{booking.status}</Badge>
+            </div>
+
+            {/* Row 3: Customer Name */}
+            <div className="text-sm font-bold text-foreground pt-0.5">{booking.customerName}</div>
         </div>
       </CardHeader>
       <CardContent className="p-4 space-y-3 text-sm">
@@ -811,7 +816,7 @@ export default function AdminBookingsPage() {
         </CardContent>
       </Card>
 
-      {selectedBooking && (<Dialog open={isDetailsModalOpen} onOpenChange={setIsDetailsModalOpen}><DialogContent className="max-w-3xl w-[90vw] max-h-[90vh] flex flex-col p-0"><DialogHeader className="p-6 pb-4 border-b"><DialogTitle>Details: {selectedBooking.bookingId}</DialogTitle></DialogHeader><div className="overflow-y-auto flex-grow p-6"><BookingDetailsModalContent booking={selectedBooking} /></div><div className="p-6 border-t flex justify-end"><DialogClose asChild><Button variant="outline">Close</Button></DialogClose></div></DialogContent></Dialog>)}
+      {selectedBooking && (<Dialog open={isDetailsModalOpen} onOpenChange={setIsDetailsModalOpen}><DialogContent aria-describedby={undefined} className="max-w-3xl w-[90vw] max-h-[90vh] flex flex-col p-0"><DialogHeader className="p-3 pb-4 border-b"><DialogTitle>Details: {selectedBooking.bookingId}</DialogTitle></DialogHeader><div className="overflow-y-auto flex-grow p-3"><BookingDetailsModalContent booking={selectedBooking} /></div><div className="p-3 border-t flex justify-end"><DialogClose asChild><Button variant="outline">Close</Button></DialogClose></div></DialogContent></Dialog>)}
       {bookingToAssign && (<AssignProviderModal isOpen={isAssignModalOpen} onClose={() => { setIsAssignModalOpen(false); setBookingToAssign(null); }} booking={bookingToAssign} onAssignConfirm={handleConfirmAssignment} />)}
       {bookingToComplete && (<CompleteBookingDialog isOpen={isCompleteDialogOpen} onClose={() => { setIsCompleteDialogOpen(false); setBookingToComplete(null); }} onConfirm={(charges, pMethod) => handleStatusChange(bookingToComplete, 'Completed', charges, pMethod)} originalAmount={bookingToComplete.totalAmount} currentPaymentMethod={bookingToComplete.paymentMethod || "Cash"} isProcessing={isUpdatingStatus === bookingToComplete.id} />)}
       {bookingToReschedule && (<RescheduleBookingDialog isOpen={isRescheduleDialogOpen} onClose={() => { setIsRescheduleDialogOpen(false); setBookingToReschedule(null); }} booking={bookingToReschedule} onRescheduleComplete={(newDate, newSlot, newEndTime) => handleRescheduleConfirm(newDate, newSlot, newEndTime)} />)}

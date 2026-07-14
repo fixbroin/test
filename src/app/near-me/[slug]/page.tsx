@@ -121,17 +121,17 @@ export default async function NearMeCategoryPage({ params }: NearMeCategoryPageP
 
           {/* Value Props */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-20">
-            <div className="flex flex-col items-center text-center p-6 bg-card border rounded-2xl">
+            <div className="flex flex-col items-center text-center p-3 bg-card border rounded-2xl">
                 <ShieldCheck className="h-10 w-10 text-primary mb-4" />
                 <h3 className="font-bold text-lg mb-2">Verified Pros</h3>
                 <p className="text-sm text-muted-foreground">Every expert is background checked and highly skilled.</p>
             </div>
-            <div className="flex flex-col items-center text-center p-6 bg-card border rounded-2xl">
+            <div className="flex flex-col items-center text-center p-3 bg-card border rounded-2xl">
                 <Clock className="h-10 w-10 text-primary mb-4" />
                 <h3 className="font-bold text-lg mb-2">60 Min Arrival</h3>
                 <p className="text-sm text-muted-foreground">Fastest response time for emergency repairs in Bangalore.</p>
             </div>
-            <div className="flex flex-col items-center text-center p-6 bg-card border rounded-2xl">
+            <div className="flex flex-col items-center text-center p-3 bg-card border rounded-2xl">
                 <CheckCircle2 className="h-10 w-10 text-primary mb-4" />
                 <h3 className="font-bold text-lg mb-2">Quality Guarantee</h3>
                 <p className="text-sm text-muted-foreground">99.9% satisfaction or we will fix it for free.</p>

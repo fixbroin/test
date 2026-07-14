@@ -622,7 +622,7 @@ export default function ServiceDetailPageClient({
 
               {/* WHY CHOOSE THIS SERVICE - COLOR CODED (GREEN) */}
               {service.serviceHighlights && service.serviceHighlights.length > 0 && (
-                <div className="p-4 sm:p-6 rounded-xl bg-accent/10 border border-accent/20">
+                <div className="p-4 sm:p-3 rounded-xl bg-accent/10 border border-accent/20">
                   <h4 className="text-lg sm:text-xl font-headline font-bold text-accent mb-3 flex items-center">
                     <CheckCircle className="mr-2 h-5 w-5 sm:h-6 sm:w-6" /> Why choose this service?
                   </h4>
@@ -637,7 +637,7 @@ export default function ServiceDetailPageClient({
               )}
 {/* PLEASE NOTE - COLOR CODED (AMBER/WARNING) */}
 {service.fullDescription && (
-  <div className="p-4 sm:p-6 rounded-xl bg-amber-50 border border-amber-200">
+  <div className="p-4 sm:p-3 rounded-xl bg-amber-50 border border-amber-200">
     <h4 className="text-lg sm:text-xl font-headline font-bold text-amber-700 mb-4 flex items-center">
       <AlertCircle className="mr-2 h-5 w-5 sm:h-6 sm:w-6" />
       Please Note
@@ -663,7 +663,7 @@ export default function ServiceDetailPageClient({
 
               {/* WHAT'S INCLUDED - COLOR CODED (BLUE/PRIMARY) */}
               {service.includedItems && service.includedItems.length > 0 && (
-                <div className="p-4 sm:p-6 rounded-xl bg-primary/10 border border-primary/20">
+                <div className="p-4 sm:p-3 rounded-xl bg-primary/10 border border-primary/20">
                   <h4 className="text-lg sm:text-xl font-headline font-bold text-primary mb-3 flex items-center">
                     <PlusCircle className="mr-2 h-5 w-5 sm:h-6 sm:w-6" /> What's Included:
                   </h4>
@@ -679,7 +679,7 @@ export default function ServiceDetailPageClient({
 
               {/* WHAT'S NOT INCLUDED - COLOR CODED (RED/DESTRUCTIVE) */}
               {service.excludedItems && service.excludedItems.length > 0 && (
-                <div className="p-4 sm:p-6 rounded-xl bg-destructive/5 border border-destructive/15">
+                <div className="p-4 sm:p-3 rounded-xl bg-destructive/5 border border-destructive/15">
                   <h4 className="text-lg sm:text-xl font-headline font-bold text-destructive mb-3 flex items-center">
                     <Ban className="mr-2 h-5 w-5 sm:h-6 sm:w-6" /> What's Not Included:
                   </h4>
@@ -704,12 +704,12 @@ export default function ServiceDetailPageClient({
       {service.serviceFaqs && service.serviceFaqs.length > 0 && (
         <LazySection>
             <Card className="shadow-lg border-none bg-card mt-8 sm:mt-12 overflow-hidden">
-            <CardHeader className="p-4 sm:p-6 bg-primary/5">
+            <CardHeader className="p-4 sm:p-3 bg-primary/5">
                 <CardTitle className="text-2xl sm:text-3xl font-headline font-bold flex items-center">
                 <HelpCircle className="mr-3 h-6 w-6 sm:h-8 sm:w-8 text-primary"/>Frequently Asked Questions
                 </CardTitle>
             </CardHeader>
-            <CardContent className="p-4 sm:p-6">
+            <CardContent className="p-4 sm:p-3">
                 <Accordion type="single" collapsible className="w-full">
                 {service.serviceFaqs.map((faq, index) => (
                     <AccordionItem value={`faq-${index}`} key={faq.id || `s-faq-item-${index}`} className="border-b last:border-0 border-muted">
@@ -731,7 +731,7 @@ export default function ServiceDetailPageClient({
       {(serviceReviews.length > 0 || isLoadingReviews) && (
         <LazySection>
             <Card className="shadow-lg border border-border bg-card mt-8 sm:mt-12 overflow-hidden">
-                <CardHeader className="p-6 pb-2">
+                <CardHeader className="p-3 pb-2">
                     <CardTitle className="text-2xl font-headline font-bold flex items-center text-foreground/90">
                         <MessageSquare className="mr-2 h-6 w-6 text-primary"/> Customer Reviews
                     </CardTitle>

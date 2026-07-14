@@ -10,10 +10,11 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
 import { Users2, Eye, Edit, Trash2, CheckCircle, XCircle, AlertTriangle, Loader2, PackageSearch, UserCircle, Check, ChevronsUpDown } from "lucide-react";
 import type { ProviderApplication, ProviderApplicationStatus, FirestoreNotification } from '@/types/firestore';
-import { db } from '@/lib/firebase';
+import { db, storage } from '@/lib/firebase';
 import { triggerPushNotification } from '@/lib/fcmUtils';
 import { collection, query, orderBy, onSnapshot, doc, updateDoc, Timestamp, deleteDoc, addDoc, where, getDocs, limit } from "firebase/firestore";
- 
+import { ref as storageRef, deleteObject } from "firebase/storage";
+
 import { useToast } from "@/hooks/use-toast";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from '@/components/ui/badge';
@@ -184,12 +185,49 @@ export default function AdminProviderApplicationsPage() {
     if (!applicationId) return;
     setIsUpdating(applicationId);
     try {
-        await deleteDoc(doc(db, PROVIDER_APPLICATION_COLLECTION, applicationId));
-        toast({title: "Success", description: "Provider application deleted."});
+      const appToDelete = applications.find((a) => a.id === applicationId);
+      if (appToDelete) {
+        const urlsToDelete: string[] = [];
+        if (appToDelete.profilePhotoUrl) urlsToDelete.push(appToDelete.profilePhotoUrl);
+        if (appToDelete.bankDetails?.cancelledChequeUrl) urlsToDelete.push(appToDelete.bankDetails.cancelledChequeUrl);
+        if (appToDelete.signatureUrl) urlsToDelete.push(appToDelete.signatureUrl);
+        
+        if (appToDelete.aadhaar?.frontImageUrl) urlsToDelete.push(appToDelete.aadhaar.frontImageUrl);
+        if (appToDelete.aadhaar?.backImageUrl) urlsToDelete.push(appToDelete.aadhaar.backImageUrl);
+        
+        if (appToDelete.pan?.frontImageUrl) urlsToDelete.push(appToDelete.pan.frontImageUrl);
+        if (appToDelete.pan?.backImageUrl) urlsToDelete.push(appToDelete.pan.backImageUrl);
+
+        if (appToDelete.additionalDocuments && appToDelete.additionalDocuments.length > 0) {
+          appToDelete.additionalDocuments.forEach((doc) => {
+            if (doc.frontImageUrl) urlsToDelete.push(doc.frontImageUrl);
+            if (doc.backImageUrl) urlsToDelete.push(doc.backImageUrl);
+          });
+        }
+
+        // Delete all images from Firebase Storage
+        await Promise.all(
+          urlsToDelete.map(async (url) => {
+            try {
+              if (url && (url.startsWith("http://") || url.startsWith("https://"))) {
+                const imageRef = storageRef(storage, url);
+                await deleteObject(imageRef);
+              }
+            } catch (err) {
+              console.error("Failed to delete application image:", url, err);
+            }
+          })
+        );
+      }
+
+      await deleteDoc(doc(db, PROVIDER_APPLICATION_COLLECTION, applicationId));
+      toast({title: "Success", description: "Provider application deleted."});
+      await fetchApplications();
     } catch (error) {
-        toast({title: "Error", description: "Could not delete application.", variant: "destructive"});
+      console.error("Error deleting provider application:", error);
+      toast({title: "Error", description: "Could not delete application.", variant: "destructive"});
     } finally {
-        setIsUpdating(null);
+      setIsUpdating(null);
     }
   };
 
@@ -220,22 +258,25 @@ export default function AdminProviderApplicationsPage() {
   const renderApplicationCard = (app: ProviderApplication) => (
     <Card key={app.id} className="mb-4 shadow-sm border overflow-hidden">
       <CardHeader className="p-4 bg-muted/20">
-        <div className="flex justify-between items-start gap-2">
-          <div className="flex items-center gap-3">
-            <Avatar className="h-10 w-10 border border-border">
-              <AvatarImage src={app.profilePhotoUrl || undefined} alt={app.fullName || "P"} />
-              <AvatarFallback>{app.fullName ? app.fullName[0].toUpperCase() : <UserCircle />}</AvatarFallback>
-            </Avatar>
-            <div className="min-w-0">
-              <CardTitle className="text-base font-bold truncate">{app.fullName || "N/A"}</CardTitle>
-              <CardDescription className="text-xs truncate">{app.email || "No Email"}</CardDescription>
+        <div className="flex items-start gap-3">
+          <Avatar className="h-10 w-10 border border-border shrink-0">
+            <AvatarImage src={app.profilePhotoUrl || undefined} alt={app.fullName || "P"} />
+            <AvatarFallback>{app.fullName ? app.fullName[0].toUpperCase() : <UserCircle />}</AvatarFallback>
+          </Avatar>
+          <div className="min-w-0 flex-1 space-y-1.5">
+            <div>
+              <CardTitle className="text-base font-bold text-foreground break-words leading-tight">{app.fullName || "N/A"}</CardTitle>
+              <CardDescription className="text-xs text-muted-foreground break-all">{app.email || "No Email"}</CardDescription>
+            </div>
+            <div>
+              <Badge variant={getStatusBadgeVariant(app.status)} className={`text-xs capitalize whitespace-nowrap inline-block ${app.status === 'approved' ? 'bg-green-500 text-white' : ''}`}>
+                {app.status.replace(/_/g, ' ')}
+              </Badge>
             </div>
           </div>
-          <Badge variant={getStatusBadgeVariant(app.status)} className={`text-xs capitalize whitespace-nowrap ${app.status === 'approved' ? 'bg-green-500 text-white' : ''}`}>
-            {app.status.replace(/_/g, ' ')}
-          </Badge>
         </div>
       </CardHeader>
+
       <CardContent className="p-4 text-sm space-y-2">
         <div className="flex justify-between text-xs">
           <span className="text-muted-foreground font-medium">Category:</span>

@@ -122,7 +122,7 @@ export default function SearchPopup({ isOpen, onClose }: SearchPopupProps) {
   return (
     <Dialog open={isOpen} onOpenChange={(open) => { if (!open) onClose(); }}>
       <DialogContent className="w-[90%] sm:max-w-lg md:max-w-xl lg:max-w-2xl h-[80vh] max-h-[700px] flex flex-col p-0">
-        <DialogHeader className="p-4 sm:p-6 pb-2 border-b">
+        <DialogHeader className="p-4 sm:p-3 pb-2 border-b">
           <DialogTitle className="font-headline flex items-center">
             <Search className="mr-2 h-5 w-5 text-primary" /> Search Services
           </DialogTitle>
@@ -130,7 +130,7 @@ export default function SearchPopup({ isOpen, onClose }: SearchPopupProps) {
             Find the service you need quickly.
           </DialogDescription>
         </DialogHeader>
-        <div className="p-4 sm:p-6 border-b">
+        <div className="p-4 sm:p-3 border-b">
           <div className="relative">
             <Input
               id="search-popup-input"
@@ -153,7 +153,7 @@ export default function SearchPopup({ isOpen, onClose }: SearchPopupProps) {
 
         <div className="flex-grow overflow-hidden">
           <ScrollArea className="h-full">
-            <div className="p-4 sm:p-6 pt-2 space-y-3">
+            <div className="p-4 sm:p-3 pt-2 space-y-3">
               {isLoading ? (
                 <div className="flex justify-center items-center py-10">
                   <Loader2 className="h-8 w-8 animate-spin text-primary" />

@@ -82,7 +82,7 @@ export default function ProviderFeesSetupTab() {
           <CardTitle className="flex items-center"><HandCoins className="mr-2 h-5 w-5"/>Provider Fee Setup</CardTitle>
           <CardDescription>Define the fee structure for provider payouts.</CardDescription>
         </CardHeader>
-        <CardContent className="space-y-4 p-6"><Loader2 className="h-8 w-8 animate-spin text-primary mx-auto" /></CardContent>
+        <CardContent className="space-y-4 p-3"><Loader2 className="h-8 w-8 animate-spin text-primary mx-auto" /></CardContent>
       </Card>
     );
   }
@@ -95,7 +95,7 @@ export default function ProviderFeesSetupTab() {
             <CardTitle className="flex items-center"><HandCoins className="mr-2 h-5 w-5"/>Provider Fee Setup</CardTitle>
             <CardDescription>Define the service fee deducted from each provider's booking payout.</CardDescription>
           </CardHeader>
-          <CardContent className="space-y-6 p-6">
+          <CardContent className="space-y-6 p-3">
             <FormField
               control={form.control}
               name="providerFeeType"

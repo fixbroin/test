@@ -178,13 +178,13 @@ export default function AdminFAQPage() {
 
       <Dialog open={isFormOpen} onOpenChange={(open) => { if (!isSubmitting) { setIsFormOpen(open); if (!open) setEditingFAQ(null); } }}>
         <DialogContent className="w-full max-w-2xl p-0 overflow-hidden rounded-2xl">
-          <DialogHeader className="p-6 pb-4 border-b bg-muted/20">
+          <DialogHeader className="p-3 pb-4 border-b bg-muted/20">
             <DialogTitle>{editingFAQ ? 'Edit FAQ' : 'Add New FAQ'}</DialogTitle>
             <DialogDescription>
               {editingFAQ ? 'Update the question or its answer.' : 'Create a new frequently asked question.'}
             </DialogDescription>
           </DialogHeader>
-          <div className="p-6">
+          <div className="p-3">
             <FAQForm
                 onSubmit={handleFormSubmit}
                 initialData={editingFAQ}

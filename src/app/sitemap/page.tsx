@@ -227,7 +227,7 @@ export default async function SitemapPage() {
                 </div>
                 <div className="space-y-8">
                 {data.areaCategories.map(({ city, areas }) => (
-                    <div key={city.id} className="bg-muted/30 p-6 rounded-3xl border border-border/20">
+                    <div key={city.id} className="bg-muted/30 p-3 rounded-3xl border border-border/20">
                         <h3 className="text-xl font-bold text-foreground mb-6 flex items-center gap-2">
                             <span className="bg-primary w-2 h-6 rounded-full"/> {city.name} Regions
                         </h3>

@@ -50,17 +50,37 @@ const GoogleIcon = () => (
 
 export default function LoginPage() {
   const router = useRouter();
-  const { user, logIn, signInWithGoogle, handleSuccessfulAuth, isLoading: authContextIsLoading } = useAuth();
+  const { user, logIn, signInWithGoogle, handleSuccessfulAuth, isLoading: authContextIsLoading, isInitialAuthCheckComplete } = useAuth();
   const { config, isLoading: isLoadingConfig } = useApplicationConfig();
   const { settings: globalSettings, isLoading: isLoadingSettings } = useGlobalSettings();
   const searchParams = useSearchParams();
   const { toast } = useToast();
   
   const [phoneFormStage, setPhoneFormStage] = useState<'phone' | 'otp'>('phone');
+  const [activeTab, setActiveTab] = useState<'email' | 'otp'>('email');
   const [confirmationResult, setConfirmationResult] = useState<ConfirmationResult | null>(null);
   const [isSendingOtp, setIsSendingOtp] = useState(false);
   const [isVerifyingOtp, setIsVerifyingOtp] = useState(false);
   const [fullPhoneNumberForDisplay, setFullPhoneNumberForDisplay] = useState('');
+  
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const saved = sessionStorage.getItem('login-active-tab');
+      if (saved === 'email' || saved === 'otp') {
+        setActiveTab(saved);
+        return;
+      }
+    }
+    setActiveTab(config.defaultLoginMethod === 'otp' ? 'otp' : 'email');
+  }, [config.defaultLoginMethod]);
+
+  const handleTabChange = (val: string) => {
+    const tab = val as 'email' | 'otp';
+    setActiveTab(tab);
+    if (typeof window !== 'undefined') {
+      sessionStorage.setItem('login-active-tab', tab);
+    }
+  };
   
   const recaptchaVerifierRef = useRef<RecaptchaVerifier | null>(null);
 
@@ -90,7 +110,27 @@ export default function LoginPage() {
     }
   }, [user, authContextIsLoading, router, searchParams]);
 
-  const onEmailSubmit = async (data: LoginFormValues) => { await logIn(data); };
+  const onEmailSubmit = async (data: LoginFormValues) => {
+    emailLoginForm.clearErrors('email');
+    emailLoginForm.clearErrors('password');
+    try {
+      await logIn(data);
+    } catch (error: any) {
+      console.error("Login page error:", error);
+      const errMsg = error?.message || "Wrong password you entered";
+      if (errMsg.toLowerCase().includes("registered") || errMsg.toLowerCase().includes("not found")) {
+        emailLoginForm.setError("email", {
+          type: "manual",
+          message: errMsg
+        });
+      } else {
+        emailLoginForm.setError("password", {
+          type: "manual",
+          message: errMsg
+        });
+      }
+    }
+  };
   
   const onGoogleSubmit = async () => {
     if (isWebView()) {
@@ -177,7 +217,7 @@ export default function LoginPage() {
     }
   };
 
-  if (authContextIsLoading || isLoadingConfig || isLoadingSettings || (user && !authContextIsLoading)) {
+  if (!isInitialAuthCheckComplete || isLoadingConfig || isLoadingSettings || (user && !isInitialAuthCheckComplete)) {
     return <div className="min-h-screen flex items-center justify-center bg-secondary/30 p-4"><Loader2 className="h-12 w-12 animate-spin text-primary" /><p className="ml-3 text-muted-foreground">Loading...</p></div>;
   }
 
@@ -256,7 +296,7 @@ export default function LoginPage() {
             )}
 
             {enabledMethods.length > 1 ? (
-               <Tabs defaultValue={defaultTab} className="w-full">
+                <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full">
                   <TabsList className="grid w-full grid-cols-2">
                     <TabsTrigger value="email">Email</TabsTrigger>
                     <TabsTrigger value="otp">Phone OTP</TabsTrigger>

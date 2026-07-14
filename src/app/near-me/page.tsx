@@ -123,7 +123,7 @@ export default async function NearMeHubPage() {
                   <Link
                     key={cat.id}
                     href={`/near-me/${cat.slug}`}
-                    className="group bg-card border rounded-2xl p-4 md:p-6 hover:shadow-xl transition-all duration-300 flex flex-col items-center text-center"
+                    className="group bg-card border rounded-2xl p-4 md:p-3 hover:shadow-xl transition-all duration-300 flex flex-col items-center text-center"
                   >
                     <div className="relative w-16 h-16 md:w-20 md:h-20 mb-4 bg-muted/50 rounded-full p-3 overflow-hidden">
                       <AppImage

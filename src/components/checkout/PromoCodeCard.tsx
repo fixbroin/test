@@ -167,7 +167,7 @@ export default function PromoCodeCard({ sumOfItemPrices, onApply, appliedPromo }
         </DialogTrigger>
         
         <DialogContent hideCloseButton={true} className="sm:max-w-md max-h-[85vh] overflow-y-auto p-0 flex flex-col">
-          <DialogHeader className="p-6 border-b sticky top-0 bg-background z-10 flex-shrink-0">
+          <DialogHeader className="p-3 border-b sticky top-0 bg-background z-10 flex-shrink-0">
             <div className="flex items-center justify-between">
               <DialogTitle className="flex items-center gap-2">
                 <Gift className="h-5 w-5 text-primary" />
@@ -183,7 +183,7 @@ export default function PromoCodeCard({ sumOfItemPrices, onApply, appliedPromo }
             </DialogDescription>
           </DialogHeader>
           
-          <div className="p-6 space-y-6 flex-grow overflow-y-auto">
+          <div className="p-3 space-y-6 flex-grow overflow-y-auto">
             <div className="space-y-2">
               <Label className="text-sm font-bold">Enter Promo Code</Label>
               <div className="flex gap-2">

@@ -495,7 +495,7 @@ export default function AdminPromoCodesPage() {
           }}
           className="w-[90vw] max-w-md sm:max-w-lg md:max-w-xl lg:max-w-2xl max-h-[90vh] p-0 flex flex-col"
         >
-          <DialogHeader className="p-6 pb-4 border-b sticky top-0 bg-background z-10">
+          <DialogHeader className="p-3 pb-4 border-b sticky top-0 bg-background z-10">
             <DialogTitle>{editingPromoCode ? 'Edit Promo Code' : 'Add New Promo Code'}</DialogTitle>
             <DialogDescription>
               {editingPromoCode ? 'Update details for this promo code.' : 'Fill in the details for a new promo code.'}

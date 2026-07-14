@@ -223,13 +223,13 @@ export default function AdminTaxesPage() {
 
       <Dialog open={isFormOpen} onOpenChange={(open) => { if (!isSubmitting) { setIsFormOpen(open); if (!open) setEditingTax(null); } }}>
         <DialogContent className="w-full max-w-md max-h-[90vh] overflow-y-auto p-0">
-          <DialogHeader className="p-6 pb-4 border-b">
+          <DialogHeader className="p-3 pb-4 border-b">
             <DialogTitle>{editingTax ? 'Edit Tax Configuration' : 'Add New Tax Configuration'}</DialogTitle>
             <DialogDescription>
               {editingTax ? 'Update the details for this tax.' : 'Fill in the details for a new tax configuration.'}
             </DialogDescription>
           </DialogHeader>
-          <div className="p-6">
+          <div className="p-3">
             <TaxForm
               onSubmit={handleFormSubmit}
               initialData={editingTax}

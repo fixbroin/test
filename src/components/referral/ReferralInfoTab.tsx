@@ -123,11 +123,11 @@ export default function ReferralInfoTab({ settings }: ReferralInfoTabProps) {
           </CardFooter>
         )}
         <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-6 items-center">
-            <div className="p-6 bg-primary/10 rounded-lg text-center">
+            <div className="p-3 bg-primary/10 rounded-lg text-center">
                 <p className="text-muted-foreground">Invite friends & Earn</p>
                 <p className="text-3xl font-bold text-primary">{referrerBonusDisplay}</p>
             </div>
-             <div className="p-6 bg-secondary rounded-lg text-center">
+             <div className="p-3 bg-secondary rounded-lg text-center">
                 <p className="text-muted-foreground">Your friend gets</p>
                 <p className="text-3xl font-bold text-secondary-foreground">{referredBonusDisplay}</p>
             </div>

@@ -173,13 +173,13 @@ export default function AdminTimeSlotLimitsPage() {
 
       <Dialog open={isFormOpen} onOpenChange={(open) => { if (!isSubmitting) { setIsFormOpen(open); if (!open) setEditingLimit(null); } }}>
         <DialogContent className="w-full max-w-md p-0 overflow-hidden rounded-2xl">
-          <DialogHeader className="p-6 pb-4 border-b bg-muted/20">
+          <DialogHeader className="p-3 pb-4 border-b bg-muted/20">
             <DialogTitle>{editingLimit ? 'Edit Limit' : 'Add New Limit'}</DialogTitle>
             <DialogDescription>
               {editingLimit ? 'Update the booking threshold.' : 'Set a maximum booking limit for a category.'}
             </DialogDescription>
           </DialogHeader>
-          <div className="p-6">
+          <div className="p-3">
             <TimeSlotCategoryLimitForm
               categories={categories}
               existingLimitCategoryIds={limits.map(l => l.categoryId)}

@@ -12,7 +12,7 @@ import { Textarea } from "@/components/ui/textarea";
 import type { ProviderApplication, ProviderControlOptions } from '@/types/firestore';
 import { Card, CardContent, CardFooter } from "@/components/ui/card";
 import { Loader2, ChevronRight, Check } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { cn } from "@/lib/utils";
 
 const step1CategorySkillsSchema = z.object({
@@ -53,6 +53,8 @@ export default function Step1CategorySkills({
     },
   });
 
+  const lastGeneratedBioRef = useRef("");
+
   // Restore from localStorage on mount
   useEffect(() => {
     const saved = localStorage.getItem(STORAGE_KEY);
@@ -60,11 +62,48 @@ export default function Step1CategorySkills({
       try {
         const parsed = JSON.parse(saved);
         form.reset({ ...form.getValues(), ...parsed });
+        if (parsed.bio) {
+          lastGeneratedBioRef.current = parsed.bio;
+        }
       } catch (e) {
         console.error("Step1: Error parsing saved data", e);
       }
     }
   }, [form]);
+
+  // Auto-generate bio when choices change
+  const catId = form.watch('workCategoryId');
+  const expId = form.watch('experienceLevelId');
+  const skillId = form.watch('skillLevelId');
+
+  useEffect(() => {
+    if (!controlOptions) return;
+    const catName = controlOptions.categories.find(c => c.id === catId)?.name;
+    const expLabel = controlOptions.experienceLevels.find(e => e.id === expId)?.label;
+    const skillLabel = controlOptions.skillLevels.find(s => s.id === skillId)?.label;
+
+    const parts = [];
+    if (catName) {
+      parts.push(`I am a professional provider specialized in ${catName} services.`);
+    }
+    if (expLabel) {
+      parts.push(`I have ${expLabel.toLowerCase()} of hands-on experience in this field.`);
+    }
+    if (skillLabel) {
+      parts.push(`My expertise is at a ${skillLabel.toLowerCase()} level.`);
+    }
+    if (parts.length > 0) {
+      parts.push("I am committed to delivering high-quality work, ensuring customer satisfaction, and maintaining clean professional standards.");
+    }
+
+    const generated = parts.join(" ");
+    const currentBio = form.getValues('bio') || '';
+
+    if (currentBio === '' || currentBio === lastGeneratedBioRef.current) {
+      form.setValue('bio', generated, { shouldValidate: true });
+      lastGeneratedBioRef.current = generated;
+    }
+  }, [catId, expId, skillId, controlOptions]);
 
   // Auto-save to localStorage on change
   const watchedFields = form.watch();

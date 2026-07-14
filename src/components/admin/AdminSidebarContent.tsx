@@ -195,7 +195,7 @@ export default function AdminSidebarContent() {
 
   return (
     <>
-      <SidebarHeader className="p-4 md:p-6 border-b bg-card transition-all duration-300 group-data-[collapsible=icon]:p-2 group-data-[collapsible=icon]:items-center">
+      <SidebarHeader className="p-4 md:p-3 border-b bg-card transition-all duration-300 group-data-[collapsible=icon]:p-2 group-data-[collapsible=icon]:items-center">
         <Logo
           logoUrl={globalSettings?.logoUrl}
           websiteName={globalSettings?.websiteName}

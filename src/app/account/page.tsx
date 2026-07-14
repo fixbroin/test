@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import {
   User, Briefcase, MapPin, Bell, MessageSquare, LogOut, ChevronRight, Handshake,
-  Loader2, Info, FileText, Construction, UserPlus
+  Loader2, Info, FileText, Construction, UserPlus, LayoutDashboard, ClipboardList
 } from 'lucide-react';
 import ProtectedRoute from "@/components/auth/ProtectedRoute";
 import { useAuth } from '@/hooks/useAuth';
@@ -75,7 +75,7 @@ const AccountLink = ({ href, icon: Icon, label, badgeCount, isLogout = false, on
 };
 
 function AccountPageContent() {
-  const { user, firestoreUser, logOut, isLoading: authIsLoading } = useAuth();
+  const { user, firestoreUser, logOut, isLoading: authIsLoading, providerStatus } = useAuth();
   const { showLoading } = useLoading();
   const router = useRouter();
   
@@ -136,9 +136,33 @@ function AccountPageContent() {
     { href: '/chat', label: 'Chat with Support', icon: MessageSquare, isProtected: true, condition: () => !isLoadingGlobalSettings && !!globalSettings?.isChatEnabled },
   ];
 
+  const getProviderMenuItemDetails = () => {
+    if (providerStatus === 'approved') {
+      return {
+        href: '/provider',
+        label: 'Go to Provider Panel',
+        icon: LayoutDashboard,
+      };
+    } else if (providerStatus) {
+      return {
+        href: '/provider-registration',
+        label: 'Provider Status',
+        icon: ClipboardList,
+      };
+    } else {
+      return {
+        href: '/provider-registration',
+        label: 'Join as a Provider',
+        icon: UserPlus,
+      };
+    }
+  };
+
+  const providerMenuItem = getProviderMenuItemDetails();
+
   const extraPagesItems = [
     { href: '/custom-service', label: 'Custom Service', icon: Construction, condition: () => !isLoadingFeaturesConfig && !!featuresConfig.showCustomServiceButton},
-    { href: '/provider-registration', label: 'Join as a Provider', icon: UserPlus, condition: () => !isLoadingAppConfig && !!appConfig.isProviderRegistrationEnabled},
+    { href: providerMenuItem.href, label: providerMenuItem.label, icon: providerMenuItem.icon, condition: () => providerStatus === 'approved' || (!isLoadingAppConfig && !!appConfig.isProviderRegistrationEnabled)},
     { href: '/about-us', label: 'About Us', icon: Info },
     { href: '/contact-us', label: 'Contact Us', icon: MessageSquare },
   ];

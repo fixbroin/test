@@ -336,7 +336,7 @@ export default function ProviderBookingDetailsPage() {
            </div>
         </CardContent>
         {/* Action Buttons Footer */}
-        <CardFooter className="flex flex-col sm:flex-row justify-end gap-3 bg-muted/20 border-t p-6">
+        <CardFooter className="flex flex-col sm:flex-row justify-end gap-3 bg-muted/20 border-t p-3">
             {booking.status === 'AssignedToProvider' && (
                 <>
                     <Button 

@@ -60,7 +60,7 @@ export default function AreaServiceSeoPageClient({
           <CardContent className="p-0">
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-0">
               {/* Left Column: Details */}
-              <div className="p-6 md:p-10 lg:col-span-7 flex flex-col justify-between">
+              <div className="p-3 md:p-10 lg:col-span-7 flex flex-col justify-between">
                 <div>
                   <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-primary/10 text-primary mb-4">
                     <Sparkles className="h-3.5 w-3.5" />
@@ -166,7 +166,7 @@ export default function AreaServiceSeoPageClient({
             {/* Inclusions */}
             {serviceData.includedItems && serviceData.includedItems.length > 0 && (
               <Card className="border-none shadow-md shadow-slate-100 bg-white rounded-xl">
-                <CardContent className="p-6">
+                <CardContent className="p-3">
                   <h3 className="text-base font-bold text-slate-900 mb-4 flex items-center gap-2">
                     <CheckCircle2 className="h-5 w-5 text-emerald-600 shrink-0" />
                     What's Included
@@ -186,7 +186,7 @@ export default function AreaServiceSeoPageClient({
             {/* Exclusions */}
             {serviceData.excludedItems && serviceData.excludedItems.length > 0 && (
               <Card className="border-none shadow-md shadow-slate-100 bg-white rounded-xl">
-                <CardContent className="p-6">
+                <CardContent className="p-3">
                   <h3 className="text-base font-bold text-slate-900 mb-4 flex items-center gap-2">
                     <XCircle className="h-5 w-5 text-rose-500 shrink-0" />
                     What's Excluded
@@ -208,7 +208,7 @@ export default function AreaServiceSeoPageClient({
         {/* Custom Long Form HTML SEO Content */}
         {customSeoContent && (
           <Card className="border-none shadow-md shadow-slate-100 bg-white rounded-xl mt-8">
-            <CardContent className="p-6 md:p-8">
+            <CardContent className="p-3 md:p-8">
               <h2 className="text-lg md:text-xl font-bold text-slate-900 mb-6 flex items-center gap-2 pb-3 border-b">
                 <Sparkles className="h-5 w-5 text-primary" />
                 Service Details in {areaData.name}
@@ -224,7 +224,7 @@ export default function AreaServiceSeoPageClient({
         {/* Collapsible Accordion FAQs */}
         {faqs.length > 0 && (
           <Card className="border-none shadow-md shadow-slate-100 bg-white rounded-xl mt-8">
-            <CardContent className="p-6 md:p-8">
+            <CardContent className="p-3 md:p-8">
               <h2 className="text-lg md:text-xl font-bold text-slate-900 mb-6 pb-3 border-b">
                 Frequently Asked Questions
               </h2>

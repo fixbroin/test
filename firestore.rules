@@ -92,6 +92,7 @@ service cloud.firestore {
     match /popupSubmissions/{id} { allow create: if true; allow read, write: if isAdmin(); }
     match /contactUsSubmissions/{id} { allow create: if true; allow read, write: if isAdmin(); }
     match /emailLogs/{id} { allow read, write: if isAdmin(); }
+    match /outOfZoneRequests/{id} { allow create: if true; allow read, write: if isAdmin(); }
     match /systemStats/{id} { allow read: if isAdmin(); allow write: if isAuthenticated(); }
 
     match /customServiceRequests/{id} {

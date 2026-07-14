@@ -86,7 +86,7 @@ export default function UserDetailsModal({ user, onClose, onUpdateUser }: UserDe
   return (
     <Form {...form}>
       <form onSubmit={form.handleSubmit(onSubmit)} className="flex flex-col max-h-[80vh] relative">
-        <DialogHeader className="p-6 pb-4 border-b flex-shrink-0">
+        <DialogHeader className="p-3 pb-4 border-b flex-shrink-0">
           <div className="flex items-center space-x-4">
             <Avatar className="h-16 w-16">
               <AvatarImage src={user.photoURL || undefined} alt={user.displayName || "User"} />
@@ -104,7 +104,7 @@ export default function UserDetailsModal({ user, onClose, onUpdateUser }: UserDe
         </DialogHeader>
 
         <ScrollArea className="flex-grow overflow-y-auto pb-20">
-          <div className="p-6 space-y-6">
+          <div className="p-3 space-y-6">
             {isEditing ? (
               <div className="space-y-4">
                 <FormField
@@ -198,7 +198,7 @@ export default function UserDetailsModal({ user, onClose, onUpdateUser }: UserDe
           </div>
         </ScrollArea>
 
-        <DialogFooter className="p-6 border-t bg-muted/50 flex-shrink-0 fixed bottom-0 left-0 right-0 z-10 !flex-row !justify-end !space-x-2">
+        <DialogFooter className="p-3 border-t bg-muted/50 flex-shrink-0 fixed bottom-0 left-0 right-0 z-10 !flex-row !justify-end !space-x-2">
           <DialogClose asChild>
             <Button type="button" variant="outline" onClick={() => { onClose(); setIsEditing(false); }} disabled={isSubmitting}>Close</Button>
           </DialogClose>

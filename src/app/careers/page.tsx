@@ -113,7 +113,7 @@ export default async function CareersPage() {
                         className="object-cover hover:scale-105 transition-transform duration-700"
                         aiHint={pageData.imageHint || "careers banner"}
                     />
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent flex items-end p-6 md:p-10">
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent flex items-end p-3 md:p-10">
                         <h1 className="text-3xl md:text-5xl font-headline font-bold text-white drop-shadow-md">
                         {pageData.title}
                         </h1>
@@ -121,7 +121,7 @@ export default async function CareersPage() {
                 </div>
             )}
 
-            <div className="p-6 md:p-10 lg:p-12">
+            <div className="p-3 md:p-10 lg:p-12">
                 {!pageData.imageUrl && (
                     <div className="mb-8 border-b pb-6">
                         <h1 className="text-4xl font-headline font-bold text-foreground">

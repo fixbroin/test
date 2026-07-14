@@ -58,6 +58,7 @@ export const defaultAppSettings: AppSettings = {
   isChatEnabled: false, // Default chat to false. Will be managed in GlobalWebSettings now.
   
   isProviderRegistrationEnabled: true, // Added default
+  isCancelledChequeCompulsory: false, // Added default (optional)
   maxProviderRadiusKm: 50, // Added default max provider radius
   autoDispatchRadiusKm: 5, // Default auto-dispatch radius (km)
   

@@ -9,9 +9,10 @@ import { useAuth } from '@/hooks/useAuth';
 import { useLoading } from '@/contexts/LoadingContext';
 import { useFeaturesConfig } from '@/hooks/useFeaturesConfig';
 import { useState, useEffect } from 'react'; // Added useState & useEffect
-import { doc, onSnapshot } from 'firebase/firestore'; // Added onSnapshot
+import { doc, getDoc } from 'firebase/firestore'; // Added getDoc
 import { db } from '@/lib/firebase'; // Added db
 import type { ReferralSettings } from '@/types/firestore'; // Added ReferralSettings
+import { getRemoteCacheVersions } from '@/lib/client-cache';
 import type { ElementType } from 'react';
 
 interface NavItem {
@@ -55,26 +56,39 @@ const BottomNavigationBar = () => {
           return;
       }
       
-      const settingsDocRef = doc(db, "appConfiguration", "referral");
-      const unsubscribe = onSnapshot(settingsDocRef, (docSnap) => {
-          if (docSnap.exists()) {
-              const data = docSnap.data() as ReferralSettings;
-              setReferralSettings(data);
-              try {
-                localStorage.setItem('referral_settings', JSON.stringify(data));
-              } catch (e) {}
-          } else {
-              setReferralSettings(null);
-              try {
-                localStorage.removeItem('referral_settings');
-              } catch (e) {}
+      const fetchReferralSettings = async () => {
+          try {
+              // Smart Cache check
+              const remoteVersions = await getRemoteCacheVersions();
+              const remoteVersion = remoteVersions['withdrawal-referral-config'] || 0;
+              
+              const localVersion = parseInt(localStorage.getItem('referral_settings_version') || "0");
+              const cached = localStorage.getItem('referral_settings');
+              
+              if (cached && remoteVersion <= localVersion) {
+                  setIsLoadingReferral(false);
+                  return;
+              }
+
+              const settingsDocRef = doc(db, "appConfiguration", "referral");
+              const docSnap = await getDoc(settingsDocRef);
+              if (docSnap.exists()) {
+                  const data = docSnap.data() as ReferralSettings;
+                  setReferralSettings(data);
+                  localStorage.setItem('referral_settings', JSON.stringify(data));
+                  localStorage.setItem('referral_settings_version', remoteVersion.toString());
+              } else {
+                  setReferralSettings(null);
+                  localStorage.removeItem('referral_settings');
+              }
+          } catch (error) {
+              console.error("Error fetching referral settings:", error);
+          } finally {
+              setIsLoadingReferral(false);
           }
-          setIsLoadingReferral(false);
-      }, (error) => {
-          console.error("Error fetching referral settings:", error);
-          setIsLoadingReferral(false);
-      });
-      return () => unsubscribe();
+      };
+
+      fetchReferralSettings();
   }, [user]);
 
   const navItems: NavItem[] = [

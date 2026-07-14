@@ -314,7 +314,7 @@ export default function PaymentSummary({ paymentMethod, canBook, appliedPromo, o
     }
   };
 
-  if (isLoading) return <div className="p-6 bg-muted animate-pulse rounded-xl h-64" />;
+  if (isLoading) return <div className="p-3 bg-muted animate-pulse rounded-xl h-64" />;
 
   return (
     <Card className="border-none shadow-lg">

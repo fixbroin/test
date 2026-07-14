@@ -23,6 +23,7 @@ import { cn } from "@/lib/utils";
 import type { FirestorePopup, PopupType, PopupDisplayRuleType, PopupDisplayFrequency } from '@/types/firestore';
 import { useEffect, useState, useRef, useMemo } from "react";
 import { Loader2, Image as ImageIconLucide, Trash2, User, Phone, MapPin, Check, ChevronsUpDown, Search, CheckCircle, Megaphone } from "lucide-react";
+import { compressImage } from "@/lib/imageCompressor";
 import NextImage from 'next/image';
 import { useToast } from "@/hooks/use-toast";
 import { storage } from '@/lib/firebase';
@@ -150,16 +151,22 @@ export default function PopupForm({ onSubmit: onSubmitProp, initialData, onCance
     }
   }, [watchedPromoCode, form]);
 
-  const handleFileSelected = (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileSelected = async (event: React.ChangeEvent<HTMLInputElement>) => {
     if (event.target.files && event.target.files[0]) {
       const file = event.target.files[0];
-      if (file.size > 2 * 1024 * 1024) { 
-        toast({ title: "File Too Large", description: "Image must be < 2MB.", variant: "destructive" });
+      if (file.size > 50 * 1024 * 1024) { 
+        toast({ title: "File Too Large", description: "Image must be < 50MB.", variant: "destructive" });
         if (fileInputRef.current) fileInputRef.current.value = "";
         setSelectedFile(null); setCurrentImagePreview(form.getValues('imageUrl') || originalImageUrlFromInitialData || null);
         return;
       }
-      setSelectedFile(file); setCurrentImagePreview(URL.createObjectURL(file));
+      let fileToSet = file;
+      try {
+        fileToSet = await compressImage(file);
+      } catch (err) {
+        console.error("Compression failed", err);
+      }
+      setSelectedFile(fileToSet); setCurrentImagePreview(URL.createObjectURL(fileToSet));
       form.setValue('imageUrl', '', { shouldValidate: false });
     }
   };
@@ -242,7 +249,7 @@ export default function PopupForm({ onSubmit: onSubmitProp, initialData, onCance
 
   return (
     <Form {...form}>
-      <form onSubmit={form.handleSubmit(handleSubmit)} className="flex-grow space-y-4 p-6 overflow-y-auto">
+      <form onSubmit={form.handleSubmit(handleSubmit)} className="flex-grow space-y-4 p-3 overflow-y-auto">
         <FormField control={form.control} name="name" render={({ field }) => (<FormItem><FormLabel>Internal Popup Name *</FormLabel><FormControl><Input placeholder="e.g., Summer Sale Banner" {...field} disabled={effectiveIsSubmitting} /></FormControl><FormDescription>For admin identification only.</FormDescription><FormMessage /></FormItem>)} />
         
         <FormField control={form.control} name="targetPagesString" render={({ field }) => (

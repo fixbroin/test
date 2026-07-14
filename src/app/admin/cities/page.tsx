@@ -227,13 +227,13 @@ export default function AdminCitiesPage() {
 
       <Dialog open={isFormOpen} onOpenChange={(open) => { if (!isSubmitting) { setIsFormOpen(open); if (!open) setEditingCity(null); } }}>
         <DialogContent className="w-[calc(100%-6px)] sm:max-w-md md:max-w-lg lg:max-w-xl max-h-[90vh] overflow-y-auto p-0">
-          <DialogHeader className="p-6 pb-4 border-b sticky top-0 bg-background z-10">
+          <DialogHeader className="p-3 pb-4 border-b sticky top-0 bg-background z-10">
             <DialogTitle>{editingCity ? 'Edit City' : 'Add New City'}</DialogTitle>
             <DialogDescription>
               {editingCity ? 'Update the details for this city.' : 'Fill in the details to create a new city.'}
             </DialogDescription>
           </DialogHeader>
-          <div className="p-6 flex-grow overflow-y-auto">
+          <div className="p-3 flex-grow overflow-y-auto">
             <CityForm
               onSubmit={handleFormSubmit}
               initialData={editingCity}

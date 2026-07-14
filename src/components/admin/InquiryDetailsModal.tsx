@@ -69,7 +69,7 @@ export default function InquiryDetailsModal({ isOpen, onClose, inquiry, inquiryT
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="max-w-2xl w-[90vw] max-h-[90vh] grid grid-rows-[auto_1fr_auto] p-0">
-        <DialogHeader className="p-4 sm:p-6 border-b">
+        <DialogHeader className="p-4 sm:p-3 border-b">
           <DialogTitle className="text-xl sm:text-2xl">{isContactForm ? "Contact Inquiry" : "Popup Submission"}</DialogTitle>
           <DialogDescription>
             Submitted by {inquiry.name || "Guest"} on {formatDate(inquiry.submittedAt)}
@@ -77,7 +77,7 @@ export default function InquiryDetailsModal({ isOpen, onClose, inquiry, inquiryT
         </DialogHeader>
         
         <div className="overflow-y-auto">
-          <div className="p-4 sm:p-6 space-y-4">
+          <div className="p-4 sm:p-3 space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <DetailItem label="Submitter Name" value={inquiry.name} copyable />
                 <DetailItem label="Submitter Email" value={inquiry.email} copyable />
@@ -106,7 +106,7 @@ export default function InquiryDetailsModal({ isOpen, onClose, inquiry, inquiryT
           </div>
         </div>
 
-        <DialogFooter className="p-4 sm:p-6 border-t bg-muted/50">
+        <DialogFooter className="p-4 sm:p-3 border-t bg-muted/50">
           <DialogClose asChild>
             <Button variant="outline">Close</Button>
           </DialogClose>

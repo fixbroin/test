@@ -641,7 +641,7 @@ function CartPageContent() {
                   })}
                 </div>
               </CardContent>
-              <CardFooter className="bg-muted/30 p-4 sm:p-6 flex flex-col items-stretch gap-4 border-t">
+              <CardFooter className="bg-muted/30 p-4 sm:p-3 flex flex-col items-stretch gap-4 border-t">
                 
                 {/* Summary Table inside Card */}
                 <div className="space-y-2 sm:space-y-3 text-sm sm:text-base border-b pb-4">

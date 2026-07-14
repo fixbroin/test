@@ -20,6 +20,7 @@ import { useToast } from "@/hooks/use-toast";
 import { storage } from '@/lib/firebase';
 import { ref as storageRef, uploadBytesResumable, getDownloadURL, deleteObject } from "firebase/storage";
 import { Progress } from "@/components/ui/progress";
+import { compressImage } from "@/lib/imageCompressor";
 
 const slideFormSchema = z.object({
   title: z.string().max(100, "Title too long.").optional().or(z.literal('')),
@@ -155,18 +156,24 @@ export default function SlideshowForm({
     }
   }, [initialData, form]);
 
-  const handleFileSelected = (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileSelected = async (event: React.ChangeEvent<HTMLInputElement>) => {
     if (event.target.files && event.target.files[0]) {
       const file = event.target.files[0];
-      if (file.size > 5 * 1024 * 1024) {
-        toast({ title: "File Too Large", description: "Select image smaller than 5MB.", variant: "destructive" });
+      if (file.size > 50 * 1024 * 1024) {
+        toast({ title: "File Too Large", description: "Select image smaller than 50MB.", variant: "destructive" });
         if (fileInputRef.current) fileInputRef.current.value = "";
         setSelectedFile(null);
         setCurrentImagePreview(form.getValues('imageUrl') || originalImageUrlFromInitialData || null);
         return;
       }
-      setSelectedFile(file);
-      setCurrentImagePreview(URL.createObjectURL(file));
+      let fileToSet = file;
+      try {
+        fileToSet = await compressImage(file);
+      } catch (err) {
+        console.error("Compression failed", err);
+      }
+      setSelectedFile(fileToSet);
+      setCurrentImagePreview(URL.createObjectURL(fileToSet));
       form.setValue('imageUrl', '', { shouldValidate: false });
       form.clearErrors("imageUrl");
     } else {
@@ -305,7 +312,7 @@ export default function SlideshowForm({
 
   return (
     <Form {...form} key={initialData ? `slide-form-${initialData.id}` : 'new-slide-form'}>
-      <form onSubmit={form.handleSubmit(handleSubmit)} className="flex-grow space-y-4 p-6 overflow-y-auto">
+      <form onSubmit={form.handleSubmit(handleSubmit)} className="flex-grow space-y-4 p-3 overflow-y-auto">
         <FormField control={form.control} name="title" render={({ field }) => (
             <FormItem><FormLabel>Title (Optional)</FormLabel><FormControl><Input placeholder="E.g., Summer Sale" {...field} disabled={effectiveIsSubmitting} /></FormControl><FormMessage /></FormItem>
         )}/>
@@ -573,7 +580,7 @@ export default function SlideshowForm({
             </FormItem>
         )}/>
 
-        <div className="p-6 border-t sticky bottom-0 bg-background flex justify-end space-x-3">
+        <div className="p-3 border-t sticky bottom-0 bg-background flex justify-end space-x-3">
           <Button type="button" variant="outline" onClick={onCancel} disabled={effectiveIsSubmitting}>Cancel</Button>
           <Button type="submit" disabled={effectiveIsSubmitting}>
             {effectiveIsSubmitting && !statusMessage.includes("Uploading") && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}

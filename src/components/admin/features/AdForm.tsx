@@ -21,6 +21,7 @@ import { storage } from '@/lib/firebase'; // Assuming firebase.ts exports storag
 import { ref as storageRef, uploadBytesResumable, getDownloadURL, deleteObject } from "firebase/storage";
 import { Progress } from "@/components/ui/progress";
 import { nanoid } from 'nanoid'; // Import nanoid
+import { compressImage } from "@/lib/imageCompressor";
 
 const generateRandomHexString = (length: number) => Array.from({ length }, () => Math.floor(Math.random() * 16).toString(16)).join('');
 const isFirebaseStorageUrl = (url: string | null | undefined): boolean => !!url && typeof url === 'string' && url.includes("firebasestorage.googleapis.com/v0/b/fixbroweb.firebasestorage.app/o/public%2Fuploads%2Fads");
@@ -127,16 +128,22 @@ export default function AdForm({ onSubmit: onSubmitProp, initialData, onCancel, 
     if (fileInputRef.current) fileInputRef.current.value = "";
   }, [initialData, form]);
 
-  const handleFileSelected = (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileSelected = async (event: React.ChangeEvent<HTMLInputElement>) => {
     if (event.target.files && event.target.files[0]) {
       const file = event.target.files[0];
-      if (file.size > 2 * 1024 * 1024) { // 2MB limit
-        toast({ title: "File Too Large", description: "Image must be < 2MB.", variant: "destructive" });
+      if (file.size > 50 * 1024 * 1024) { // 50MB limit
+        toast({ title: "File Too Large", description: "Image must be < 50MB.", variant: "destructive" });
         if (fileInputRef.current) fileInputRef.current.value = "";
         setSelectedFile(null); setCurrentImagePreview(form.getValues('imageUrl') || originalImageUrlFromInitialData || null);
         return;
       }
-      setSelectedFile(file); setCurrentImagePreview(URL.createObjectURL(file));
+      let fileToSet = file;
+      try {
+        fileToSet = await compressImage(file);
+      } catch (err) {
+        console.error("Compression failed", err);
+      }
+      setSelectedFile(fileToSet); setCurrentImagePreview(URL.createObjectURL(fileToSet));
       form.setValue('imageUrl', '', { shouldValidate: false }); // Clear URL if file selected
     } else {
       setSelectedFile(null); setCurrentImagePreview(form.getValues('imageUrl') || originalImageUrlFromInitialData || null);
@@ -202,13 +209,13 @@ export default function AdForm({ onSubmit: onSubmitProp, initialData, onCancel, 
 
   return (
     <Form {...form}>
-      <form onSubmit={form.handleSubmit(handleSubmit)} className="flex-grow space-y-4 p-6 overflow-y-auto">
+      <form onSubmit={form.handleSubmit(handleSubmit)} className="flex-grow space-y-4 p-3 overflow-y-auto">
         <FormField control={form.control} name="name" render={({ field }) => (<FormItem><FormLabel>Ad Name (Internal)</FormLabel><FormControl><Input placeholder="e.g., Summer Sale Banner" {...field} disabled={effectiveIsSubmitting} /></FormControl><FormMessage /></FormItem>)} />
         <FormItem>
           <FormLabel>Ad Image <span className="text-destructive">*</span></FormLabel>
           {displayPreviewUrl ? (<div className="my-2 relative w-full h-32 rounded-md overflow-hidden border bg-muted/10"><NextImage src={displayPreviewUrl} alt="Ad preview" fill className="object-contain" data-ai-hint={form.watch('imageHint') || "advertisement banner"} unoptimized={displayPreviewUrl.startsWith('blob:')} sizes="(max-width: 640px) 100vw, 50vw"/></div>) : (<div className="my-2 flex items-center justify-center w-full h-32 rounded-md border border-dashed bg-muted/10"><ImageIconLucide className="h-10 w-10 text-muted-foreground" /></div>)}
           <FormControl><Input type="file" accept="image/png, image/jpeg, image/gif, image/webp" onChange={handleFileSelected} disabled={effectiveIsSubmitting} ref={fileInputRef} className="file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-primary/80 file:text-primary-foreground hover:file:bg-primary/90"/></FormControl>
-          <FormDescription className="mt-1">Upload (PNG, JPG, GIF, WEBP, max 2MB).</FormDescription>
+          <FormDescription className="mt-1">Upload (PNG, JPG, GIF, WEBP, max 50MB).</FormDescription>
           {uploadProgress !== null && selectedFile && (<div className="mt-2"><Progress value={uploadProgress} className="w-full h-2" />{statusMessage && <p className="text-xs text-muted-foreground mt-1">{statusMessage}</p>}</div>)}
         </FormItem>
         <FormField control={form.control} name="imageUrl" render={({ field }) => (<FormItem><FormLabel>Or Image URL <span className="text-destructive">*</span></FormLabel><div className="flex items-center gap-2"><FormControl className="flex-grow"><Textarea placeholder="https://example.com/ad.png" {...field} disabled={effectiveIsSubmitting || !!selectedFile} rows={2} onChange={(e) => { field.onChange(e); if (!selectedFile) setCurrentImagePreview(e.target.value || null); }}/></FormControl>{(field.value || selectedFile || currentImagePreview) && (<Button type="button" variant="ghost" size="icon" onClick={handleRemoveImage} disabled={effectiveIsSubmitting} aria-label="Clear image"><Trash2 className="h-4 w-4 text-destructive"/></Button>)}</div><FormDescription>Required if no file uploaded.</FormDescription><FormMessage /></FormItem>)}/>
@@ -492,7 +499,7 @@ export default function AdForm({ onSubmit: onSubmitProp, initialData, onCancel, 
         </div>
         <FormField control={form.control} name="isActive" render={({ field }) => (<FormItem className="flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm"><div className="space-y-0.5"><FormLabel>Ad Active</FormLabel><FormDescription>Enable this ad to be shown.</FormDescription></div><FormControl><Switch checked={field.value} onCheckedChange={field.onChange} disabled={effectiveIsSubmitting} /></FormControl></FormItem>)}/>
         
-        <div className="p-6 border-t sticky bottom-0 bg-background flex justify-end space-x-3">
+        <div className="p-3 border-t sticky bottom-0 bg-background flex justify-end space-x-3">
           <Button type="button" variant="outline" onClick={onCancel} disabled={effectiveIsSubmitting}>Cancel</Button>
           <Button type="submit" disabled={effectiveIsSubmitting}>
             {effectiveIsSubmitting && !statusMessage.includes("Uploading") && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}

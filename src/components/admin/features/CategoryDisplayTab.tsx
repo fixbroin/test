@@ -89,7 +89,7 @@ export default function CategoryDisplayTab() {
     return (
       <Card>
         <CardHeader><CardTitle className="flex items-center"><ListChecks className="mr-2 h-5 w-5"/>Homepage Category Display</CardTitle><CardDescription>Control which categories appear in the "Category-wise Services" section on the homepage.</CardDescription></CardHeader>
-        <CardContent className="space-y-4 p-6"><Loader2 className="h-8 w-8 animate-spin text-primary mx-auto" /></CardContent>
+        <CardContent className="space-y-4 p-3"><Loader2 className="h-8 w-8 animate-spin text-primary mx-auto" /></CardContent>
       </Card>
     );
   }
