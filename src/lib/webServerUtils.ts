@@ -545,3 +545,57 @@ export const getFeaturesConfigServer = cache(async (): Promise<FeaturesConfigura
   )();
 });
 
+/**
+ * Fetches active FAQs from Firestore with caching.
+ */
+export const getFaqsServer = cache(async (): Promise<any[]> => {
+  return unstable_cache(
+    async () => {
+      try {
+        const snapshot = await adminDb.collection("adminFAQs").where("isActive", "==", true).get();
+        const faqs = snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id } as any));
+        return serializeFirestoreData(
+          faqs.sort((a, b) => (a.order || 0) - (b.order || 0))
+        );
+      } catch (err) {
+        console.error("Error fetching FAQs:", err);
+        return [];
+      }
+    },
+    ['server-admin-faqs'],
+    { revalidate: false, tags: ['faqs', 'global-cache'] }
+  )();
+});
+
+/**
+ * Fetches published blog posts from Firestore with caching.
+ */
+export const getPublishedPostsServer = cache(async (): Promise<any[]> => {
+  return unstable_cache(
+    async () => {
+      try {
+        const snapshot = await adminDb.collection('blogPosts').get();
+        const posts = snapshot.docs
+          .map(doc => {
+            const data = serializeFirestoreData(doc.data()) as any;
+            return {
+              ...data,
+              id: doc.id,
+              createdAt: data.createdAt ? (typeof data.createdAt === 'string' ? data.createdAt : new Date().toISOString()) : new Date().toISOString(),
+              updatedAt: data.updatedAt ? (typeof data.updatedAt === 'string' ? data.updatedAt : undefined) : undefined,
+            };
+          })
+          .filter(post => post.isPublished === true)
+          .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+        
+        return posts;
+      } catch (error) {
+        console.error("Error fetching blog posts:", error);
+        return [];
+      }
+    },
+    ['server-published-blog-posts'],
+    { revalidate: false, tags: ['blog', 'global-cache'] }
+  )();
+});
+

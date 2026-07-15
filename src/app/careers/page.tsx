@@ -79,6 +79,7 @@ export default async function CareersPage() {
         { label: "Home", href: "/" },
         { label: pageData?.title || "Careers" },
     ];
+    const appBaseUrl = getBaseUrl();
 
     if (!pageData) {
       return (
@@ -100,7 +101,7 @@ export default async function CareersPage() {
     return (
       <div className="min-h-screen bg-muted/20 pb-16">
         <div className="container mx-auto px-4 py-8">
-          <Breadcrumbs items={breadcrumbItems} />
+          <Breadcrumbs items={breadcrumbItems} baseUrl={appBaseUrl} />
           
           <div className="max-w-4xl mx-auto mt-6 bg-card rounded-2xl shadow-sm border border-border/50 overflow-hidden">
             {pageData.imageUrl && (

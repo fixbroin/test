@@ -1,5 +1,3 @@
-import { adminDb } from '@/lib/firebaseAdmin';
-import type { FirestoreFAQ } from '@/types/firestore';
 import {
   Accordion,
   AccordionContent,
@@ -8,38 +6,15 @@ import {
 } from "@/components/ui/accordion";
 import { HelpCircle, PackageSearch } from "lucide-react";
 import Breadcrumbs from '@/components/shared/Breadcrumbs';
-import { unstable_cache } from 'next/cache';
 import JsonLdScript from '@/components/shared/JsonLdScript';
-import { serializeFirestoreData } from '@/lib/serializeUtils';
 import { generateBreadcrumbSchema } from '@/lib/seoAdvancedUtils';
 import { getBaseUrl } from '@/lib/config';
+import { getFaqsServer } from '@/lib/webServerUtils';
 
 export const revalidate = false;
 
-const getFaqs = unstable_cache(
-  async () => {
-    try {
-      const faqsCollectionRef = adminDb.collection("adminFAQs");
-      // Simplified query to avoid requiring a composite index
-      const snapshot = await faqsCollectionRef.where("isActive", "==", true).get();
-      
-      const faqs = snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id } as FirestoreFAQ));
-      
-      // Sort in memory and serialize BEFORE returning to cache
-      return serializeFirestoreData(
-        faqs.sort((a, b) => (a.order || 0) - (b.order || 0))
-      );
-    } catch (err) {
-      console.error("Error fetching FAQs:", err);
-      return [];
-    }
-  },
-  ['admin-faqs'],
-  { revalidate: false, tags: ['faqs', 'global-cache'] }
-);
-
 export default async function FAQPage() {
-  const faqs = await getFaqs();
+  const faqs = await getFaqsServer();
 
   const breadcrumbItems = [
     { label: "Home", href: "/" },
@@ -71,7 +46,7 @@ export default async function FAQPage() {
       {faqSchema && <JsonLdScript data={faqSchema} idSuffix="main-faq" />}
       <div className="container mx-auto px-4 py-16 min-h-screen">
       <div className="max-w-4xl mx-auto">
-        <Breadcrumbs items={breadcrumbItems} />
+        <Breadcrumbs items={breadcrumbItems} baseUrl={appBaseUrl} />
         
         <div className="text-center mt-12 mb-16">
           <div className="inline-flex items-center justify-center w-20 h-20 rounded-3xl bg-primary/10 mb-6">

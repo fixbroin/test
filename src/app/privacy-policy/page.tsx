@@ -87,6 +87,7 @@ export default async function PrivacyPolicyPage() {
         { label: "Home", href: "/" },
         { label: pageData?.title || "Privacy Policy" },
     ];
+    const appBaseUrl = getBaseUrl();
 
     if (!pageData) {
       return (
@@ -107,7 +108,7 @@ export default async function PrivacyPolicyPage() {
 
     return (
       <div className="container mx-auto px-4 py-8">
-        <Breadcrumbs items={breadcrumbItems} />
+        <Breadcrumbs items={breadcrumbItems} baseUrl={appBaseUrl} />
         <div className="max-w-3xl mx-auto">
           <div className="relative flex items-center justify-center mb-8">
             <div className="absolute left-0 hidden sm:block">

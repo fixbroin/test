@@ -10,14 +10,23 @@ import { useEffect, useState } from 'react';
 interface BreadcrumbsProps {
   items: BreadcrumbItem[];
   className?: string;
+  /** Pass the server-side base URL (from getBaseUrl()) so the JSON-LD schema is
+   *  present in the initial server-rendered HTML for Google to crawl.
+   *  If omitted, the schema will be injected client-side after hydration (not ideal for SEO).
+   */
+  baseUrl?: string;
 }
 
-const Breadcrumbs: React.FC<BreadcrumbsProps> = ({ items, className }) => {
-  const [baseUrl, setBaseUrl] = useState('');
+const Breadcrumbs: React.FC<BreadcrumbsProps> = ({ items, className, baseUrl: baseUrlProp }) => {
+  // If baseUrl was provided as a prop (server-side call), use it immediately.
+  // Otherwise fall back to detecting it client-side so client-only pages still work.
+  const [resolvedBaseUrl, setResolvedBaseUrl] = useState(baseUrlProp ?? '');
 
   useEffect(() => {
-    setBaseUrl(window.location.origin);
-  }, []);
+    if (!resolvedBaseUrl) {
+      setResolvedBaseUrl(window.location.origin);
+    }
+  }, [resolvedBaseUrl]);
 
   if (!items || items.length === 0) {
     return null;
@@ -31,13 +40,14 @@ const Breadcrumbs: React.FC<BreadcrumbsProps> = ({ items, className }) => {
       "@type": "ListItem",
       "position": index + 1,
       "name": item.label,
-      "item": item.href ? `${baseUrl}${item.href}` : undefined
+      "item": item.href ? `${resolvedBaseUrl}${item.href}` : `${resolvedBaseUrl}/`
     }))
   };
 
   return (
     <>
-      {baseUrl && (
+      {/* Render schema immediately when baseUrl is known (server-provided or after hydration) */}
+      {resolvedBaseUrl && (
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{ __html: JSON.stringify(schemaData) }}
@@ -71,4 +81,3 @@ const Breadcrumbs: React.FC<BreadcrumbsProps> = ({ items, className }) => {
 };
 
 export default Breadcrumbs;
-

@@ -1,4 +1,5 @@
 import { adminDb } from '@/lib/firebaseAdmin';
+import { getBaseUrl } from '@/lib/config';
 import ProtectedRoute from "@/components/auth/ProtectedRoute";
 import { Handshake, Wallet, Banknote, ShieldOff } from 'lucide-react';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
@@ -76,11 +77,12 @@ export default async function ReferralPage() {
     { label: "Profile", href: "/profile" },
     { label: "Refer & Earn" },
   ];
+  const appBaseUrl = getBaseUrl();
 
   if (!referralSettings?.isReferralSystemEnabled) {
     return (
       <div className="container mx-auto px-4 py-16">
-        <Breadcrumbs items={breadcrumbItems} />
+        <Breadcrumbs items={breadcrumbItems} baseUrl={appBaseUrl} />
         <Card className="text-center py-20 bg-card rounded-3xl border border-border/50 shadow-sm mt-8">
           <CardHeader>
             <ShieldOff className="mx-auto h-20 w-20 text-muted-foreground/50 mb-6" />
@@ -102,7 +104,7 @@ export default async function ReferralPage() {
   return (
     <ProtectedRoute>
       <div className="container mx-auto px-4 py-12">
-        <Breadcrumbs items={breadcrumbItems} />
+        <Breadcrumbs items={breadcrumbItems} baseUrl={appBaseUrl} />
         
         <div className="mt-8 mb-12 flex flex-col sm:flex-row sm:items-center justify-between gap-6">
             <div>

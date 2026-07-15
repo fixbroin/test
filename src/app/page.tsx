@@ -7,6 +7,7 @@ import { getBaseUrl } from '@/lib/config';
 import { getHomepageData, getAggregateRating } from '@/lib/homepageUtils';
 import { getGlobalWebSettings } from '@/lib/webServerUtils';
 import JsonLdScript from '@/components/shared/JsonLdScript';
+import { generateBreadcrumbSchema } from '@/lib/seoAdvancedUtils';
 
 export const revalidate = false;
 
@@ -208,12 +209,17 @@ export default async function Page() {
     };
   }
 
+  const breadcrumbSchema = generateBreadcrumbSchema([
+    { name: "Home", url: appBaseUrl }
+  ]);
+
   return (
     <>
       <JsonLdScript data={localBusinessSchema} idSuffix="homepage-local-biz" />
       <JsonLdScript data={faqSchema} idSuffix="homepage-faqs" />
       <JsonLdScript data={organizationSchema} idSuffix="homepage-org" />
       <JsonLdScript data={websiteSchema} idSuffix="homepage-website" />
+      <JsonLdScript data={breadcrumbSchema} idSuffix="homepage-breadcrumb" />
       <HomePageClient initialData={homepageData} initialH1Title={seoSettings.homepageH1} />
     </>
   );

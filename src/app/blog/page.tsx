@@ -1,5 +1,3 @@
-import { adminDb } from '@/lib/firebaseAdmin';
-import type { FirestoreBlogPost, ClientBlogPost } from '@/types/firestore';
 import BlogPostCard from '@/components/blog/BlogPostCard';
 import Breadcrumbs from '@/components/shared/Breadcrumbs';
 import AppImage from '@/components/ui/AppImage';
@@ -7,44 +5,12 @@ import type { Metadata } from 'next';
 import { getBaseUrl } from '@/lib/config';
 import Link from 'next/link';
 import { Calendar, Clock, ArrowRight } from 'lucide-react';
-import { unstable_cache } from 'next/cache';
-import { serializeFirestoreData } from '@/lib/serializeUtils';
 import { getGlobalSEOSettings } from '@/lib/seoServerUtils';
 import JsonLdScript from '@/components/shared/JsonLdScript';
-
+import { getPublishedPostsServer } from '@/lib/webServerUtils';
 import type { BreadcrumbItem } from '@/types/ui';
 
 export const revalidate = false; // Persistent Cache
-
-const getPublishedPosts = unstable_cache(
-  async (): Promise<ClientBlogPost[]> => {
-    try {
-      const postsRef = adminDb.collection('blogPosts');
-      const snapshot = await postsRef.get();
-      
-      const posts: ClientBlogPost[] = snapshot.docs
-        .map(doc => {
-          const data = serializeFirestoreData(doc.data()) as FirestoreBlogPost;
-          return {
-            ...data,
-            id: doc.id,
-            // Ensure createdAt and updatedAt are ISO strings for the client
-            createdAt: data.createdAt ? (typeof data.createdAt === 'string' ? data.createdAt : new Date().toISOString()) : new Date().toISOString(),
-            updatedAt: data.updatedAt ? (typeof data.updatedAt === 'string' ? data.updatedAt : undefined) : undefined,
-          };
-        })
-        .filter(post => post.isPublished === true)
-        .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-      
-      return posts;
-    } catch (error) {
-      console.error("Error fetching blog posts:", error);
-      return [];
-    }
-  },
-  ['published-blog-posts'],
-  { tags: ['blog', 'global-cache'] }
-);
 
 export async function generateMetadata(): Promise<Metadata> {
   const seoSettings = await getGlobalSEOSettings();
@@ -74,7 +40,7 @@ export async function generateMetadata(): Promise<Metadata> {
 }
 
 export default async function BlogListPage() {
-  const posts = await getPublishedPosts();
+  const posts = await getPublishedPostsServer();
   const breadcrumbItems: BreadcrumbItem[] = [
     { label: 'Home', href: '/' },
     { label: 'Blog' },
@@ -121,7 +87,7 @@ export default async function BlogListPage() {
       {/* Header Section */}
       <div className="bg-primary/5 py-16 md:py-24">
         <div className="container mx-auto px-4">
-          <Breadcrumbs items={breadcrumbItems} />
+          <Breadcrumbs items={breadcrumbItems} baseUrl={appBaseUrl} />
           <div className="mt-8 text-center max-w-3xl mx-auto">
             <h1 className="text-4xl md:text-6xl font-headline font-bold text-foreground mb-6">
               Our <span className="text-primary">Blog</span>

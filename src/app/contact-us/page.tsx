@@ -137,7 +137,7 @@ export default async function ContactUsPage() {
       {/* Header Section */}
       <div className="bg-primary/5 py-20 md:py-32">
         <div className="container mx-auto px-4">
-          <Breadcrumbs items={breadcrumbItems} />
+          <Breadcrumbs items={breadcrumbItems} baseUrl={appBaseUrl} />
           <div className="max-w-4xl mx-auto text-center mt-12">
             <h1 className="text-5xl md:text-7xl font-headline font-bold text-foreground mb-8">
               {pageData.title}
