@@ -28,7 +28,7 @@ export default function AdminFAQPage() {
   const faqsCollectionRef = collection(db, "adminFAQs");
 
   useEffect(() => {
-    const q = query(faqsCollectionRef, orderBy("question", "asc"));
+    const q = query(faqsCollectionRef, orderBy("order", "asc"));
     const unsubscribe = onSnapshot(q, (snapshot) => {
       setFaqs(snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id } as FirestoreFAQ)));
       setIsLoading(false);
@@ -56,7 +56,7 @@ export default function AdminFAQPage() {
     setIsSubmitting(true);
     try {
       await deleteDoc(doc(db, "adminFAQs", id));
-      await triggerRefresh('content');
+      await triggerRefresh('faqs');
       toast({ title: "Success", description: "FAQ deleted successfully." });
     } catch (error) {
       console.error("Error deleting FAQ: ", error);
@@ -77,7 +77,7 @@ export default function AdminFAQPage() {
         await addDoc(collection(db, "adminFAQs"), { ...faqData, createdAt: Timestamp.now(), updatedAt: Timestamp.now() });
         toast({ title: "Success", description: "New FAQ added." });
       }
-      await triggerRefresh('content');
+      await triggerRefresh('faqs');
       setIsFormOpen(false);
       setEditingFAQ(null);
     } catch (error) {
@@ -122,6 +122,7 @@ export default function AdminFAQPage() {
               <Table>
                 <TableHeader>
                   <TableRow>
+                    <TableHead className="w-20">Order</TableHead>
                     <TableHead className="w-1/3">Question</TableHead>
                     <TableHead>Answer Preview</TableHead>
                     <TableHead className="text-right min-w-[120px]">Actions</TableHead>
@@ -130,6 +131,7 @@ export default function AdminFAQPage() {
                 <TableBody>
                   {faqs.map((faq) => (
                     <TableRow key={faq.id}>
+                      <TableCell className="font-mono font-bold align-top text-center text-primary">{faq.order ?? 0}</TableCell>
                       <TableCell className="font-medium align-top">{faq.question}</TableCell>
                       <TableCell className="max-w-md truncate align-top">{faq.answer}</TableCell>
                       <TableCell>

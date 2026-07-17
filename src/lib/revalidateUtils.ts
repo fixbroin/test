@@ -1,7 +1,7 @@
 // src/lib/revalidateUtils.ts
 'use server';
 
-import { revalidateTag } from 'next/cache';
+import { revalidateTag, revalidatePath } from 'next/cache';
 import { adminDb } from './firebaseAdmin';
 import { FieldValue } from 'firebase-admin/firestore';
 
@@ -14,6 +14,8 @@ export async function triggerRefresh(tag: 'services' | 'categories' | 'cities' |
   try {
     revalidateTag(tag);
     
+    // Purge static HTML pages cache globally so updates apply immediately on the frontend
+    revalidatePath('/', 'layout');
     // Bump the global cache version (1 write)
     // Only bump "global" if the change is truly global (settings/SEO)
     // This prevents every user login/booking from forcing all visitors to re-read settings.

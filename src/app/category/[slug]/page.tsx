@@ -162,7 +162,9 @@ export default async function CategoryPage({ params }: CategoryPageProps) {
 
     const rawSchemaImage = data.category.imageUrl || `/android-chrome-512x512.png`;
     const schemaImage = rawSchemaImage.startsWith('http') ? rawSchemaImage : `${appBaseUrl}${rawSchemaImage.startsWith('/') ? '' : '/'}${rawSchemaImage}`;
-    
+        const catRatingValNum = parseFloat(String(data.aggregateRating?.ratingValue || seoSettings.fallbackRatingValue || "4.8")) || 4.8;
+    const catReviewCountNum = parseInt(String(data.aggregateRating?.reviewCount || seoSettings.fallbackReviewCount || "6065"), 10) || 6065;
+
     const categorySchema = {
       "@context": "https://schema.org",
       "@type": "Product",
@@ -173,14 +175,17 @@ export default async function CategoryPage({ params }: CategoryPageProps) {
         "@type": "Brand",
         "name": "FixBro"
       },
+      "sku": data.category.id,
+      "mpn": data.category.id,
       "aggregateRating": {
         "@type": "AggregateRating",
-        "ratingValue": data.aggregateRating?.ratingValue || seoSettings.fallbackRatingValue || "4.8",
-        "reviewCount": data.aggregateRating?.reviewCount || seoSettings.fallbackReviewCount || "156",
-        "bestRating": "5",
-        "worstRating": "1"
+        "ratingValue": catRatingValNum,
+        "reviewCount": catReviewCountNum,
+        "bestRating": 5,
+        "worstRating": 1
       }
     };
+
     return (
       <>
         <JsonLdScript data={categorySchema} idSuffix={`category-${data.category.id}`} />

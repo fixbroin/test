@@ -86,7 +86,6 @@ export default async function DamageAndClaimsPolicyPage() {
         { label: "Home", href: "/" },
         { label: pageData?.title || "Damage & Claims Policy" },
     ];
-    const appBaseUrl = getBaseUrl();
 
     if (!pageData) {
       return (
@@ -107,7 +106,7 @@ export default async function DamageAndClaimsPolicyPage() {
 
     return (
       <div className="container mx-auto px-4 py-8">
-        <Breadcrumbs items={breadcrumbItems} baseUrl={appBaseUrl} />
+        <Breadcrumbs items={breadcrumbItems} />
         <div className="max-w-3xl mx-auto">
           <div className="relative flex items-center justify-center mb-8">
             <div className="absolute left-0 hidden sm:block">

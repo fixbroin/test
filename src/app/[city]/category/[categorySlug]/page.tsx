@@ -212,6 +212,8 @@ export default async function CityCategoryPage({ params }: PageProps) {
 
   const rawSchemaImage = categoryData.imageUrl || `/android-chrome-512x512.png`;
   const schemaImage = rawSchemaImage.startsWith('http') ? rawSchemaImage : `${appBaseUrl}${rawSchemaImage.startsWith('/') ? '' : '/'}${rawSchemaImage}`;
+  const cityCatRatingValNum = parseFloat(String(aggregateRating?.ratingValue || seoSettings.fallbackRatingValue || "4.8")) || 4.8;
+  const cityCatReviewCountNum = parseInt(String(aggregateRating?.reviewCount || seoSettings.fallbackReviewCount || "16656"), 10) || 16656;
 
   const categoryCitySchema = {
     "@context": "https://schema.org",
@@ -233,10 +235,10 @@ export default async function CityCategoryPage({ params }: PageProps) {
     },
     "aggregateRating": {
       "@type": "AggregateRating",
-      "ratingValue": aggregateRating?.ratingValue || seoSettings.fallbackRatingValue || "4.8",
-      "reviewCount": aggregateRating?.reviewCount || seoSettings.fallbackReviewCount || "156",
-      "bestRating": "5",
-      "worstRating": "1"
+      "ratingValue": cityCatRatingValNum,
+      "reviewCount": cityCatReviewCountNum,
+      "bestRating": 5,
+      "worstRating": 1
     }
   };
 

@@ -157,21 +157,25 @@ export default async function RootLayout({
             `,
           }}
         />
+
         <ThemeInjector />
-        <Suspense fallback={<RootSuspenseLoader />}>
-          <AuthProvider>
-            <LoadingProvider>
-              <DynamicManifest />
+        <AuthProvider>
+          <LoadingProvider>
+            <DynamicManifest />
+            <Suspense fallback={null}>
               <ScrollMemory />
-              <MarketingScriptsInjector />
+            </Suspense>
+            <MarketingScriptsInjector />
+            <Suspense fallback={null}>
               <PageViewTracker />
-              <AppLayout>
-                {children}
-              </AppLayout>
-              <GlobalActionLoader />
-            </LoadingProvider>
-          </AuthProvider>
-        </Suspense>
+            </Suspense>
+            <AppLayout>
+              {children}
+            </AppLayout>
+            <GlobalActionLoader />
+          </LoadingProvider>
+        </AuthProvider>
+
         <Toaster />
       </body>
     </html>

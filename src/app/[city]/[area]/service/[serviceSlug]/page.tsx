@@ -168,7 +168,42 @@ export default async function AreaServiceDetailPage({ params }: AreaServicePageP
     answer: replacePlaceholders(f.answer, placeholderData)
   }));
 
-  // Structured schemas
+  const ratingValNum = parseFloat(String(ratingValue)) || 4.8;
+  const reviewCountNum = parseInt(String(reviewCount), 10) || 17856;
+
+  const serviceSchema = {
+    "@context": "https://schema.org",
+    "@type": "Service",
+    "name": seoOverride?.h1_title || `${serviceData.name} in ${areaData.name}, ${cityData.name}`,
+    "description": seoOverride?.meta_description || serviceData.description || `Professional ${serviceData.name} services in ${areaData.name}, ${cityData.name}.`,
+    "image": schemaImage,
+    "provider": {
+      "@type": "LocalBusiness",
+      "name": "FixBro",
+      "telephone": seoSettings.structuredDataTelephone,
+      "priceRange": "₹₹",
+      "image": schemaImage,
+      "address": {
+        "@type": "PostalAddress",
+        "streetAddress": seoSettings.structuredDataStreetAddress,
+        "addressLocality": cityData.name,
+        "addressRegion": seoSettings.structuredDataRegion,
+        "addressCountry": "IN"
+      }
+    },
+    "areaServed": {
+      "@type": "City",
+      "name": cityData.name
+    },
+    "aggregateRating": {
+      "@type": "AggregateRating",
+      "ratingValue": ratingValNum,
+      "reviewCount": reviewCountNum,
+      "bestRating": 5,
+      "worstRating": 1
+    }
+  };
+
   const productSchema = {
     "@context": "https://schema.org",
     "@type": "Product",
@@ -179,9 +214,11 @@ export default async function AreaServiceDetailPage({ params }: AreaServicePageP
       "@type": "Brand",
       "name": "FixBro"
     },
+    "sku": `${cityData.id}-${areaData.id}-${serviceData.id}`,
+    "mpn": `${cityData.id}-${areaData.id}-${serviceData.id}`,
     "offers": serviceData.price ? {
       "@type": "Offer",
-      "price": serviceData.discountedPrice || serviceData.price,
+      "price": parseFloat(String(serviceData.discountedPrice || serviceData.price)) || 0,
       "priceCurrency": "INR",
       "availability": "https://schema.org/InStock",
       "url": `${appBaseUrl}${pagePath}`,
@@ -195,21 +232,21 @@ export default async function AreaServiceDetailPage({ params }: AreaServicePageP
         "@type": "OfferShippingDetails",
         "shippingRate": {
           "@type": "MonetaryAmount",
-          "value": "0",
+          "value": 0,
           "currency": "INR"
         },
         "deliveryTime": {
           "@type": "ShippingDeliveryTime",
           "handlingTime": {
             "@type": "QuantitativeValue",
-            "minValue": "0",
-            "maxValue": "0",
+            "minValue": 0,
+            "maxValue": 0,
             "unitCode": "DAY"
           },
           "transitTime": {
             "@type": "QuantitativeValue",
-            "minValue": "0",
-            "maxValue": "0",
+            "minValue": 0,
+            "maxValue": 0,
             "unitCode": "DAY"
           }
         }
@@ -217,10 +254,10 @@ export default async function AreaServiceDetailPage({ params }: AreaServicePageP
     } : undefined,
     "aggregateRating": {
       "@type": "AggregateRating",
-      "ratingValue": ratingValue,
-      "reviewCount": reviewCount,
-      "bestRating": "5",
-      "worstRating": "1"
+      "ratingValue": ratingValNum,
+      "reviewCount": reviewCountNum,
+      "bestRating": 5,
+      "worstRating": 1
     }
   };
 
@@ -242,6 +279,7 @@ export default async function AreaServiceDetailPage({ params }: AreaServicePageP
 
   return (
     <>
+      <JsonLdScript data={serviceSchema} idSuffix={`area-service-main-${cityData.id}-${areaData.id}-${serviceData.id}`} />
       <JsonLdScript data={productSchema} idSuffix={`area-service-product-${cityData.id}-${areaData.id}-${serviceData.id}`} />
       <JsonLdScript data={breadcrumbSchema} idSuffix={`breadcrumb-area-service-${cityData.id}-${areaData.id}-${serviceData.id}`} />
       {faqSchema && <JsonLdScript data={faqSchema} idSuffix={`faqs-area-service-${cityData.id}-${areaData.id}-${serviceData.id}`} />}

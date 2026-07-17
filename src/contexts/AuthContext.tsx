@@ -18,7 +18,7 @@ import {
 import { auth, db } from '@/lib/firebase';
 import { initializeFCM, onForegroundMessage } from '@/lib/fcmUtils';
 import { doc, setDoc, Timestamp, getDoc, onSnapshot, collection, query, where, getDocs, limit, runTransaction, or } from "firebase/firestore";
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 import { useToast } from '@/hooks/use-toast';
 import type { FirestoreUser, MarketingAutomationSettings, ReferralSettings, Referral, FirestoreNotification, ProviderApplicationStatus } from '@/types/firestore';
 import { logUserActivity } from '@/lib/activityLogger';
@@ -113,7 +113,6 @@ export const AuthProvider: React.FC<PropsWithChildren> = ({ children }) => {
   const isAdminLoading = user ? adminCheckCompleteFor !== user.uid : false;
   const [authActionRedirectPath, setAuthActionRedirectPath] = useState<string | null>(null);
   const router = useRouter();
-  const searchParams = useSearchParams();
   const { toast } = useToast();
   const { config: appConfig, isLoading: isLoadingAppSettings } = useApplicationConfig();
 
@@ -284,7 +283,7 @@ export const AuthProvider: React.FC<PropsWithChildren> = ({ children }) => {
       
       setUser(user);
 
-      const redirectPathFromQuery = searchParams.get('redirect');
+      const redirectPathFromQuery = typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('redirect') : null;
       let finalRedirectPath = '/';
       
       if (isAdmin) {
@@ -314,7 +313,7 @@ export const AuthProvider: React.FC<PropsWithChildren> = ({ children }) => {
     } finally {
       setIsLoading(false);
     }
-  }, [router, toast, searchParams, authActionRedirectPath, setAuthActionRedirectPath]);
+  }, [router, toast, authActionRedirectPath, setAuthActionRedirectPath]);
 
   const cancelProfileCompletion = useCallback(async () => {
     setIsCompletingProfile(false);
@@ -568,7 +567,7 @@ export const AuthProvider: React.FC<PropsWithChildren> = ({ children }) => {
   
       toast({ title: "Account Created!", description: "Welcome to FixBro!" });
   
-      const redirectPathFromQuery = searchParams.get('redirect');
+      const redirectPathFromQuery = typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('redirect') : null;
       let finalRedirectPath = '/';
       if (user.email?.toLowerCase() === ADMIN_EMAIL.toLowerCase()) {
         finalRedirectPath = '/admin';
@@ -588,7 +587,7 @@ export const AuthProvider: React.FC<PropsWithChildren> = ({ children }) => {
     } finally {
       setIsLoading(false);
     }
-  }, [userCredentialForProfileCompletion, toast, router, searchParams, authActionRedirectPath, appConfig]);
+  }, [userCredentialForProfileCompletion, toast, router, authActionRedirectPath, appConfig]);
   
   const signUp = useCallback(async (data: SignUpData) => {
     if (!data.password) {

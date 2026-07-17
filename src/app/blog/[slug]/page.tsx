@@ -237,7 +237,7 @@ export default async function BlogPostPage({ params }: BlogPostPageProps) {
         
         <div className="container mx-auto px-4 relative z-10">
           <div className="max-w-4xl mx-auto">
-            <Breadcrumbs items={breadcrumbItems} baseUrl={appBaseUrl} />
+            <Breadcrumbs items={breadcrumbItems} />
             
             <div className="grid grid-cols-1 md:grid-cols-12 gap-8 items-center mt-8">
               {/* Cover Image on Desktop (Left Side) */}

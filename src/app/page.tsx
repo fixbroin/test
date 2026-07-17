@@ -7,7 +7,6 @@ import { getBaseUrl } from '@/lib/config';
 import { getHomepageData, getAggregateRating } from '@/lib/homepageUtils';
 import { getGlobalWebSettings } from '@/lib/webServerUtils';
 import JsonLdScript from '@/components/shared/JsonLdScript';
-import { generateBreadcrumbSchema } from '@/lib/seoAdvancedUtils';
 
 export const revalidate = false;
 
@@ -190,36 +189,22 @@ export default async function Page() {
       "query-input": "required name=search_term_string"
     }
   };
+  const homeRatingValNum = parseFloat(String(aggregateRating?.ratingValue || "4.8")) || 4.8;
+  const homeReviewCountNum = parseInt(String(aggregateRating?.reviewCount || "15600"), 10) || 15600;
 
-  if (aggregateRating) {
-    (localBusinessSchema as any).aggregateRating = {
-      "@type": "AggregateRating",
-      "ratingValue": aggregateRating.ratingValue || "4.8",
-      "reviewCount": aggregateRating.reviewCount || "120",
-      "bestRating": "5",
-      "worstRating": "1"
-    };
-  } else {
-    (localBusinessSchema as any).aggregateRating = {
-      "@type": "AggregateRating",
-      "ratingValue": "4.8",
-      "reviewCount": "156",
-      "bestRating": "5",
-      "worstRating": "1"
-    };
-  }
-
-  const breadcrumbSchema = generateBreadcrumbSchema([
-    { name: "Home", url: appBaseUrl }
-  ]);
-
+  (localBusinessSchema as any).aggregateRating = {
+    "@type": "AggregateRating",
+    "ratingValue": homeRatingValNum,
+    "reviewCount": homeReviewCountNum,
+    "bestRating": 5,
+    "worstRating": 1
+  };
   return (
     <>
       <JsonLdScript data={localBusinessSchema} idSuffix="homepage-local-biz" />
       <JsonLdScript data={faqSchema} idSuffix="homepage-faqs" />
       <JsonLdScript data={organizationSchema} idSuffix="homepage-org" />
       <JsonLdScript data={websiteSchema} idSuffix="homepage-website" />
-      <JsonLdScript data={breadcrumbSchema} idSuffix="homepage-breadcrumb" />
       <HomePageClient initialData={homepageData} initialH1Title={seoSettings.homepageH1} />
     </>
   );

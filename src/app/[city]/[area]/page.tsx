@@ -169,6 +169,9 @@ export default async function AreaHomePage({ params }: AreaPageProps) {
   const rawSchemaImage = areaData.imageUrl || seoSettings.structuredDataImage || `/android-chrome-512x512.png`;
   const schemaImage = rawSchemaImage.startsWith('http') ? rawSchemaImage : `${appBaseUrl}${rawSchemaImage.startsWith('/') ? '' : '/'}${rawSchemaImage}`;
 
+  const areaRatingValNum = parseFloat(String(aggregateRating?.ratingValue || seoSettings.fallbackRatingValue || "4.8")) || 4.8;
+  const areaReviewCountNum = parseInt(String(aggregateRating?.reviewCount || seoSettings.fallbackReviewCount || "156"), 10) || 156;
+
   const areaSchema = {
     "@context": "https://schema.org",
     "@type": "LocalBusiness",
@@ -189,10 +192,10 @@ export default async function AreaHomePage({ params }: AreaPageProps) {
     },
     "aggregateRating": {
       "@type": "AggregateRating",
-      "ratingValue": aggregateRating?.ratingValue || seoSettings.fallbackRatingValue || "4.8",
-      "reviewCount": aggregateRating?.reviewCount || seoSettings.fallbackReviewCount || "156",
-      "bestRating": "5",
-      "worstRating": "1"
+      "ratingValue": areaRatingValNum,
+      "reviewCount": areaReviewCountNum,
+      "bestRating": 5,
+      "worstRating": 1
     }
   };
 

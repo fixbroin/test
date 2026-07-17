@@ -87,7 +87,7 @@ export default async function BlogListPage() {
       {/* Header Section */}
       <div className="bg-primary/5 py-16 md:py-24">
         <div className="container mx-auto px-4">
-          <Breadcrumbs items={breadcrumbItems} baseUrl={appBaseUrl} />
+          <Breadcrumbs items={breadcrumbItems} />
           <div className="mt-8 text-center max-w-3xl mx-auto">
             <h1 className="text-4xl md:text-6xl font-headline font-bold text-foreground mb-6">
               Our <span className="text-primary">Blog</span>

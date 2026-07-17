@@ -77,7 +77,7 @@ export default function AdminCitiesPage() {
       toast({ title: "Success", description: "City deleted successfully." });
       
       // Refresh the cache
-      await triggerRefresh('cities');
+      await triggerRefresh('locations');
       await triggerRefresh('sitemap');
       if (city?.slug) {
         await submitToGoogleIndexing('city', city.slug, false);
@@ -114,7 +114,7 @@ export default function AdminCitiesPage() {
       }
       
       // Refresh the cache
-      await triggerRefresh('cities');
+      await triggerRefresh('locations');
       await triggerRefresh('sitemap');
       if (payload.slug) {
         await submitToGoogleIndexing('city', payload.slug, payload.isActive);

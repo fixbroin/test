@@ -46,7 +46,7 @@ export default async function FAQPage() {
       {faqSchema && <JsonLdScript data={faqSchema} idSuffix="main-faq" />}
       <div className="container mx-auto px-4 py-16 min-h-screen">
       <div className="max-w-4xl mx-auto">
-        <Breadcrumbs items={breadcrumbItems} baseUrl={appBaseUrl} />
+        <Breadcrumbs items={breadcrumbItems} />
         
         <div className="text-center mt-12 mb-16">
           <div className="inline-flex items-center justify-center w-20 h-20 rounded-3xl bg-primary/10 mb-6">

@@ -86,7 +86,7 @@ export default function AdminAreasPage() {
       toast({ title: "Success", description: "Area deleted successfully." });
 
       // Refresh the cache
-      await triggerRefresh('areas');
+      await triggerRefresh('locations');
       await triggerRefresh('sitemap');
     } catch (error) {
       console.error("Error deleting area: ", error);
@@ -130,7 +130,7 @@ export default function AdminAreasPage() {
       }
       
       // Refresh the cache
-      await triggerRefresh('areas');
+      await triggerRefresh('locations');
       await triggerRefresh('sitemap');
       if (activeId) {
         await submitToGoogleIndexing('area', activeId, payload.isActive);

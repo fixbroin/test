@@ -82,7 +82,7 @@ export default function ReferralSettingsTab() {
     try {
       const settingsDocRef = doc(db, REFERRAL_CONFIG_COLLECTION, REFERRAL_CONFIG_DOC_ID);
       await setDoc(settingsDocRef, { ...data, updatedAt: Timestamp.now() }, { merge: true });
-      await triggerRefresh('global-cache');
+      await triggerRefresh('withdrawal-referral-config');
       toast({ title: "Success", description: "Referral settings saved." });
     } catch (error) {
       toast({ title: "Error", description: "Could not save referral settings.", variant: "destructive" });
