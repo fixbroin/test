@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Settings, Save, Loader2 } from "lucide-react";
 import { useToast } from '@/hooks/use-toast';
 import { db } from '@/lib/firebase';
-import { doc, getDoc, setDoc, Timestamp } from "firebase/firestore";
+import { doc, getDoc, setDoc, Timestamp } from '@/lib/mysqlDb';
 import { triggerRefresh } from '@/lib/revalidateUtils';
 import type { AppSettings, PlatformFeeSetting } from '@/types/firestore'; 
 import { defaultAppSettings } from '@/config/appDefaults'; 

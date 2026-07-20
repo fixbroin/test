@@ -7,7 +7,7 @@ import { useGlobalSettings } from '@/hooks/useGlobalSettings';
 import { Skeleton } from '@/components/ui/skeleton';
 import { MapPin, ArrowRight, Loader2 } from 'lucide-react';
 import { db } from '@/lib/firebase';
-import { collection, getDocs, query, where, limit, orderBy } from 'firebase/firestore';
+import { collection, getDocs, query, where, limit, orderBy } from '@/lib/mysqlDb';
 import type { FirestoreCity, FirestoreArea, FirestoreCategory } from '@/types/firestore';
 import { getCategorySearchTerm } from '@/lib/seoAdvancedUtils';
 

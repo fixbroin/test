@@ -35,7 +35,7 @@ import AdminFloatingChatButton from '@/components/admin/AdminFloatingChatButton'
 import FloatingAdminChatWindow from '@/components/admin/FloatingAdminChatWindow';
 import { useTotalAdminUnreadChatCount } from '@/hooks/useTotalAdminUnreadChatCount';
 import { useGlobalSettings } from '@/hooks/useGlobalSettings';
-import { collection, query, where, onSnapshot, orderBy, limit, doc, updateDoc } from 'firebase/firestore'; 
+import { collection, query, where, onSnapshot, orderBy, limit, doc, updateDoc } from '@/lib/mysqlDb'; 
 import type { FirestoreNotification } from '@/types/firestore'; 
 import NewBookingAdminPopup from '@/components/admin/NewBookingAdminPopup'; 
 

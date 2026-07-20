@@ -15,7 +15,7 @@ import { cn } from "@/lib/utils";
 import { PlusCircle, Edit, Trash2, Loader2, Paperclip, PackageSearch, AlertTriangle, CheckCircle, XCircle, Check, ChevronsUpDown } from "lucide-react";
 import type { AdditionalDocumentTypeOption } from '@/types/firestore';
 import { db } from '@/lib/firebase';
-import { doc, getDoc, setDoc, Timestamp } from "firebase/firestore";
+import { doc, getDoc, setDoc, Timestamp } from '@/lib/mysqlDb';
 import { useToast } from "@/hooks/use-toast";
 import { triggerRefresh } from '@/lib/revalidateUtils';
 import { zodResolver } from "@hookform/resolvers/zod";

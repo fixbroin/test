@@ -12,7 +12,7 @@ import { MapPin, ExternalLink, Tag, HandCoins, Plus, UserCheck, Loader2, Phone, 
 import AppImage from '@/components/ui/AppImage'; 
 import { getTimestampMillis, formatScheduledDate } from '@/lib/utils';
 import { db } from '@/lib/firebase';
-import { doc, getDoc } from 'firebase/firestore';
+import { doc, getDoc } from '@/lib/mysqlDb';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { openWhatsAppChooser } from '@/lib/whatsappUtils';
 

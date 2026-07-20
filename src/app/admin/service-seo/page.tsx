@@ -10,7 +10,7 @@ import { PlusCircle, Edit, Trash2, PackageSearch, Layers } from "lucide-react";
 import type { AreaServiceSeoSetting, FirestoreCity, FirestoreArea, FirestoreService } from '@/types/firestore';
 import AreaServiceSeoForm, { type AreaServiceSeoFormData } from '@/components/admin/AreaServiceSeoForm';
 import { db } from '@/lib/firebase';
-import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc, Timestamp, where, query } from "firebase/firestore";
+import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc, Timestamp, where, query } from '@/lib/mysqlDb';
 import { useToast } from "@/hooks/use-toast";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Skeleton } from '@/components/ui/skeleton';

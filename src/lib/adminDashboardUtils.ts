@@ -3,7 +3,7 @@
 
 import { adminDb } from './firebaseAdmin';
 import { unstable_cache, revalidateTag } from 'next/cache';
-import { Timestamp } from 'firebase-admin/firestore';
+import { Timestamp } from './mysqlDbAdmin';
 import type { FirestoreBooking, FirestoreUser, UserActivity } from '@/types/firestore';
 import { serializeFirestoreData } from './serializeUtils';
 import { triggerRefresh } from './revalidateUtils';
@@ -96,7 +96,7 @@ export const getDashboardData = unstable_cache(
       }
 
       // 3. Analytics: Trending Services (Top 10 bookings - OPTIMIZED to reduce massive reads)
-      const trendingBookings = await adminDb.collection('bookings').orderBy('createdAt', 'desc').limit(500).get();
+      const trendingBookings = await adminDb.collection('bookings').orderBy('createdAt', 'desc').limit(100).get();
       
       // Only fetch details for services that actually appear in recent bookings
       const uniqueServiceIds = new Set<string>();
@@ -382,7 +382,7 @@ export async function clearSearchHotspots() {
       await batch.commit();
     }
 
-    revalidateTag('admin-dashboard-stats');
+    revalidateTag('admin-dashboard-stats', 'max');
     return { success: true };
   } catch (error) {
     console.error("Error clearing search hotspots:", error);

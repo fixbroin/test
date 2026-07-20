@@ -7,7 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter }
 import { Loader2, Star, PackageSearch, Filter, Check, ChevronsUpDown } from "lucide-react";
 import type { FirestoreReview, FirestoreBooking } from '@/types/firestore';
 import { db } from '@/lib/firebase';
-import { collection, query, where, onSnapshot, orderBy, getDocs, collectionGroup, limit } from "firebase/firestore";
+import { collection, query, where, onSnapshot, orderBy, getDocs, collectionGroup, limit } from '@/lib/mysqlDb';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';

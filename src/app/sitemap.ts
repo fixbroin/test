@@ -1,6 +1,6 @@
 import { MetadataRoute } from 'next';
 import { adminDb } from '@/lib/firebaseAdmin'; 
-import { Timestamp } from 'firebase-admin/firestore'; 
+import { Timestamp } from '@/lib/mysqlDbAdmin'; 
 import type { FirestoreCategory, FirestoreService, FirestoreCity, FirestoreArea, FirestoreBlogPost, ContentPage, AreaServiceSeoSetting } from '@/types/firestore';
 import { getBaseUrl } from '@/lib/config'; 
 import { unstable_cache } from 'next/cache';

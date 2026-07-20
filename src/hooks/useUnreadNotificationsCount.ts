@@ -4,7 +4,7 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from './useAuth'; // Assuming useAuth is in the same hooks directory or adjust path
 import { db } from '@/lib/firebase';
-import { collection, query, where, onSnapshot, limit, or, and } from "firebase/firestore";
+import { collection, query, where, onSnapshot, limit, or, and } from '@/lib/mysqlDb';
 import type { FirestoreNotification } from '@/types/firestore';
 
 interface UseUnreadNotificationsCountReturn {

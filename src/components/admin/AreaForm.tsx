@@ -14,7 +14,7 @@ import { Loader2, Wand2, Edit2, Lock, Search, Building } from "lucide-react";
 import { generateAreaSeo } from '@/ai/flows/generateAreaSeoFlow';
 import { useToast } from "@/hooks/use-toast";
 import { db } from '@/lib/firebase';
-import { collection, query, where, getDocs, limit } from "firebase/firestore";
+import { collection, query, where, getDocs, limit } from '@/lib/mysqlDb';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from "@/components/ui/dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";

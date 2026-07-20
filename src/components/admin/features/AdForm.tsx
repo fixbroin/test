@@ -18,7 +18,7 @@ import { cn } from "@/lib/utils";
 import NextImage from 'next/image';
 import { useToast } from "@/hooks/use-toast";
 import { storage } from '@/lib/firebase'; // Assuming firebase.ts exports storage
-import { ref as storageRef, uploadBytesResumable, getDownloadURL, deleteObject } from "firebase/storage";
+import { ref as storageRef, uploadBytesResumable, getDownloadURL, deleteObject } from '@/lib/mysqlStorage';
 import { Progress } from "@/components/ui/progress";
 import { nanoid } from 'nanoid'; // Import nanoid
 import { compressImage } from "@/lib/imageCompressor";

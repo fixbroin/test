@@ -14,14 +14,14 @@ import { Loader2, Image as ImageIcon, Trash2, Wand2, Edit2, Lock, Search, Tags, 
 import NextImage from 'next/image';
 import { useToast } from "@/hooks/use-toast";
 import { storage, db } from '@/lib/firebase';
-import { ref as storageRef, uploadBytesResumable, getDownloadURL, deleteObject } from "firebase/storage";
+import { ref as storageRef, uploadBytesResumable, getDownloadURL, deleteObject } from '@/lib/mysqlStorage';
 import { Progress } from "@/components/ui/progress";
 import { generateBlogContent } from "@/ai/flows/generateBlogContentFlow";
 
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from "@/components/ui/dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
-import { collection, query, where, getDocs, limit } from "firebase/firestore";
+import { collection, query, where, getDocs, limit } from '@/lib/mysqlDb';
 import { compressImage } from "@/lib/imageCompressor";
 
 const generateSlug = (title: string) => {

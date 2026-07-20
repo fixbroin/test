@@ -1,6 +1,7 @@
 
 import type { NextConfig } from 'next';
 import withPWAInit from '@ducanh2912/next-pwa';
+import path from 'path';
 
 // Safely handles responses
 const cacheUpdatePlugin = {
@@ -102,6 +103,7 @@ const withPWA = withPWAInit({
 
 const nextConfig: NextConfig = {
   output: 'standalone',
+  outputFileTracingRoot: path.join(__dirname, './'),
   images: {
     unoptimized: false,
     formats: ["image/avif", "image/webp"],
@@ -119,7 +121,6 @@ const nextConfig: NextConfig = {
   },
 
   typescript: { ignoreBuildErrors: true },
-  eslint: { ignoreDuringBuilds: true },
 };
 
 export default withPWA(nextConfig);

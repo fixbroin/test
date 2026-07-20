@@ -1,7 +1,7 @@
 // src/app/api/admin/stats/sync/route.ts
 import { NextResponse } from 'next/server';
 import { adminAuth, adminDb } from '@/lib/firebaseAdmin';
-import { Timestamp } from 'firebase-admin/firestore';
+import { Timestamp } from '@/lib/mysqlDbAdmin';
 import { revalidateTag } from 'next/cache';
 
 export async function POST(request: Request) {
@@ -76,8 +76,8 @@ export async function POST(request: Request) {
     await adminDb.collection('appConfiguration').doc('stats').set(statsData, { merge: true });
 
     // PURGE CACHE
-    revalidateTag('admin-dashboard-stats');
-    revalidateTag('global-cache');
+    revalidateTag('admin-dashboard-stats', 'max');
+    revalidateTag('global-cache', 'max');
 
     return NextResponse.json({ success: true, stats: statsData });
   } catch (error: any) {

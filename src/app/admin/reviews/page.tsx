@@ -13,7 +13,7 @@ import type { FirestoreReview, ReviewStatus, FirestoreService, FirestoreSubCateg
 import ReviewForm, { type ReviewFormData } from '@/components/admin/ReviewForm';
 import BulkReviewGeneratorDialog from '@/components/admin/BulkReviewGeneratorDialog';
 import { db } from '@/lib/firebase';
-import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc, orderBy, query, Timestamp, onSnapshot, limit, startAfter, type DocumentSnapshot } from "firebase/firestore";
+import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc, orderBy, query, Timestamp, onSnapshot, limit, startAfter, type DocumentSnapshot } from '@/lib/mysqlDb';
 import { useToast } from "@/hooks/use-toast";
 import { Badge } from "@/components/ui/badge";
 import PermissionGuard from '@/components/admin/PermissionGuard';

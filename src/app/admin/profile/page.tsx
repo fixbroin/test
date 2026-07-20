@@ -15,8 +15,8 @@ import * as z from "zod";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDescription } from "@/components/ui/form";
 import { updateProfile as updateAuthProfile } from "firebase/auth"; 
 import { auth, db, storage } from '@/lib/firebase';
-import { doc, getDoc, setDoc, updateDoc } from "firebase/firestore";
-import { ref as storageRefStandard, uploadBytesResumable, getDownloadURL, deleteObject } from "firebase/storage";
+import { doc, getDoc, setDoc, updateDoc } from '@/lib/mysqlDb';
+import { ref as storageRefStandard, uploadBytesResumable, getDownloadURL, deleteObject } from '@/lib/mysqlStorage';
 import { useToast } from '@/hooks/use-toast';
 import { Progress } from '@/components/ui/progress';
 

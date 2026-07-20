@@ -1,6 +1,6 @@
 
 import { type NextRequest, NextResponse } from 'next/server';
-import { getFirestore, Timestamp, type DocumentReference } from 'firebase-admin/firestore';
+import { getFirestore, Timestamp, type DocumentReference } from '@/lib/mysqlDbAdmin';
 import { initFirebaseAdmin } from '@/lib/firebase-admin';
 import { sendMarketingEmail } from '@/ai/flows/sendMarketingEmailFlow';
 import type { MarketingAutomationSettings, AppSettings, GlobalWebSettings, FirestoreUser, FirestoreService, UserCart, FirestoreCategory, FirestoreSubCategory } from '@/types/firestore';

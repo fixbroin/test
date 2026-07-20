@@ -5,7 +5,7 @@ import { useState, useEffect } from 'react';
 import CategoryCard from './CategoryCard';
 import type { FirestoreCategory } from '@/types/firestore';
 import { db } from '@/lib/firebase';
-import { collection, getDocs, orderBy, query } from 'firebase/firestore';
+import { collection, getDocs, orderBy, query } from '@/lib/mysqlDb';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Card } from '@/components/ui/card';
 

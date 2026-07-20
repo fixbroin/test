@@ -461,7 +461,7 @@ export async function POST(req: NextRequest) {
 
         // Collect unique subcategory IDs from the resolved services
         const subCategoryIds = new Set<string>();
-        Object.values(servicesData).forEach(service => {
+        (Object.values(servicesData) as FirestoreService[]).forEach(service => {
             if (service.subCategoryId) subCategoryIds.add(service.subCategoryId);
         });
         const subCategoryIdsArray = Array.from(subCategoryIds);
@@ -477,7 +477,7 @@ export async function POST(req: NextRequest) {
 
         // Collect category IDs from resolved subcategories
         const categoryIds = new Set<string>();
-        Object.values(subCatsData).forEach(subCat => {
+        (Object.values(subCatsData) as FirestoreSubCategory[]).forEach(subCat => {
             if (subCat.parentId) categoryIds.add(subCat.parentId);
         });
         const categoryIdsArray = Array.from(categoryIds);

@@ -16,7 +16,7 @@ import type { FirestoreService, FirestoreSubCategory, FirestoreCategory, Firesto
 import { useToast } from '@/hooks/use-toast';
 import { generateBulkReviews } from '@/ai/flows/generateBulkReviewsFlow';
 import { db } from '@/lib/firebase';
-import { collection, writeBatch, Timestamp, doc } from 'firebase/firestore';
+import { collection, writeBatch, Timestamp, doc } from '@/lib/mysqlDb';
 
 const formSchema = z.object({
   serviceId: z.string({ required_error: "Please select a service." }),

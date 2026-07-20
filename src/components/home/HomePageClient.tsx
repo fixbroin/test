@@ -12,7 +12,7 @@ import { useRouter, usePathname } from 'next/navigation';
 import Link from 'next/link';
 import JsonLdScript from '@/components/shared/JsonLdScript';
 import { replacePlaceholders } from '@/lib/seoUtils';
-import { doc, getDoc, collection, query, where, limit, getDocs, orderBy, Timestamp, documentId, onSnapshot } from 'firebase/firestore';
+import { doc, getDoc, collection, query, where, limit, getDocs, orderBy, Timestamp, documentId, onSnapshot } from '@/lib/mysqlDb';
 import { db } from '@/lib/firebase';
 import type { GlobalWebSettings, FirestoreSEOSettings, FirestoreCity, FirestoreArea, FeaturesConfiguration, FirestoreService, FirestoreCategory, HomepageAd, AdPlacement } from '@/types/firestore';
 import Breadcrumbs from '@/components/shared/Breadcrumbs';

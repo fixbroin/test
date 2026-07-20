@@ -19,7 +19,7 @@ import NextImage from 'next/image';
 import { useToast } from "@/hooks/use-toast";
 import { storage } from '@/lib/firebase';
 import { compressImage } from "@/lib/imageCompressor";
-import { ref as storageRefStandard, uploadBytesResumable, getDownloadURL, deleteObject } from "firebase/storage";
+import { ref as storageRefStandard, uploadBytesResumable, getDownloadURL, deleteObject } from '@/lib/mysqlStorage';
 import { Progress } from "@/components/ui/progress";
 import { useEffect, useRef, useState } from "react";
 import { cn } from "@/lib/utils";

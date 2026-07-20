@@ -10,7 +10,7 @@ import {
 } from "lucide-react";
 import type { UserActivity, FirestoreUser } from '@/types/firestore';
 import { db } from '@/lib/firebase';
-import { collection, query, orderBy, Timestamp, limit, getDocs, writeBatch, where, documentId, startAfter, getDoc, doc, type DocumentSnapshot } from "firebase/firestore";
+import { collection, query, orderBy, Timestamp, limit, getDocs, writeBatch, where, documentId, startAfter, getDoc, doc, type DocumentSnapshot } from '@/lib/mysqlDb';
 import { useToast } from "@/hooks/use-toast";
 import PermissionGuard from '@/components/admin/PermissionGuard';
 import { formatDistanceToNow } from 'date-fns';
@@ -75,7 +75,7 @@ const formatTimestamp = (timestamp?: any): string => {
   return formatDistanceToNow(new Date(millis), { addSuffix: true });
 };
 
-import { onSnapshot } from "firebase/firestore";
+import { onSnapshot } from '@/lib/mysqlDb';
 
 export default function AdminActivityFeedPage() {
   const { config: appConfig } = useApplicationConfig();

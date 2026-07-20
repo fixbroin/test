@@ -11,7 +11,7 @@ import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { Send, UserCircle, MessageSquareText, Loader2, Trash2 as TrashIcon, Bot, Info, ShieldCheck } from 'lucide-react';
 import type { FirestoreUser, ChatMessage, ChatSession, FirestoreNotification } from '@/types/firestore';
-import { Timestamp, doc, collection, query, where, orderBy, onSnapshot, addDoc, updateDoc, setDoc, serverTimestamp, getDoc, getDocs, limit, writeBatch } from "firebase/firestore";
+import { Timestamp, doc, collection, query, where, orderBy, onSnapshot, addDoc, updateDoc, setDoc, serverTimestamp, getDoc, getDocs, limit, writeBatch } from '@/lib/mysqlDb';
 import { db } from '@/lib/firebase';
 import { useAuth } from '@/hooks/useAuth';
 import { ADMIN_EMAIL } from '@/contexts/AuthContext';

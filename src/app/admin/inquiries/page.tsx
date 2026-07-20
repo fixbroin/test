@@ -11,7 +11,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Badge } from '@/components/ui/badge';
 import { Mail, MessageCircle, Phone, User, Edit, Trash2, CheckCircle, PackageSearch, Loader2, Send, AlertTriangle, Eye, MoreHorizontal, CheckCircle2 } from 'lucide-react';
 import { db } from '@/lib/firebase';
-import { collection, query, orderBy, onSnapshot, doc, updateDoc, deleteDoc, Timestamp, addDoc, limit } from 'firebase/firestore';
+import { collection, query, orderBy, onSnapshot, doc, updateDoc, deleteDoc, Timestamp, addDoc, limit } from '@/lib/mysqlDb';
 import type { FirestoreContactUsInquiry, FirestorePopupInquiry, InquiryStatus, AppSettings, FirestoreNotification } from '@/types/firestore';
 import { useToast } from "@/hooks/use-toast";
 import PermissionGuard from '@/components/admin/PermissionGuard';

@@ -10,7 +10,7 @@ import { PlusCircle, Edit, Trash2, Loader2, Layers, Search, ChevronRight } from 
 import type { FirestoreSubCategory, FirestoreCategory } from '@/types/firestore';
 import SubCategoryForm from '@/components/admin/SubCategoryForm';
 import { db } from '@/lib/firebase';
-import { collection, getDocs, getDoc, doc, deleteDoc, query, orderBy, onSnapshot, addDoc, updateDoc, serverTimestamp } from "firebase/firestore";
+import { collection, getDocs, getDoc, doc, deleteDoc, query, orderBy, onSnapshot, addDoc, updateDoc, serverTimestamp } from '@/lib/mysqlDb';
 import { useToast } from "@/hooks/use-toast";
 import { triggerRefresh } from '@/lib/revalidateUtils';
 import { Input } from "@/components/ui/input";
@@ -37,29 +37,6 @@ export default function AdminSubCategoriesPage() {
     setIsLoadingData(true);
     try {
       // --- SmartSync: Version Checking ---
-      let remoteVersion = 0;
-      if (!forceRefresh) {
-        try {
-          const versionDocRef = doc(db, "appConfiguration", "cacheVersions");
-          const versionSnap = await getDoc(versionDocRef);
-          if (versionSnap.exists()) {
-            remoteVersion = versionSnap.data().categories || 0;
-          }
-        } catch (e) { console.warn("Failed to fetch cache versions:", e); }
-
-        const localVersionKey = 'admin-subcategories-full-version';
-        const localVersion = parseInt(localStorage.getItem(localVersionKey) || "0");
-        const cachedSubCats = getCache<FirestoreSubCategory[]>('admin-subcategories-list-full', true);
-        const cachedCats = getCache<FirestoreCategory[]>('admin-parent-categories-list', true);
-
-        if (cachedSubCats && cachedCats && remoteVersion <= localVersion) {
-          setSubCategories(cachedSubCats);
-          setParentCategories(cachedCats);
-          setIsLoadingData(false);
-          return;
-        }
-      }
-
       const [subData, catData] = await Promise.all([
         getDocs(query(collection(db, "adminSubCategories"), orderBy("order", "asc"))),
         getDocs(query(collection(db, "adminCategories"), orderBy("order", "asc")))
@@ -70,12 +47,6 @@ export default function AdminSubCategoriesPage() {
 
       setSubCategories(fetchedSubCats);
       setParentCategories(fetchedCats);
-
-      if (!forceRefresh) {
-        setCache('admin-subcategories-list-full', fetchedSubCats, true);
-        setCache('admin-parent-categories-list', fetchedCats, true);
-        localStorage.setItem('admin-subcategories-full-version', remoteVersion.toString());
-      }
     } catch (error) {
       console.error("Error fetching sub-categories data: ", error);
       toast({ title: "Error", description: "Could not fetch data.", variant: "destructive" });
@@ -185,7 +156,9 @@ export default function AdminSubCategoriesPage() {
 
   const subCategoriesByCategory = parentCategories.reduce((acc, cat) => {
     // Check both parentCategoryId and parentId for backward compatibility
-    const subs = filteredSubCategories.filter(sub => sub.parentCategoryId === cat.id || sub.parentId === cat.id);
+    const subs = filteredSubCategories
+      .filter(sub => sub.parentCategoryId === cat.id || sub.parentId === cat.id)
+      .sort((a, b) => (Number(a.order) || 0) - (Number(b.order) || 0));
     if (subs.length > 0 || !searchQuery) {
         acc.push({ category: cat, subs });
     }

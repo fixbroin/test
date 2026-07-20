@@ -11,7 +11,7 @@ import { getBaseUrl } from '@/lib/config';
 import { generateBreadcrumbSchema } from '@/lib/seoAdvancedUtils';
 import JsonLdScript from '@/components/shared/JsonLdScript';
 
-export const revalidate = false;
+export const dynamic = 'force-dynamic';
 
 export async function generateMetadata(): Promise<Metadata> {
   const appBaseUrl = getBaseUrl();
@@ -47,7 +47,7 @@ const getCategories = unstable_cache(
     }
   },
   ['admin-categories-list'],
-  { revalidate: false, tags: ['categories', 'global-cache'] }
+  { revalidate: 1, tags: ['categories', 'global-cache'] }
 );
 
 

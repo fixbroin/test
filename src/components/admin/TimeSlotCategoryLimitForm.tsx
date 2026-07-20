@@ -14,7 +14,7 @@ import type { FirestoreCategory, TimeSlotCategoryLimit } from '@/types/firestore
 import { useEffect, useState } from "react";
 import { Loader2, Check, ChevronsUpDown, Search } from "lucide-react";
 import { db } from '@/lib/firebase';
-import { doc, setDoc, Timestamp } from "firebase/firestore";
+import { doc, setDoc, Timestamp } from '@/lib/mysqlDb';
 import { useToast } from "@/hooks/use-toast";
 
 const timeSlotLimitFormSchema = z.object({

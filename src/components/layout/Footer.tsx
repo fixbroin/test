@@ -7,7 +7,7 @@ import { Facebook, Twitter, Instagram, Linkedin, Youtube, Phone, MapPin, Mail, A
 import { useGlobalSettings } from '@/hooks/useGlobalSettings'; 
 import { Skeleton } from '@/components/ui/skeleton'; 
 import { db } from '@/lib/firebase';
-import { collection, getDocs, orderBy, query, limit as firestoreLimit, addDoc, Timestamp, where, limit } from 'firebase/firestore';
+import { collection, getDocs, orderBy, query, limit as firestoreLimit, addDoc, Timestamp, where, limit } from '@/lib/mysqlDb';
 import { useAuth } from '@/hooks/useAuth';
 import { useRouter, usePathname } from 'next/navigation';
 import { useLoading } from '@/contexts/LoadingContext'; 

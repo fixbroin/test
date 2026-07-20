@@ -11,7 +11,7 @@ import { useLoading } from '@/contexts/LoadingContext';
 import { useApplicationConfig } from '@/hooks/useApplicationConfig';
 import { useGlobalSettings } from '@/hooks/useGlobalSettings';
 import { db, auth } from '@/lib/firebase';
-import { doc, getDoc, collection, query, where, getDocs } from "firebase/firestore";
+import { doc, getDoc, collection, query, where, getDocs } from '@/lib/mysqlDb';
 import type { FirestoreService, AppliedPlatformFeeItem } from '@/types/firestore';
 import { getActiveCheckoutEntries, type CartEntry } from '@/lib/cartManager';
 import TaxBreakdownDisplay from '@/components/shared/TaxBreakdownDisplay';

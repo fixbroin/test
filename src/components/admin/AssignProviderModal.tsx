@@ -9,7 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Loader2, UserCheck2, UserCircle, PackageSearch, MapPin } from "lucide-react";
 import type { ProviderApplication, FirestoreBooking, FirestoreService, FirestoreSubCategory } from '@/types/firestore';
 import { db } from '@/lib/firebase';
-import { collection, query, where, orderBy, getDocs, doc, getDoc } from "firebase/firestore";
+import { collection, query, where, orderBy, getDocs, doc, getDoc } from '@/lib/mysqlDb';
 import { useToast } from "@/hooks/use-toast";
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { getHaversineDistance } from '@/lib/locationUtils';

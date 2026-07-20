@@ -3,7 +3,7 @@ import { type NextRequest, NextResponse } from 'next/server';
 import { adminDb } from '@/lib/firebaseAdmin';
 import { getBaseUrl } from '@/lib/config';
 import { notifyGoogleIndexing } from '@/lib/googleIndexing';
-import { Timestamp } from 'firebase-admin/firestore';
+import { Timestamp } from '@/lib/mysqlDbAdmin';
 
 export async function GET(req: NextRequest) {
   const secret = new URL(req.url).searchParams.get('secret');

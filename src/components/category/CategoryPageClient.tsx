@@ -22,7 +22,7 @@ import { getOverriddenCategoryName } from '@/lib/adminDataOverrides';
 import { Skeleton } from '@/components/ui/skeleton';
 import AppImage from '@/components/ui/AppImage';
 import { db } from '@/lib/firebase';
-import { collection, query, where, getDocs, orderBy, limit, doc, getDoc, onSnapshot } from 'firebase/firestore';
+import { collection, query, where, getDocs, orderBy, limit, doc, getDoc, onSnapshot } from '@/lib/mysqlDb';
 import { useToast } from '@/hooks/use-toast';
 import StickyCartContinueButton from '@/components/category/StickyCartContinueButton';
 import { useAuth } from '@/hooks/useAuth';

@@ -8,7 +8,7 @@ import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Loader2, UserCircle, Search, Users, Circle, MessageSquare } from 'lucide-react';
 import { db } from '@/lib/firebase';
-import { collection, query, orderBy, onSnapshot, where, documentId, limit, getDocs } from "firebase/firestore";
+import { collection, query, orderBy, onSnapshot, where, documentId, limit, getDocs } from '@/lib/mysqlDb';
 import type { FirestoreUser, ChatSession } from '@/types/firestore';
 import { cn, getTimestampMillis } from '@/lib/utils';
 import { formatDistanceToNowStrict } from 'date-fns';

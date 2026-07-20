@@ -12,7 +12,7 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Database, UploadCloud, Download, Loader2, AlertTriangle, MessageSquare, Smartphone, KeyRound, Server, BarChart2, Tv, ListChecks, HelpCircle, FileText, Code, FacebookIcon, Megaphone, Save } from "lucide-react";
 import { useToast } from '@/hooks/use-toast';
 import { db } from '@/lib/firebase';
-import { doc, getDoc, setDoc, Timestamp } from "firebase/firestore";
+import { doc, getDoc, setDoc, Timestamp } from '@/lib/mysqlDb';
 import { triggerRefresh } from '@/lib/revalidateUtils';
 import type { MarketingSettings, FirebaseClientConfig } from '@/types/firestore';
 import { zodResolver } from "@hookform/resolvers/zod";

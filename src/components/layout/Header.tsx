@@ -30,7 +30,7 @@ import ThemeToggle from '@/components/shared/ThemeToggle';
 import { useApplicationConfig } from '@/hooks/useApplicationConfig'; 
 import { useFeaturesConfig } from '@/hooks/useFeaturesConfig'; // Import new hook
 import type { ReferralSettings } from '@/types/firestore';
-import { doc, onSnapshot } from "firebase/firestore";
+import { doc, onSnapshot } from '@/lib/mysqlDb';
 import { db } from '@/lib/firebase'; // Added missing import
 
 const NavLink = ({ href, children, onClick, isButton = false }: { href?: string; children: React.ReactNode; onClick?: (e: React.MouseEvent<HTMLAnchorElement | HTMLButtonElement>) => void; isButton?: boolean }) => {

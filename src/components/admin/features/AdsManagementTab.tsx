@@ -10,7 +10,7 @@ import { Switch } from "@/components/ui/switch";
 import { PlusCircle, Edit, Trash2, Loader2, ImageIcon as ImageIconLucide, ExternalLink, ListChecks, ShoppingBag, PackageSearch } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { db } from '@/lib/firebase';
-import { doc, getDoc, setDoc, Timestamp } from "firebase/firestore";
+import { doc, getDoc, setDoc, Timestamp } from '@/lib/mysqlDb';
 import type { FeaturesConfiguration, HomepageAd, FirestoreCategory, FirestoreService, AdPlacement, AdActionType } from '@/types/firestore';
 import AdForm, { type AdFormData } from './AdForm';
 import { triggerRefresh } from '@/lib/revalidateUtils';

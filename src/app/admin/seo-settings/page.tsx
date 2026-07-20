@@ -11,7 +11,7 @@ import { Target, Globe, FileText, Type, Pilcrow, BarChart, Save, Loader2, Settin
 import { useToast } from '@/hooks/use-toast';
 import PermissionGuard from '@/components/admin/PermissionGuard';
 import { db } from '@/lib/firebase';
-import { doc, getDoc, setDoc, Timestamp } from "firebase/firestore";
+import { doc, getDoc, setDoc, Timestamp } from '@/lib/mysqlDb';
 import type { FirestoreSEOSettings, StructuredDataSocialProfiles } from '@/types/firestore';
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm, Controller } from "react-hook-form";

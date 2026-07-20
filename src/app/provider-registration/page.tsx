@@ -9,7 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Loader2, ShieldOff } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { db } from '@/lib/firebase';
-import { doc, getDoc, setDoc, Timestamp, collection, getDocs, query, orderBy, where, limit, addDoc } from "firebase/firestore";
+import { doc, getDoc, setDoc, Timestamp, collection, getDocs, query, orderBy, where, limit, addDoc } from '@/lib/mysqlDb';
 import type {
   ProviderApplication,
   ProviderApplicationStatus,

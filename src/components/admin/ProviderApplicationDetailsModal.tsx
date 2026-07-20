@@ -20,7 +20,7 @@ import { useGlobalSettings } from '@/hooks/useGlobalSettings';
 import { Separator } from "@/components/ui/separator";
 import { cn, getTimestampMillis } from "@/lib/utils";
 import { db } from '@/lib/firebase';
-import { doc, updateDoc, Timestamp } from 'firebase/firestore';
+import { doc, updateDoc, Timestamp } from '@/lib/mysqlDb';
 import { useRouter } from 'next/navigation';
 
 const PROVIDER_APPLICATION_COLLECTION = "providerApplications";

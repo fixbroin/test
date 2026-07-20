@@ -3,7 +3,7 @@
 
 import { useEffect } from 'react';
 import { usePathname } from 'next/navigation';
-import { doc, onSnapshot } from "firebase/firestore";
+import { doc, onSnapshot } from '@/lib/mysqlDb';
 import { db } from '@/lib/firebase';
 import type { GlobalWebSettings, ThemeColors, ThemePalette } from '@/types/firestore';
 import { DEFAULT_LIGHT_THEME_COLORS_HSL, DEFAULT_DARK_THEME_COLORS_HSL, THEME_PALETTE_KEYS, generatePaletteCssVariables } from '@/lib/colorUtils';

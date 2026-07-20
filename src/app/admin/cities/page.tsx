@@ -10,7 +10,7 @@ import { PlusCircle, Edit, Trash2, Loader2, MapPin, CheckCircle, XCircle, Packag
 import type { FirestoreCity } from '@/types/firestore';
 import CityForm from '@/components/admin/CityForm';
 import { db } from '@/lib/firebase';
-import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc, orderBy, query, Timestamp, where, limit } from "firebase/firestore";
+import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc, orderBy, query, Timestamp, where, limit } from '@/lib/mysqlDb';
 import { useToast } from "@/hooks/use-toast";
 import { triggerRefresh } from '@/lib/revalidateUtils';
 import { submitToGoogleIndexing } from '@/lib/googleIndexing';

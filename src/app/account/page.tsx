@@ -13,7 +13,7 @@ import { Button } from '@/components/ui/button';
 import { useLoading } from '@/contexts/LoadingContext';
 import { useUnreadNotificationsCount } from '@/hooks/useUnreadNotificationsCount';
 import type { ReferralSettings } from '@/types/firestore';
-import { doc, onSnapshot } from 'firebase/firestore';
+import { doc, onSnapshot } from '@/lib/mysqlDb';
 import { db } from '@/lib/firebase';
 import { useEffect, useState } from 'react';
 import { cn } from '@/lib/utils';

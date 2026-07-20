@@ -12,8 +12,8 @@ import { Users2, Eye, Edit, Trash2, CheckCircle, XCircle, AlertTriangle, Loader2
 import type { ProviderApplication, ProviderApplicationStatus, FirestoreNotification } from '@/types/firestore';
 import { db, storage } from '@/lib/firebase';
 import { triggerPushNotification } from '@/lib/fcmUtils';
-import { collection, query, orderBy, onSnapshot, doc, updateDoc, Timestamp, deleteDoc, addDoc, where, getDocs, limit } from "firebase/firestore";
-import { ref as storageRef, deleteObject } from "firebase/storage";
+import { collection, query, orderBy, onSnapshot, doc, updateDoc, Timestamp, deleteDoc, addDoc, where, getDocs, limit } from '@/lib/mysqlDb';
+import { ref as storageRef, deleteObject } from '@/lib/mysqlStorage';
 
 import { useToast } from "@/hooks/use-toast";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";

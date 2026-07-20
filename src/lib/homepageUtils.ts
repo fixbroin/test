@@ -209,7 +209,7 @@ export const getHomepageData = cache(async (): Promise<HomepageData> => {
             }
         },
         ['homepage-data'],
-        { revalidate: false,
+        { revalidate: 1,
  tags: ['global', 'cities', 'categories', 'services', 'global-cache'] }
     )();
 });
@@ -255,7 +255,7 @@ export const getCategoryFullData = cache(async (categorySlug: string, citySlug?:
                 const subCategories = subCategoriesSnapshot.docs.map(doc => ({ 
                     id: doc.id, 
                     ...serializeFirestoreData<Omit<FirestoreSubCategory, 'id'>>(doc.data() as any) 
-                } as FirestoreSubCategory));
+                } as FirestoreSubCategory)).sort((a, b) => (Number(a.order) || 0) - (Number(b.order) || 0));
 
                 const subCategoriesWithServices = await Promise.all(subCategories.map(async (subCat) => {
                     const servicesSnapshot = await adminDb.collection('adminServices')
@@ -344,7 +344,7 @@ export const getCategoryFullData = cache(async (categorySlug: string, citySlug?:
             }
         },
         [`category-data-${categorySlug}-${citySlug || 'no-city'}-${areaSlug || 'no-area'}`],
-        { revalidate: false,
+        { revalidate: 1,
  tags: ['categories', 'services', `category-${categorySlug}`, 'seo-settings', 'global-cache'] }
     )();
 });
@@ -396,7 +396,7 @@ export const getAggregateRating = cache(async (): Promise<{ ratingValue: string,
             }
         },
         ['aggregate-rating'],
-        { revalidate: false,
+        { revalidate: 1,
  tags: ['services', 'global-cache'] }
     )();
 });

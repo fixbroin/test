@@ -18,7 +18,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
 import { useToast } from '@/hooks/use-toast';
 import { db } from '@/lib/firebase';
-import { doc, getDoc, setDoc, Timestamp, collection, query, where, orderBy, limit, getDocs } from "firebase/firestore";
+import { doc, getDoc, setDoc, Timestamp, collection, query, where, orderBy, limit, getDocs } from '@/lib/mysqlDb';
 import type { MarketingAutomationSettings, AutomationDelay as AutomationDelayType, FirestoreService, FirestoreCategory } from '@/types/firestore';
 import { triggerRefresh } from '@/lib/revalidateUtils';
 import { sendMarketingEmail } from '@/ai/flows/sendMarketingEmailFlow';

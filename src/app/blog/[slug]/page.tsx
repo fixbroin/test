@@ -5,7 +5,7 @@ import AppImage from '@/components/ui/AppImage';
 import { ArrowRight, Calendar, User, Clock } from 'lucide-react';
 import Link from 'next/link';
 import { format } from 'date-fns';
-import { Timestamp } from 'firebase-admin/firestore';
+import { Timestamp } from '@/lib/mysqlDbAdmin';
 import JsonLdScript from '@/components/shared/JsonLdScript';
 import { getBaseUrl } from '@/lib/config';
 import type { Metadata } from 'next';

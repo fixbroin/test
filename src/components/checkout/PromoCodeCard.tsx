@@ -9,7 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tag, CheckCircle, XCircle, ListFilter, Loader2, TicketPercent, ChevronRight, Gift, X } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { db, auth } from '@/lib/firebase';
-import { collection, query, where, getDocs } from "firebase/firestore";
+import { collection, query, where, getDocs } from '@/lib/mysqlDb';
 import type { FirestorePromoCode } from '@/types/firestore';
 import { Badge } from '@/components/ui/badge';
 import { getTimestampMillis } from '@/lib/utils';

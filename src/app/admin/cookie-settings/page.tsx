@@ -11,7 +11,7 @@ import { Cookie, Save, Loader2 } from "lucide-react";
 import { useToast } from '@/hooks/use-toast';
 import PermissionGuard from '@/components/admin/PermissionGuard';
 import { db } from '@/lib/firebase';
-import { doc, getDoc, setDoc, Timestamp } from "firebase/firestore";
+import { doc, getDoc, setDoc, Timestamp } from '@/lib/mysqlDb';
 import type { GlobalWebSettings } from '@/types/firestore';
 import { triggerRefresh } from '@/lib/revalidateUtils';
 import { zodResolver } from "@hookform/resolvers/zod";

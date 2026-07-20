@@ -14,7 +14,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import type { FirestoreService, UserCart, PriceVariant } from '@/types/firestore';
 import { getCartEntries, saveCartEntries, syncCartToFirestore, saveActiveCheckoutEntries, type CartEntry } from '@/lib/cartManager';
 import { db } from '@/lib/firebase'; 
-import { doc, getDoc, onSnapshot } from "firebase/firestore";
+import { doc, getDoc, onSnapshot } from '@/lib/mysqlDb';
 import { useToast } from '@/hooks/use-toast';
 import { useLoading } from '@/contexts/LoadingContext';
 import { useRouter, usePathname } from 'next/navigation';

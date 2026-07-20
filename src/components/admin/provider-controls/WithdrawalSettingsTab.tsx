@@ -14,7 +14,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardFooter, CardDescription }
 import { Loader2, Save, Banknote, Gift, CreditCard } from "lucide-react";
 import { useToast } from '@/hooks/use-toast';
 import { db } from '@/lib/firebase';
-import { doc, getDoc, setDoc, Timestamp } from "firebase/firestore";
+import { doc, getDoc, setDoc, Timestamp } from '@/lib/mysqlDb';
 import type { WithdrawalSettings } from '@/types/firestore';
 import { triggerRefresh } from '@/lib/revalidateUtils';
 

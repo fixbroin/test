@@ -8,7 +8,7 @@ import { Loader2, PackageSearch, Briefcase } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import type { FirestoreBooking, BookingStatus, FirestoreNotification } from '@/types/firestore';
 import { db } from '@/lib/firebase';
-import { collectionGroup, query, where, onSnapshot, orderBy, doc, updateDoc, Timestamp, getDoc, getDocs, limit, addDoc, collection } from "firebase/firestore";
+import { collectionGroup, query, where, onSnapshot, orderBy, doc, updateDoc, Timestamp, getDoc, getDocs, limit, addDoc, collection } from '@/lib/mysqlDb';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
 import ProviderJobCard from '@/components/provider/ProviderJobCard'; 

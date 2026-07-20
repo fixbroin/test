@@ -13,7 +13,7 @@ import CheckoutStepper from '@/components/checkout/CheckoutStepper';
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { getCartEntries, type CartEntry } from '@/lib/cartManager';
 import { db, auth } from '@/lib/firebase';
-import { doc, getDoc, collection, query, where, getDocs, Timestamp } from "firebase/firestore";
+import { doc, getDoc, collection, query, where, getDocs, Timestamp } from '@/lib/mysqlDb';
 import type { FirestoreService, FirestoreUser, FirestorePromoCode, AppSettings, PlatformFeeSetting, AppliedPlatformFeeItem, PriceVariant } from '@/types/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { useRouter, usePathname, useSearchParams } from 'next/navigation';

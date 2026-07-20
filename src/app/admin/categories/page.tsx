@@ -12,8 +12,8 @@ import type { FirestoreCategory } from '@/types/firestore';
 import CategoryForm from '@/components/admin/CategoryForm';
 import { setCategoryNameOverride, getOverriddenCategoryName } from '@/lib/adminDataOverrides';
 import { db, storage } from '@/lib/firebase';
-import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc, orderBy, query, Timestamp, getDoc, where } from "firebase/firestore";
-import { ref as storageRef, deleteObject } from "firebase/storage";
+import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc, orderBy, query, Timestamp, getDoc, where } from '@/lib/mysqlDb';
+import { ref as storageRef, deleteObject } from '@/lib/mysqlStorage';
 import { useToast } from "@/hooks/use-toast";
 import { triggerRefresh } from '@/lib/revalidateUtils';
 import { submitToGoogleIndexing } from '@/lib/googleIndexing';
@@ -50,46 +50,19 @@ export default function AdminCategoriesPage() {
 
   const categoriesCollectionRef = collection(db, "adminCategories");
 
-  const fetchCategories = async (forceRefresh = false) => {
+  const fetchCategories = async () => {
     setIsLoading(true);
     try {
-      // --- SmartSync: Version Checking ---
-      let remoteVersion = 0;
-      if (!forceRefresh) {
-        try {
-          const versionDocRef = doc(db, "appConfiguration", "cacheVersions");
-          const versionSnap = await getDoc(versionDocRef);
-          if (versionSnap.exists()) {
-            remoteVersion = versionSnap.data().categories || 0;
-          }
-        } catch (e) { console.warn("Failed to fetch cache versions:", e); }
-
-        const localVersionKey = 'admin-categories-version';
-        const localVersion = parseInt(localStorage.getItem(localVersionKey) || "0");
-        const cachedData = getCache<FirestoreCategory[]>('admin-categories', true);
-
-        if (cachedData && remoteVersion <= localVersion) {
-          setCategories(cachedData);
-          setIsLoading(false);
-          return;
-        }
-      }
-
-      // Use Server-Side Cache + Client-Side Cache
-      const fetchedCategories = await getAdminCategories();
+      const q = query(categoriesCollectionRef, orderBy("order", "asc"));
+      const snapshot = await getDocs(q);
+      const fetchedCategories = snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id } as FirestoreCategory));
       setCategories(fetchedCategories);
-
-      // Update local cache
-      if (!forceRefresh) {
-        setCache('admin-categories', fetchedCategories, true);
-        localStorage.setItem('admin-categories-version', remoteVersion.toString());
-      }
     } catch (error) {
       console.error("Error fetching categories: ", error);
       toast({
         title: "Error",
-        description: "Could not fetch categories from Firestore.",
-        variant: "destructive",
+        description: "Could not fetch categories.",
+        variant: "destructive"
       });
     } finally {
       setIsLoading(false);

@@ -12,7 +12,7 @@ import ReviewSubmissionModal from '@/components/reviews/ReviewSubmissionModal';
 import type { FirestoreBooking } from '@/types/firestore';
 import { useAuth } from '@/hooks/useAuth';
 import { db } from '@/lib/firebase';
-import { collection, query, where, getDocs, limit, doc, updateDoc, Timestamp, serverTimestamp } from 'firebase/firestore';
+import { collection, query, where, getDocs, limit, doc, updateDoc, Timestamp, serverTimestamp } from '@/lib/mysqlDb';
 import BottomNavigationBar from './BottomNavigationBar';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { cn } from '@/lib/utils';

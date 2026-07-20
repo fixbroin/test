@@ -9,7 +9,7 @@ import { PlusCircle, Edit, Trash2, Loader2, Globe2, PackageSearch, CheckCircle, 
 import type { ServiceZone, FirestoreCategory, UserActivity } from '@/types/firestore';
 import ServiceZoneForm, { type ServiceZoneFormData } from '@/components/admin/ServiceZoneForm';
 import { db } from '@/lib/firebase';
-import { collection, onSnapshot, addDoc, updateDoc, deleteDoc, doc, orderBy, query, Timestamp, getDocs, limit } from "firebase/firestore";
+import { collection, onSnapshot, addDoc, updateDoc, deleteDoc, doc, orderBy, query, Timestamp, getDocs, limit } from '@/lib/mysqlDb';
 import { useToast } from "@/hooks/use-toast";
 import PermissionGuard from '@/components/admin/PermissionGuard';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";

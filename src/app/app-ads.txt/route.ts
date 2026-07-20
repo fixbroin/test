@@ -2,7 +2,7 @@
 // src/app/ads.txt/route.ts
 import { NextResponse } from 'next/server';
 import { db } from '@/lib/firebase';
-import { doc, getDoc } from 'firebase/firestore';
+import { doc, getDoc } from '@/lib/mysqlDb';
 import type { MarketingSettings } from '@/types/firestore';
 
 const MARKETING_CONFIG_COLLECTION = "webSettings";

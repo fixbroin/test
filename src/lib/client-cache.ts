@@ -29,7 +29,7 @@ export const getRemoteCacheVersions = async (): Promise<any> => {
   lastVersionFetchTime = now;
   remoteVersionsPromise = (async () => {
     try {
-      const res = await fetch('/api/cache-versions');
+      const res = await fetch('/api/cache-versions', { cache: 'no-store' });
       if (res.ok) {
         return await res.json();
       }

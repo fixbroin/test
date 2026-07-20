@@ -16,7 +16,7 @@ import { Loader2, Save, Search } from "lucide-react";
 import dynamic from 'next/dynamic';
 import { useApplicationConfig } from '@/hooks/useApplicationConfig';
 import { db } from '@/lib/firebase';
-import { collection, getDocs, query, orderBy, where } from "firebase/firestore";
+import { collection, getDocs, query, orderBy, where } from '@/lib/mysqlDb';
 import { ScrollArea } from "@/components/ui/scroll-area";
 
 const ZoneMapSelector = dynamic(() => import('@/components/admin/ZoneMapSelector'), {

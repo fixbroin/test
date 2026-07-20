@@ -9,7 +9,7 @@ import { useApplicationConfig } from '@/hooks/useApplicationConfig';
 import { getActiveCheckoutEntries } from '@/lib/cartManager';
 import { useState, useEffect } from 'react';
 import { db } from '@/lib/firebase';
-import { doc, getDoc } from 'firebase/firestore';
+import { doc, getDoc } from '@/lib/mysqlDb';
 import type { FirestoreService } from '@/types/firestore';
 
 interface PaymentMethodsProps {

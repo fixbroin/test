@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { doc, getDoc } from "firebase/firestore";
+import { doc, getDoc, onSnapshot } from '@/lib/mysqlDb';
 import { db } from '@/lib/firebase';
 import type { MarketingSettings, FirebaseClientConfig } from '@/types/firestore';
 import { getCache, setCache, getRemoteCacheVersions } from '@/lib/client-cache';
@@ -77,47 +77,28 @@ export function useMarketingSettings(): UseMarketingSettingsReturn {
   }, []);
 
   useEffect(() => {
-    // If it's a bot and we are not in admin, skip fetching to save reads
     if (isBot() && !isAdmin) {
       setIsLoading(false);
       return;
     }
 
-    if (!isAdmin && hasLoadedRef.current) return;
-
-    const fetchMarketing = async () => {
-      try {
-        // Smart Cache Logic: Check global cache version (deduplicated client-side read)
-        const remoteVersions = await getRemoteCacheVersions();
-        const remoteVersion = remoteVersions.global || 0;
-        
-        const localVersion = parseInt(localStorage.getItem(`${CACHE_KEY}-version`) || "0");
-        const cached = getCache<MarketingSettings>(CACHE_KEY, true);
-        
-        if (cached && !isAdmin && remoteVersion <= localVersion) {
-            setSettings(processData(cached));
-            setIsLoading(false);
-            hasLoadedRef.current = true;
-            return;
-        }
-        const res = await fetch('/api/marketing-settings');
-        if (res.ok) {
-          const data = await res.json();
-          const processed = processData(data);
-          setSettings(processed);
-          setCache(CACHE_KEY, processed, true);
-          localStorage.setItem(`${CACHE_KEY}-version`, remoteVersion.toString());
-        }
-      } catch (err) {
-        console.error("Error fetching marketing settings:", err);
-        setError("Failed to load settings.");
-      } finally {
-        setIsLoading(false);
-        hasLoadedRef.current = true;
+    const docRef = doc(db, MARKETING_CONFIG_COLLECTION, MARKETING_CONFIG_DOC_ID);
+    const unsubscribe = onSnapshot(docRef, (docSnap) => {
+      if (docSnap.exists()) {
+        const processed = processData(docSnap.data());
+        setSettings(processed);
+        setCache(CACHE_KEY, processed, true);
       }
-    };
+      setIsLoading(false);
+      hasLoadedRef.current = true;
+    }, (err: any) => {
+      if (err?.name !== 'AbortError' && !err?.message?.includes('Failed to fetch')) {
+        console.error("Error subscribing to marketing settings:", err);
+      }
+      setIsLoading(false);
+    });
 
-    fetchMarketing();
+    return () => unsubscribe();
   }, [processData, isAdmin]);
 
   return { settings, isLoading, error };

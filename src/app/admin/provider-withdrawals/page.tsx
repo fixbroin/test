@@ -7,7 +7,7 @@ import { Loader2, PackageSearch, Check, X, MoreHorizontal, AlertTriangle, Eye, T
 import { Button } from '@/components/ui/button';
 import { db } from '@/lib/firebase';
 import { triggerPushNotification } from '@/lib/fcmUtils';
-import { collection, query, orderBy, onSnapshot, doc, updateDoc, Timestamp, runTransaction, getDoc, addDoc, deleteDoc, where, getDocs } from "firebase/firestore";
+import { collection, query, orderBy, onSnapshot, doc, updateDoc, Timestamp, runTransaction, getDoc, addDoc, deleteDoc, where, getDocs } from '@/lib/mysqlDb';
 import type { WithdrawalRequest, WithdrawalStatus, FirestoreNotification, FirestoreUser, ProviderApplication } from '@/types/firestore';
 import { useToast } from "@/hooks/use-toast";
 import PermissionGuard from '@/components/admin/PermissionGuard';

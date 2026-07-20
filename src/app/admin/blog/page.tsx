@@ -11,8 +11,8 @@ import { PlusCircle, Edit, Trash2, Loader2, FileText, CheckCircle, XCircle, Pack
 import type { FirestoreBlogPost, FirestoreCategory } from '@/types/firestore';
 import BlogForm from '@/components/admin/BlogForm';
 import { db, storage } from '@/lib/firebase';
-import { collection, onSnapshot, addDoc, updateDoc, deleteDoc, doc, orderBy, query, Timestamp, getDocs } from "firebase/firestore";
-import { ref as storageRef, deleteObject } from "firebase/storage";
+import { collection, onSnapshot, addDoc, updateDoc, deleteDoc, doc, orderBy, query, Timestamp, getDocs } from '@/lib/mysqlDb';
+import { ref as storageRef, deleteObject } from '@/lib/mysqlStorage';
 import { useToast } from "@/hooks/use-toast";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Badge } from '@/components/ui/badge';

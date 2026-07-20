@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { doc, onSnapshot, getDoc, Timestamp } from "firebase/firestore";
+import { doc, onSnapshot, getDoc, Timestamp } from '@/lib/mysqlDb';
 import { db } from '@/lib/firebase';
 import type { GlobalWebSettings, ThemeColors, ThemePalette, GlobalAdminPopup, LoaderType } from '@/types/firestore';
 import { DEFAULT_LIGHT_THEME_COLORS_HSL, DEFAULT_DARK_THEME_COLORS_HSL, THEME_PALETTE_KEYS } from '@/lib/colorUtils';
@@ -90,7 +90,6 @@ export function useGlobalSettings() {
   }, [settings?.loaderType]);
 
   useEffect(() => {
-    // If it's a bot and we are not in admin, skip fetching to save reads
     if (isVisitorBot.current && !isAdmin) {
       setIsLoading(false);
       return;
@@ -98,62 +97,24 @@ export function useGlobalSettings() {
 
     const settingsDocRef = doc(db, WEB_SETTINGS_COLLECTION, WEB_SETTINGS_DOC_ID);
 
-    // If we have cached data and it's not admin, don't even fetch again in this session
-    if (!isAdmin && hasLoadedRef.current) return;
-
-    if (isAdmin) {
-      // Admins get real-time updates
-      const unsubscribe = onSnapshot(settingsDocRef, (docSnap) => {
-        if (docSnap.exists()) {
-          const processed = processSettingsData(docSnap.data());
-          setSettings(processed);
-          setCache(CACHE_KEY, processed, true);
-        }
-        setIsLoading(false);
-        hasLoadedRef.current = true;
-      }, (err) => {
+    const unsubscribe = onSnapshot(settingsDocRef, (docSnap) => {
+      if (docSnap.exists()) {
+        const processed = processSettingsData(docSnap.data());
+        setSettings(processed);
+        setCache(CACHE_KEY, processed, true);
+      }
+      setIsLoading(false);
+      hasLoadedRef.current = true;
+    }, (err: any) => {
+      if (err?.name !== 'AbortError' && !err?.message?.includes('Failed to fetch')) {
         console.error("Error fetching settings:", err);
         setError("Failed to load settings.");
-        setIsLoading(false);
-      });
-      return () => unsubscribe();
-    } else {
-      const fetchSettings = async () => {
-        try {
-          // Check Global Version (deduplicated client-side read)
-          const remoteVersions = await getRemoteCacheVersions();
-          const remoteVersion = remoteVersions.global || 0;
-          
-          const localVersion = parseInt(localStorage.getItem(`${CACHE_KEY}-version`) || "0");
-          const cached = getCache<GlobalWebSettings>(CACHE_KEY, true);
+      }
+      setIsLoading(false);
+    });
 
-          // If versions match, use the lifetime cache and STOP. Zero reads for settings.
-          if (cached && remoteVersion <= localVersion) {
-              setSettings(processSettingsData(cached));
-              setIsLoading(false);
-              return;
-          }
-
-          // Versions don't match or no cache? Fetch from server-cached API
-          const res = await fetch('/api/web-settings');
-          if (res.ok) {
-            const data = await res.json();
-            const processed = processSettingsData(data);
-            setSettings(processed);
-            setCache(CACHE_KEY, processed, true);
-            localStorage.setItem(`${CACHE_KEY}-version`, remoteVersion.toString());
-          }
-        } catch (err) {
-          console.error("Error fetching settings:", err);
-          setError("Failed to load settings.");
-        } finally {
-          setIsLoading(false);
-          hasLoadedRef.current = true;
-        }
-      };
-      fetchSettings();
-    }
-  }, [isAdmin]);
+    return () => unsubscribe();
+  }, [processSettingsData, isAdmin]);
 
   return { settings, isLoading, error };
 }

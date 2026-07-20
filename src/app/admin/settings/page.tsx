@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Settings, Save, Loader2, AlertCircle, MapPin as MapIcon, MailIcon, PlaySquare, Percent, Ban, Users, Clock, DollarSign, CreditCard, Bell, Plus, Trash2, CalendarDays, Edit3 } from "lucide-react";
 import { useToast } from '@/hooks/use-toast';
 import { db } from '@/lib/firebase';
-import { doc, getDoc, setDoc, Timestamp, collection, getDocs, addDoc, deleteDoc, query, orderBy } from "firebase/firestore";
+import { doc, getDoc, setDoc, Timestamp, collection, getDocs, addDoc, deleteDoc, query, orderBy } from '@/lib/mysqlDb';
 import { cn, formatDateInTimezone, formatTimeInTimezone } from '@/lib/utils';
 import { triggerRefresh } from '@/lib/revalidateUtils';
 import type { AppSettings, DayAvailability } from '@/types/firestore'; 

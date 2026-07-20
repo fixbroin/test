@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { FileText, Loader2, ArrowRight } from "lucide-react";
 import type { FirestoreBlogPost } from '@/types/firestore';
 import { db } from '@/lib/firebase';
-import { collection, query, where, orderBy, getDocs } from "firebase/firestore";
+import { collection, query, where, orderBy, getDocs } from '@/lib/mysqlDb';
 import BlogPostCard from '@/components/blog/BlogPostCard';
 import Link from 'next/link';
 import { useLoading } from '@/contexts/LoadingContext';

@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Palette, Save, Loader2, RefreshCw, XCircle, Sun, Moon, Sparkles, CheckCircle2, Layout, Zap, Component, Settings2 } from "lucide-react";
 import { useToast } from '@/hooks/use-toast';
 import { db } from '@/lib/firebase';
-import { doc, getDoc, setDoc, Timestamp } from "firebase/firestore";
+import { doc, getDoc, setDoc, Timestamp } from '@/lib/mysqlDb';
 import { triggerRefresh } from '@/lib/revalidateUtils';
 import type { GlobalWebSettings, ThemeColors, ThemePalette, LoaderType } from '@/types/firestore';
 import { hexToHslString, hslStringToHex, DEFAULT_LIGHT_THEME_COLORS_HSL, DEFAULT_DARK_THEME_COLORS_HSL, CORE_THEME_PALETTE_KEYS } from '@/lib/colorUtils';
@@ -60,6 +60,7 @@ export default function ThemeSettingsPage() {
     dark: {},
   });
   const [selectedLoader, setSelectedLoader] = useState<LoaderType>('logo-pulse');
+  const [showLabels, setShowLabels] = useState(true);
 
   const loadThemeSettings = useCallback(async () => {
     setIsLoading(true);
@@ -174,10 +175,177 @@ export default function ThemeSettingsPage() {
     return currentColorsHex[mode]?.[key] || hslStringToHex(defaultPalette[key]!);
   };
 
-  const previewPrimary = getCurrentColor(activeTab, 'primary');
-  const previewAccent = getCurrentColor(activeTab, 'accent');
-  const previewForeground = getCurrentColor(activeTab, 'foreground');
-  const previewBackground = getCurrentColor(activeTab, 'background');
+  const getPreviewStyles = (mode: ThemeMode) => ({
+    '--background': getCurrentColor(mode, 'background'),
+    '--foreground': getCurrentColor(mode, 'foreground'),
+    '--card': getCurrentColor(mode, 'card'),
+    '--card-foreground': getCurrentColor(mode, 'card-foreground'),
+    '--popover': getCurrentColor(mode, 'popover'),
+    '--popover-foreground': getCurrentColor(mode, 'popover-foreground'),
+    '--primary': getCurrentColor(mode, 'primary'),
+    '--primary-foreground': getCurrentColor(mode, 'primary-foreground'),
+    '--secondary': getCurrentColor(mode, 'secondary'),
+    '--secondary-foreground': getCurrentColor(mode, 'secondary-foreground'),
+    '--muted': getCurrentColor(mode, 'muted'),
+    '--muted-foreground': getCurrentColor(mode, 'muted-foreground'),
+    '--accent': getCurrentColor(mode, 'accent'),
+    '--accent-foreground': getCurrentColor(mode, 'accent-foreground'),
+    '--destructive': getCurrentColor(mode, 'destructive'),
+    '--destructive-foreground': getCurrentColor(mode, 'destructive-foreground'),
+    '--border': getCurrentColor(mode, 'border'),
+    '--input': getCurrentColor(mode, 'input'),
+    '--ring': getCurrentColor(mode, 'ring'),
+  } as React.CSSProperties);
+
+  const renderBrandColorsPreview = (mode: ThemeMode) => {
+    return (
+      <div className="p-5 rounded-[1.5rem] border space-y-4 shadow-sm flex flex-col"
+           style={{ 
+             ...getPreviewStyles(mode),
+             backgroundColor: mode === 'dark' ? '#0F172A' : '#F8FAFC', 
+             borderColor: 'var(--border)',
+             color: 'var(--foreground)'
+           }}>
+        <div className="text-[10px] font-black uppercase tracking-wider text-muted-foreground mb-1">Brand Colors Preview</div>
+        
+        {/* Primary Action Button */}
+        <div className="space-y-1">
+          <span className="text-[8px] font-bold text-muted-foreground uppercase">Primary / Primary-Foreground</span>
+          <button className="w-full h-10 rounded-xl font-black text-[10px] uppercase tracking-widest shadow-sm transition-all"
+                  style={{ backgroundColor: 'var(--primary)', color: 'var(--primary-foreground)' }}>
+            Primary Button
+          </button>
+        </div>
+
+        {/* Secondary Button */}
+        <div className="space-y-1">
+          <span className="text-[8px] font-bold text-muted-foreground uppercase">Secondary / Secondary-Foreground</span>
+          <button className="w-full h-10 rounded-xl border font-black text-[10px] uppercase tracking-widest shadow-sm transition-all"
+                  style={{ backgroundColor: 'var(--secondary)', color: 'var(--secondary-foreground)', borderColor: 'var(--border)' }}>
+            Secondary Action
+          </button>
+        </div>
+
+        {/* Accent Badge / Rating */}
+        <div className="space-y-1">
+          <span className="text-[8px] font-bold text-muted-foreground uppercase">Accent / Accent-Foreground</span>
+          <div className="flex items-center justify-between p-3 rounded-xl border" style={{ borderColor: 'var(--border)', backgroundColor: mode === 'dark' ? '#1E293B' : '#FFFFFF' }}>
+            <div className="flex items-center gap-1 font-bold text-xs">
+              <span style={{ color: 'var(--accent)' }}>★★★★★</span>
+              <span className="text-[10px] text-muted-foreground ml-1">Rating</span>
+            </div>
+            <div className="px-2 py-0.5 rounded text-[8px] font-black uppercase tracking-wider shadow-sm"
+                 style={{ backgroundColor: 'var(--accent)', color: 'var(--accent-foreground)' }}>
+              Special Offer
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  const renderBaseUIPreview = (mode: ThemeMode) => {
+    return (
+      <div className="p-5 rounded-[1.5rem] border space-y-4 shadow-sm flex flex-col transition-all duration-300 animate-in fade-in"
+           style={{ 
+             ...getPreviewStyles(mode),
+             backgroundColor: 'var(--background)', 
+             color: 'var(--foreground)', 
+             borderColor: 'var(--border)' 
+           }}>
+        <div className="text-[10px] font-black uppercase tracking-wider text-muted-foreground mb-1">Base UI Preview</div>
+
+        {/* Mock Page Window */}
+        <div className="space-y-1.5">
+          <span className="text-[8px] font-bold text-muted-foreground uppercase">Background / Foreground</span>
+          <div className="p-4 rounded-xl border space-y-3" style={{ backgroundColor: 'var(--background)', color: 'var(--foreground)', borderColor: 'var(--border)' }}>
+            <div className="text-xs font-black uppercase tracking-tight">Main Screen Title</div>
+            
+            {/* Card Mockup */}
+            <div className="p-3.5 rounded-xl border shadow-sm"
+                 style={{ backgroundColor: 'var(--card)', color: 'var(--card-foreground)', borderColor: 'var(--border)' }}>
+              <div className="text-xs font-bold mb-1">Nested Card Block</div>
+              <div className="text-[10px] text-muted-foreground">This content card adapts to your card background.</div>
+            </div>
+          </div>
+        </div>
+
+        {/* Floating Popover Mockup */}
+        <div className="space-y-1.5">
+          <span className="text-[8px] font-bold text-muted-foreground uppercase">Popover / Popover-Foreground</span>
+          <div className="p-3.5 rounded-xl border shadow-lg space-y-2"
+               style={{ backgroundColor: 'var(--popover)', color: 'var(--popover-foreground)', borderColor: 'var(--border)' }}>
+            <div className="text-[9px] font-black uppercase tracking-wider text-muted-foreground">Select Profile Option</div>
+            <div className="p-2 rounded-lg text-xs font-bold border" style={{ borderColor: 'var(--border)', backgroundColor: 'var(--background)' }}>
+               Account Settings
+            </div>
+            <div className="p-2 rounded-lg text-xs font-black flex items-center justify-between" style={{ backgroundColor: 'var(--primary)', color: 'var(--primary-foreground)' }}>
+               <span>Active Session</span>
+               <span>✓</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  const renderSystemBordersPreview = (mode: ThemeMode) => {
+    return (
+      <div className="p-5 rounded-[1.5rem] border space-y-4 shadow-sm flex flex-col animate-in fade-in"
+           style={{ 
+             ...getPreviewStyles(mode),
+             backgroundColor: mode === 'dark' ? '#0F172A' : '#F8FAFC', 
+             borderColor: 'var(--border)',
+             color: 'var(--foreground)'
+           }}>
+        <div className="text-[10px] font-black uppercase tracking-wider text-muted-foreground mb-1">System & Borders Preview</div>
+
+        {/* Form Input Field with Input & Ring */}
+        <div className="space-y-1">
+          <span className="text-[8px] font-bold text-muted-foreground uppercase">Input / Ring (Active State)</span>
+          <div className="relative rounded-xl border flex items-center p-2.5 shadow-sm transition-all"
+               style={{ 
+                 borderColor: 'var(--border)', 
+                 backgroundColor: 'var(--input)',
+                 boxShadow: '0 0 0 2px var(--ring)'
+               }}>
+            <span className="text-xs mr-2 text-muted-foreground">🔍</span>
+            <span className="text-xs font-semibold text-muted-foreground">Input focus outline...</span>
+          </div>
+        </div>
+
+        {/* Muted Timeline Section */}
+        <div className="space-y-1">
+          <span className="text-[8px] font-bold text-muted-foreground uppercase">Muted / Muted-Foreground / Border</span>
+          <div className="p-3 rounded-xl border text-xs" style={{ backgroundColor: 'var(--muted)', color: 'var(--muted-foreground)', borderColor: 'var(--border)' }}>
+             ℹ️ Standard notification alert detailing background updates.
+          </div>
+        </div>
+
+        {/* Destructive Action */}
+        <div className="space-y-1">
+          <span className="text-[8px] font-bold text-muted-foreground uppercase">Destructive / Destructive-Foreground</span>
+          <button className="w-full h-10 rounded-xl font-black text-[10px] uppercase tracking-widest shadow-sm transition-all"
+                  style={{ backgroundColor: 'var(--destructive)', color: 'var(--destructive-foreground)' }}>
+             Delete Account
+          </button>
+        </div>
+      </div>
+    );
+  };
+
+  const renderGroupPreview = (title: string, mode: ThemeMode) => {
+    switch (title) {
+      case "Brand Colors":
+        return renderBrandColorsPreview(mode);
+      case "Base UI":
+        return renderBaseUIPreview(mode);
+      case "System & Borders":
+        return renderSystemBordersPreview(mode);
+      default:
+        return null;
+    }
+  };
 
   if (isLoading) {
     return (
@@ -229,8 +397,8 @@ export default function ThemeSettingsPage() {
         </header>
 
         <div className="grid gap-8 grid-cols-1 lg:grid-cols-12 mt-8">
-          {/* Left: Loader & Preview (4 cols) */}
-          <div className="lg:col-span-4 space-y-8">
+          {/* Left: System Loader (3 cols) */}
+          <div className="lg:col-span-3 space-y-8">
             <Card className="border-none shadow-xl rounded-[2rem] overflow-hidden bg-card">
               <CardHeader className="p-8 pb-4">
                 <div className="flex items-center space-x-3 mb-1 text-primary">
@@ -267,105 +435,10 @@ export default function ThemeSettingsPage() {
                 </ScrollArea>
               </CardContent>
             </Card>
-
-            <Card className={cn(
-              "border-none shadow-2xl rounded-[2rem] overflow-hidden p-0 relative group transition-all duration-500",
-              activeTab === 'dark' ? "bg-[#0F172A]" : "bg-white border border-border/40"
-            )} style={activeTab === 'light' ? { backgroundColor: previewBackground, color: previewForeground } : { color: 'white' }}>
-               {/* Dynamic Glow Effect */}
-               <div className="absolute -top-24 -right-24 w-48 h-48 blur-[100px] rounded-full transition-all duration-700" 
-                    style={{ backgroundColor: `${previewPrimary}33` }} />
-               
-               <div className="p-8 relative z-10">
-                  <div className="flex items-center justify-between mb-8">
-                     <div className="flex items-center space-x-3">
-                        <div className={cn(
-                          "p-2 rounded-xl border transition-colors",
-                          activeTab === 'dark' ? "bg-white/5 border-white/10" : "bg-muted border-border/40"
-                        )}>
-                          <Layout className="h-5 w-5" style={{ color: previewPrimary }} />
-                        </div>
-                        <h3 className="font-black text-lg tracking-tight uppercase" style={{ color: activeTab === 'dark' ? 'white' : previewForeground }}>Studio Preview</h3>
-                     </div>
-                     <div className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse shadow-[0_0_8px_#10b981]" />
-                  </div>
-
-                  <div className="space-y-6">
-                     {/* Mock App Header */}
-                     <div className={cn(
-                       "flex items-center justify-between p-3 rounded-xl border backdrop-blur-md transition-all",
-                       activeTab === 'dark' ? "bg-white/5 border-white/10" : "bg-muted/50 border-border/40"
-                     )}>
-                        <div className="flex gap-1.5">
-                           <div className="h-2 w-2 rounded-full bg-red-500/50" />
-                           <div className="h-2 w-2 rounded-full bg-amber-500/50" />
-                           <div className="h-2 w-2 rounded-full bg-emerald-500/50" />
-                        </div>
-                        <div className={cn("h-3 w-24 rounded-full", activeTab === 'dark' ? "bg-white/10" : "bg-slate-200")} />
-                        <div className="h-6 w-6 rounded-full border transition-colors" 
-                             style={{ backgroundColor: `${previewPrimary}33`, borderColor: `${previewPrimary}66` }} />
-                     </div>
-
-                     {/* Mock Content Card */}
-                     <div className={cn(
-                       "p-5 rounded-2xl border shadow-inner transition-all",
-                       activeTab === 'dark' ? "bg-gradient-to-br from-white/[0.08] to-transparent border-white/10" : "bg-muted/30 border-border/40"
-                     )}>
-                        <div className="flex items-center gap-3 mb-4">
-                           <div className={cn("h-10 w-10 rounded-full border flex items-center justify-center transition-colors", activeTab === 'dark' ? "bg-primary/20 border-primary/40" : "bg-primary/10 border-primary/20")} 
-                                style={{ backgroundColor: `${previewPrimary}33`, borderColor: `${previewPrimary}66` }}>
-                              <Zap className="h-5 w-5" style={{ color: previewPrimary }} />
-                           </div>
-                           <div className="space-y-1.5">
-                              <div className={cn("h-2.5 w-24 rounded-full transition-colors")} style={{ backgroundColor: `${previewPrimary}66` }} />
-                              <div className={cn("h-2 w-16 rounded-full", activeTab === 'dark' ? "bg-white/10" : "bg-slate-200")} />
-                           </div>
-                        </div>
-                        <div className="space-y-2">
-                           <div className={cn("h-2 w-full rounded-full", activeTab === 'dark' ? "bg-white/5" : "bg-slate-100")} />
-                           <div className={cn("h-2 w-[90%] rounded-full", activeTab === 'dark' ? "bg-white/5" : "bg-slate-100")} />
-                           <div className={cn("h-2 w-[40%] rounded-full", activeTab === 'dark' ? "bg-white/5" : "bg-slate-100")} />
-                        </div>
-                     </div>
-
-                     {/* Call to Action Section */}
-                     <div className="grid grid-cols-2 gap-3">
-                        <button className="h-12 rounded-xl font-black text-[10px] uppercase tracking-widest shadow-lg transition-all hover:scale-[1.02]"
-                                style={{ backgroundColor: previewPrimary, color: activeTab === 'dark' ? 'black' : 'white', boxShadow: `0 10px 15px -3px ${previewPrimary}4D` }}>
-                           Primary Action
-                        </button>
-                        <button className={cn(
-                          "h-12 rounded-xl border font-black text-[10px] uppercase tracking-widest transition-colors",
-                          activeTab === 'dark' ? "bg-white/5 border-white/10 text-white hover:bg-white/10" : "bg-white border-border text-slate-600 hover:bg-slate-50"
-                        )}>
-                           Secondary
-                        </button>
-                     </div>
-
-                     {/* Bottom Status Row */}
-                     <div className="flex items-center gap-3 pt-2">
-                        <div className="h-8 w-8 rounded-xl border flex items-center justify-center transition-colors"
-                             style={{ backgroundColor: `${previewAccent}33`, borderColor: `${previewAccent}66` }}>
-                           <CheckCircle2 className="h-4 w-4" style={{ color: previewAccent }} />
-                        </div>
-                        <div className={cn("flex-grow h-8 rounded-xl border flex items-center px-3", activeTab === 'dark' ? "bg-white/5 border-white/10" : "bg-slate-50 border-border/40")}>
-                           <div className={cn("h-1.5 w-full rounded-full overflow-hidden", activeTab === 'dark' ? "bg-white/10" : "bg-accent/10")}>
-                              <div className="h-full w-2/3 transition-all duration-1000" style={{ backgroundColor: previewAccent }} />
-                           </div>
-                        </div>
-                     </div>
-                  </div>
-                  
-                  <p className={cn(
-                    "text-[10px] mt-8 text-center uppercase font-black tracking-[0.3em] italic",
-                    activeTab === 'dark' ? "text-white/20" : "text-slate-400"
-                  )}>Neon Engine v2.0 • Real-time View</p>
-               </div>
-            </Card>
           </div>
 
-          {/* Right: Color Settings (8 cols) */}
-          <div className="lg:col-span-8">
+          {/* Right: Color Settings & Previews (9 cols) */}
+          <div className="lg:col-span-9">
             <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as ThemeMode)} className="w-full">
               <div className="flex justify-center mb-8">
                 <TabsList className="grid w-full max-md:max-w-md grid-cols-2 p-1 bg-card/50 rounded-[1.5rem] h-14 border shadow-sm backdrop-blur-sm">
@@ -401,47 +474,57 @@ export default function ThemeSettingsPage() {
                         </div>
                         <CardDescription className="text-xs font-medium">{group.description}</CardDescription>
                       </CardHeader>
-                      <CardContent className="p-8 pt-0 grid grid-cols-1 md:grid-cols-2 gap-4">
-                        {group.keys.map((key) => {
-                          const defaultPalette = mode === 'light' ? DEFAULT_LIGHT_THEME_COLORS_HSL : DEFAULT_DARK_THEME_COLORS_HSL;
-                          const label = key.replace(/-/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
-                          const colorValue = currentColorsHex[mode as ThemeMode]?.[key] || hslStringToHex(defaultPalette[key]!);
-                          
-                          return (
-                            <div key={`${mode}-${key}`} className="p-4 rounded-2xl bg-muted/20 border border-border/40 hover:bg-muted/40 transition-all group">
-                              <div className="flex items-center justify-between mb-3">
-                                <span className="text-[10px] font-black uppercase text-muted-foreground tracking-wider group-hover:text-primary transition-colors">{label}</span>
-                                <button
-                                  onClick={() => handleColorChange(mode as ThemeMode, key, hslStringToHex(defaultPalette[key]!))}
-                                  className={cn(
-                                    "p-1 hover:bg-primary/10 rounded-md transition-all",
-                                    colorValue === hslStringToHex(defaultPalette[key]!) ? "opacity-0 invisible" : "opacity-100 visible"
-                                  )}
-                                  title="Reset to default"
-                                >
-                                  <XCircle className="h-3 w-3 text-destructive" />
-                                </button>
-                              </div>
-                              <div className="flex items-center gap-3">
-                                <div className="relative h-10 w-10 shrink-0 rounded-xl overflow-hidden shadow-inner border border-white/20">
-                                  <input
-                                    type="color"
-                                    value={colorValue}
-                                    onChange={(e) => handleColorChange(mode as ThemeMode, key, e.target.value)}
-                                    className="absolute inset-0 h-[150%] w-[150%] -translate-x-1/4 -translate-y-1/4 cursor-pointer"
-                                  />
+                      <CardContent className="p-8 pt-0">
+                        <div className="grid grid-cols-1 xl:grid-cols-12 gap-8">
+                          {/* Left Column: Color Controls (7 cols) */}
+                          <div className="xl:col-span-7 grid grid-cols-1 md:grid-cols-2 gap-4">
+                            {group.keys.map((key) => {
+                              const defaultPalette = mode === 'light' ? DEFAULT_LIGHT_THEME_COLORS_HSL : DEFAULT_DARK_THEME_COLORS_HSL;
+                              const label = key.replace(/-/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+                              const colorValue = currentColorsHex[mode as ThemeMode]?.[key] || hslStringToHex(defaultPalette[key]!);
+                              
+                              return (
+                                <div key={`${mode}-${key}`} className="p-4 rounded-2xl bg-muted/20 border border-border/40 hover:bg-muted/40 transition-all group">
+                                  <div className="flex items-center justify-between mb-3">
+                                    <span className="text-[10px] font-black uppercase text-muted-foreground tracking-wider group-hover:text-primary transition-colors">{label}</span>
+                                    <button
+                                      onClick={() => handleColorChange(mode as ThemeMode, key, hslStringToHex(defaultPalette[key]!))}
+                                      className={cn(
+                                        "p-1 hover:bg-primary/10 rounded-md transition-all",
+                                        colorValue === hslStringToHex(defaultPalette[key]!) ? "opacity-0 invisible" : "opacity-100 visible"
+                                      )}
+                                      title="Reset to default"
+                                    >
+                                      <XCircle className="h-3 w-3 text-destructive" />
+                                    </button>
+                                  </div>
+                                  <div className="flex items-center gap-3">
+                                    <div className="relative h-10 w-10 shrink-0 rounded-xl overflow-hidden shadow-inner border border-white/20">
+                                      <input
+                                        type="color"
+                                        value={colorValue}
+                                        onChange={(e) => handleColorChange(mode as ThemeMode, key, e.target.value)}
+                                        className="absolute inset-0 h-[150%] w-[150%] -translate-x-1/4 -translate-y-1/4 cursor-pointer"
+                                      />
+                                    </div>
+                                    <Input
+                                      type="text"
+                                      value={colorValue.toUpperCase()}
+                                      onChange={(e) => handleColorChange(mode as ThemeMode, key, e.target.value)}
+                                      className="h-10 bg-background border-none shadow-sm rounded-xl font-mono text-[11px] font-bold tracking-tighter"
+                                      placeholder="#HEX"
+                                    />
+                                  </div>
                                 </div>
-                                <Input
-                                  type="text"
-                                  value={colorValue.toUpperCase()}
-                                  onChange={(e) => handleColorChange(mode as ThemeMode, key, e.target.value)}
-                                  className="h-10 bg-background border-none shadow-sm rounded-xl font-mono text-[11px] font-bold tracking-tighter"
-                                  placeholder="#HEX"
-                                />
-                              </div>
-                            </div>
-                          );
-                        })}
+                              );
+                            })}
+                          </div>
+
+                          {/* Right Column: Dedicated Preview (5 cols) */}
+                          <div className="xl:col-span-5 flex flex-col justify-center">
+                            {renderGroupPreview(group.title, mode as ThemeMode)}
+                          </div>
+                        </div>
                       </CardContent>
                     </Card>
                   ))}

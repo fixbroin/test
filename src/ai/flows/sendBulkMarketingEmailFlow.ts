@@ -7,7 +7,7 @@
 
 import { ai } from '@/ai/genkit';
 import { z } from 'genkit';
-import { getFirestore, Timestamp } from 'firebase-admin/firestore';
+import { getFirestore, Timestamp } from '@/lib/mysqlDbAdmin';
 import { initFirebaseAdmin } from '@/lib/firebase-admin';
 import type { FirestoreUser, AppSettings, GlobalWebSettings, FirestoreService, FirestoreCategory } from '@/types/firestore';
 import { sendMarketingEmail } from './sendMarketingEmailFlow';

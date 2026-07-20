@@ -23,7 +23,7 @@ import { Loader2, Wand2, Edit2, Lock } from "lucide-react";
 import { generateCitySeo } from '@/ai/flows/generateCitySeoFlow';
 import { useToast } from "@/hooks/use-toast";
 import { db } from '@/lib/firebase';
-import { collection, query, where, getDocs, limit } from "firebase/firestore";
+import { collection, query, where, getDocs, limit } from '@/lib/mysqlDb';
 
 const generateSlug = (name: string) => {
   if (!name) return "";

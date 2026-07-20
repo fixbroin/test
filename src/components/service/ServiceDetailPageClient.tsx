@@ -15,7 +15,7 @@ import { Badge } from '@/components/ui/badge';
 import { getCartEntries, saveCartEntries, syncCartToFirestore } from '@/lib/cartManager';
 import { getIconComponent } from '@/lib/iconMap';
 import { db } from '@/lib/firebase';
-import { collection, query, where, getDocs, limit, orderBy, Timestamp, doc, onSnapshot, type DocumentSnapshot, getDoc } from 'firebase/firestore';
+import { collection, query, where, getDocs, limit, orderBy, Timestamp, doc, onSnapshot, type DocumentSnapshot, getDoc } from '@/lib/mysqlDb';
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
 import StickyCartContinueButton from '@/components/category/StickyCartContinueButton';

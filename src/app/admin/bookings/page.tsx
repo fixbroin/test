@@ -14,7 +14,7 @@ import { db } from '@/lib/firebase';
 import { triggerPushNotification } from '@/lib/fcmUtils';
 import { 
   collection, 
- query, orderBy, onSnapshot, doc, updateDoc, Timestamp, deleteDoc, where, getDocs, deleteField, addDoc, getDoc, runTransaction, limit, startAfter, type QueryDocumentSnapshot } from "firebase/firestore";
+ query, orderBy, onSnapshot, doc, updateDoc, Timestamp, deleteDoc, where, getDocs, deleteField, addDoc, getDoc, runTransaction, limit, startAfter, type QueryDocumentSnapshot } from '@/lib/mysqlDb';
 import { useToast } from "@/hooks/use-toast";
 import BookingDetailsModalContent from '@/components/admin/BookingDetailsModalContent';
 import EditBookingModal from '@/components/admin/EditBookingModal';
@@ -103,6 +103,43 @@ const getPaymentLabel = (method: string | undefined, status: string) => {
 
 const PAGE_SIZE = 10;
 
+function getBookingTimestampMillis(b: FirestoreBooking): number {
+  const dateStr = b.scheduledDate || (b as any).bookingDate;
+  const timeStr = b.scheduledTimeSlot || (b as any).bookingTime;
+
+  if (dateStr) {
+    try {
+      const dateParts = dateStr.split('-').map(Number);
+      if (dateParts.length === 3) {
+        let timeHours = 12;
+        let timeMinutes = 0;
+        if (timeStr) {
+          const match = timeStr.match(/(\d+):(\d+)\s*(AM|PM)?/i);
+          if (match) {
+            let h = parseInt(match[1], 10);
+            const m = parseInt(match[2], 10);
+            const ampm = match[3]?.toUpperCase();
+            if (ampm === 'PM' && h < 12) h += 12;
+            if (ampm === 'AM' && h === 12) h = 0;
+            timeHours = h;
+            timeMinutes = m;
+          }
+        }
+        return new Date(dateParts[0], dateParts[1] - 1, dateParts[2], timeHours, timeMinutes).getTime();
+      }
+    } catch (e) {}
+  }
+  if (b.createdAt) {
+    if (typeof (b.createdAt as any)._seconds === 'number') {
+      return (b.createdAt as any)._seconds * 1000;
+    }
+    if (b.createdAt instanceof Date) {
+      return (b.createdAt as Date).getTime();
+    }
+  }
+  return 0;
+}
+
 export default function AdminBookingsPage() {
   const { stats } = useAdminStats();
   const { adminPermissions } = useAuth();
@@ -111,28 +148,13 @@ export default function AdminBookingsPage() {
   const [hasMore, setHasMore] = useState(true);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const [refreshTrigger, setRefreshTrigger] = useState(0);
   const [isUpdatingStatus, setIsUpdatingStatus] = useState<string | null>(null);
   const [isDeleting, setIsDeleting] = useState<string | null>(null);
   const [isInitializing, setIsInitializing] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
   const [filterStatus, setFilterStatus] = useState<BookingStatus | "All">("All");
 
-  const handleSyncIDs = async () => {
-    setIsSyncing(true);
-    try {
-      const result = await resequenceBookingNumbers();
-      if (result.success) {
-        toast({ title: "Sync Complete", description: `Successfully re-sequenced ${result.count} bookings.` });
-        window.location.reload(); 
-      } else {
-        toast({ title: "Sync Failed", description: result.error, variant: "destructive" });
-      }
-    } catch (err) {
-      toast({ title: "Error", description: "An unexpected error occurred.", variant: "destructive" });
-    } finally {
-      setIsSyncing(false);
-    }
-  };
   const [searchTerm, setSearchTerm] = useState("");
   const { toast } = useToast();
   const router = useRouter();
@@ -164,7 +186,24 @@ export default function AdminBookingsPage() {
   const [isFilterStatusPickerOpen, setIsFilterStatusPickerOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [bookingToEditId, setBookingToEditId] = useState<string | null>(null);
-  const [refreshTrigger, setRefreshTrigger] = useState(0);
+
+  const handleSyncIDs = async () => {
+    setIsSyncing(true);
+    try {
+      const result = await resequenceBookingNumbers();
+      if (result.success) {
+        toast({ title: "Sync Complete", description: `Successfully re-sequenced ${result.count} bookings.` });
+        await triggerRefresh('global-cache');
+        setRefreshTrigger(prev => prev + 1);
+      } else {
+        toast({ title: "Sync Failed", description: result.error, variant: "destructive" });
+      }
+    } catch (err) {
+      toast({ title: "Error", description: "An unexpected error occurred.", variant: "destructive" });
+    } finally {
+      setIsSyncing(false);
+    }
+  };
 
   const handleInitialize = async () => {
     setIsInitializing(true);
@@ -172,7 +211,8 @@ export default function AdminBookingsPage() {
       const result = await initializeBookingNumbers();
       if (result.success) {
         toast({ title: "Initialization Complete", description: `Successfully assigned Booking IDs to ${result.count} bookings.` });
-        window.location.reload(); 
+        await triggerRefresh('global-cache');
+        setRefreshTrigger(prev => prev + 1);
       } else {
         toast({ title: "Initialization Failed", description: result.error, variant: "destructive" });
       }
@@ -251,11 +291,10 @@ export default function AdminBookingsPage() {
       const fetchInitialBookings = async () => {
         setIsLoading(true);
         try {
-          const q = query(collection(db, "bookings"), orderBy("createdAt", "desc"), limit(PAGE_SIZE));
+          const q = query(collection(db, "bookings"), orderBy("bookingNumber", "desc"));
           const snapshot = await getDocs(q);
           setBookings(snapshot.docs.map(docSnap => ({ ...docSnap.data(), id: docSnap.id } as FirestoreBooking)));
-          setLastDoc(snapshot.docs[snapshot.docs.length - 1] || null);
-          setHasMore(snapshot.docs.length === PAGE_SIZE);
+          setHasMore(false);
         } catch (error) {
           console.error("Error fetching bookings:", error);
           toast({ title: "Error", description: "Failed to load bookings.", variant: "destructive" });
@@ -326,7 +365,12 @@ export default function AdminBookingsPage() {
       });
     }
     
-    return filtered;
+    return [...filtered].sort((a, b) => {
+      const numA = Number(a.bookingNumber) || 0;
+      const numB = Number(b.bookingNumber) || 0;
+      if (numA !== numB) return numB - numA;
+      return getBookingTimestampMillis(b) - getBookingTimestampMillis(a);
+    });
   }, [bookings, filterStatus, searchTerm]);
 
   const handleStatusChange = async (booking: FirestoreBooking, newStatus: BookingStatus, additionalCharges?: {name: string, amount: number}[], finalizedPaymentMethod?: string) => {

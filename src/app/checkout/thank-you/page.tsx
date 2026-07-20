@@ -9,7 +9,7 @@ import CheckoutStepper from '@/components/checkout/CheckoutStepper';
 import { Separator } from '@/components/ui/separator';
 import { cn } from '@/lib/utils';
 import { db, auth } from '@/lib/firebase';
-import { collection, addDoc, Timestamp, doc, getDoc, runTransaction, query, where, getDocs, limit, updateDoc, deleteDoc, setDoc } from "firebase/firestore";
+import { collection, addDoc, Timestamp, doc, getDoc, runTransaction, query, where, getDocs, limit, updateDoc, deleteDoc, setDoc } from '@/lib/mysqlDb';
 import type { FirestoreBooking, BookingServiceItem, FirestoreService, FirestorePromoCode, AppSettings, AppliedPlatformFeeItem, FirestoreNotification, BookingStatus, MarketingAutomationSettings, MarketingSettings, ProviderApplication } from '@/types/firestore';
 import { getActiveCheckoutEntries, removeCheckedOutItemsFromCart } from '@/lib/cartManager';
 import { useToast } from '@/hooks/use-toast';

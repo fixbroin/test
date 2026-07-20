@@ -12,7 +12,7 @@ import { Star, Loader2 } from 'lucide-react';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import type { FirestoreBooking, FirestoreReview, FirestoreService } from '@/types/firestore';
 import { db } from '@/lib/firebase';
-import { collection, addDoc, doc, updateDoc, Timestamp, getDoc, query, where, getDocs, limit } from 'firebase/firestore';
+import { collection, addDoc, doc, updateDoc, Timestamp, getDoc, query, where, getDocs, limit } from '@/lib/mysqlDb';
 import { useAuth } from '@/hooks/useAuth';
 import { ADMIN_EMAIL } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';

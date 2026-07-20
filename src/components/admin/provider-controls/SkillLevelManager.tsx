@@ -12,7 +12,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { PlusCircle, Edit, Trash2, Loader2, ListChecks, PackageSearch, AlertTriangle } from "lucide-react";
 import type { SkillLevelOption } from '@/types/firestore'; // Ensure this type is defined
 import { db } from '@/lib/firebase';
-import { doc, getDoc, setDoc, Timestamp } from "firebase/firestore";
+import { doc, getDoc, setDoc, Timestamp } from '@/lib/mysqlDb';
 import { useToast } from "@/hooks/use-toast";
 import { triggerRefresh } from '@/lib/revalidateUtils';
 import { zodResolver } from "@hookform/resolvers/zod";

@@ -1,7 +1,7 @@
 import ServiceDetailPageClient from '@/components/service/ServiceDetailPageClient';
 import { adminDb } from '@/lib/firebaseAdmin';
 import type { FirestoreService, ClientServiceData, FirestoreCategory, FirestoreSubCategory } from '@/types/firestore';
-import { Timestamp } from 'firebase-admin/firestore';
+import { Timestamp } from '@/lib/mysqlDbAdmin';
 import JsonLdScript from '@/components/shared/JsonLdScript';
 import { getBaseUrl } from '@/lib/config';
 import type { Metadata, ResolvingMetadata } from 'next';
@@ -268,7 +268,8 @@ export default async function ServiceDetailPage({ params }: ServicePageProps) {
       "priceCurrency": "INR",
       "availability": "https://schema.org/InStock",
       "url": `${appBaseUrl}/service/${slug}`,
-      "priceValidUntil": `${new Date().getFullYear() + 1}-01-01`,
+      "priceValidUntil": `${new Date().getFullYear() + 5}-12-31`,
+      "validFrom": `${new Date().getFullYear()}-01-01`,
       "hasMerchantReturnPolicy": {
         "@type": "MerchantReturnPolicy",
         "applicableCountry": "IN",
@@ -280,6 +281,10 @@ export default async function ServiceDetailPage({ params }: ServicePageProps) {
           "@type": "MonetaryAmount",
           "value": 0,
           "currency": "INR"
+        },
+        "shippingDestination": {
+          "@type": "DefinedRegion",
+          "addressCountry": "IN"
         },
         "deliveryTime": {
           "@type": "ShippingDeliveryTime",

@@ -8,7 +8,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { Loader2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { db } from '@/lib/firebase'; // Import db
-import { doc, getDoc } from 'firebase/firestore'; // Import Firestore functions
+import { doc, getDoc } from '@/lib/mysqlDb'; // Import Firestore functions
 import { hasPathAccess, getFirstAccessiblePath } from '@/config/rbac';
 
 const PROVIDER_APPLICATION_COLLECTION = "providerApplications";

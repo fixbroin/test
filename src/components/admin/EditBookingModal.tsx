@@ -17,7 +17,7 @@ import AppImage from '@/components/ui/AppImage';
 import { Loader2, Save, User, Mail, Phone, MapPin, Edit, Clock, Globe, CalendarDays, Check, ChevronsUpDown, Trash2, PlusCircle, Search, Tag } from 'lucide-react';
 import type { FirestoreBooking, BookingStatus, FirestoreNotification, FirestoreService, FirestorePromoCode, BookingServiceItem } from '@/types/firestore';
 import { db } from '@/lib/firebase';
-import { doc, getDoc, updateDoc, Timestamp, addDoc, collection, query, where, getDocs } from "firebase/firestore";
+import { doc, getDoc, updateDoc, Timestamp, addDoc, collection, query, where, getDocs } from '@/lib/mysqlDb';
 import { useToast } from "@/hooks/use-toast";
 import { triggerPushNotification } from '@/lib/fcmUtils';
 import RescheduleBookingDialog from '@/components/shared/RescheduleBookingDialog';

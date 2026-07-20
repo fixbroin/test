@@ -10,7 +10,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import { useAuth } from '@/hooks/useAuth'; 
 import { useLoading } from '@/contexts/LoadingContext'; 
 import { db } from '@/lib/firebase';
-import { doc, getDoc } from "firebase/firestore";
+import { doc, getDoc } from '@/lib/mysqlDb';
 import type { FirestoreService } from '@/types/firestore';
 
 // --- START: Pricing Logic ---

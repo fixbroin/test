@@ -2,7 +2,7 @@
 'use server';
 
 import { adminDb } from './firebaseAdmin';
-import { Timestamp } from 'firebase-admin/firestore';
+import { Timestamp } from './mysqlDbAdmin';
 import type { GlobalWebSettings, ThemePalette, MarketingAutomationSettings, FirestoreSlide, ReferralSettings, FeaturesConfiguration } from '@/types/firestore';
 import { DEFAULT_LIGHT_THEME_COLORS_HSL, DEFAULT_DARK_THEME_COLORS_HSL, THEME_PALETTE_KEYS } from '@/lib/colorUtils';
 import { defaultGlobalWebSettings } from '@/config/webDefaults';
@@ -68,7 +68,7 @@ export const getMarketingSettings = cache(async (): Promise<any> => {
     },
     ['marketing-settings'],
     { 
-      revalidate: false, 
+      revalidate: 1, 
       tags: ['marketing-settings', 'global-cache'] 
     }
   )();
@@ -95,7 +95,7 @@ export const getMarketingAutomationSettings = cache(async (): Promise<MarketingA
     },
     ['marketing-automation-settings'],
     { 
-      revalidate: false, 
+      revalidate: 1, 
       tags: ['marketing-settings', 'global-cache'] 
     }
   )();
@@ -126,7 +126,7 @@ export const getGlobalAppSettings = cache(async (): Promise<any> => {
     },
     ['global-app-settings'],
     { 
-      revalidate: false, 
+      revalidate: 1, 
       tags: ['app-settings', 'global-cache'] 
     }
   )();
@@ -184,7 +184,7 @@ export const getGlobalWebSettings = cache(async (): Promise<GlobalWebSettings> =
     },
     ['global-web-settings'],
     { 
-      revalidate: false, 
+      revalidate: 1, 
       tags: ['web-settings', 'global-cache'] 
     }
   )();
@@ -275,7 +275,7 @@ export const getAdminCategories = cache(async (): Promise<FirestoreCategory[]> =
       }
     },
     ['admin-categories-full'],
-    { revalidate: false, tags: ['categories', 'global-cache'] }
+    { revalidate: 1, tags: ['categories', 'global-cache'] }
   )();
 });
 
@@ -294,7 +294,7 @@ export const getAdminSubCategories = cache(async (): Promise<FirestoreSubCategor
       }
     },
     ['admin-subcategories-full'],
-    { revalidate: false, tags: ['categories', 'global-cache'] }
+    { revalidate: 1, tags: ['categories', 'global-cache'] }
   )();
 });
 
@@ -389,7 +389,7 @@ export const getCityCategorySeoSettings = cache(async (): Promise<CityCategorySe
       }
     },
     ['city-category-seo-list'],
-    { revalidate: false, tags: ['seo-settings', 'global-cache'] }
+    { revalidate: 1, tags: ['seo-settings', 'global-cache'] }
   )();
 });
 
@@ -408,7 +408,7 @@ export const getAreaCategorySeoSettings = cache(async (): Promise<AreaCategorySe
       }
     },
     ['area-category-seo-list'],
-    { revalidate: false, tags: ['seo-settings', 'global-cache'] }
+    { revalidate: 1, tags: ['seo-settings', 'global-cache'] }
   )();
 });
 
@@ -438,7 +438,7 @@ export const getAreaServiceSeoSettings = cache(async (): Promise<AreaServiceSeoS
       }
     },
     ['area-service-seo-list'],
-    { revalidate: false, tags: ['seo-settings', 'global-cache'] }
+    { revalidate: 1, tags: ['seo-settings', 'global-cache'] }
   )();
 });
 
@@ -460,7 +460,7 @@ export const getRemoteCacheVersionsServer = cache(async (): Promise<any> => {
       }
     },
     ['server-cache-versions'],
-    { revalidate: false, tags: ['global-cache'] }
+    { revalidate: 1, tags: ['global-cache'] }
   )();
 });
 
@@ -482,7 +482,7 @@ export const getReferralSettingsServer = cache(async (): Promise<ReferralSetting
       }
     },
     ['server-referral-settings'],
-    { revalidate: false, tags: ['withdrawal-referral-config', 'global-cache'] }
+    { revalidate: 1, tags: ['withdrawal-referral-config', 'global-cache'] }
   )();
 });
 
@@ -507,7 +507,7 @@ export const getHeroSlidesServer = cache(async (): Promise<FirestoreSlide[]> => 
       }
     },
     ['server-hero-slides'],
-    { revalidate: false, tags: ['content', 'global-cache'] }
+    { revalidate: 1, tags: ['content', 'global-cache'] }
   )();
 });
 
@@ -541,7 +541,7 @@ export const getFeaturesConfigServer = cache(async (): Promise<FeaturesConfigura
       }
     },
     ['server-features-config'],
-    { revalidate: false, tags: ['web-settings', 'global-cache'] }
+    { revalidate: 1, tags: ['web-settings', 'global-cache'] }
   )();
 });
 
@@ -563,7 +563,7 @@ export const getFaqsServer = cache(async (): Promise<any[]> => {
       }
     },
     ['server-admin-faqs'],
-    { revalidate: false, tags: ['faqs', 'global-cache'] }
+    { revalidate: 1, tags: ['faqs', 'global-cache'] }
   )();
 });
 
@@ -595,7 +595,7 @@ export const getPublishedPostsServer = cache(async (): Promise<any[]> => {
       }
     },
     ['server-published-blog-posts'],
-    { revalidate: false, tags: ['blog', 'global-cache'] }
+    { revalidate: 1, tags: ['blog', 'global-cache'] }
   )();
 });
 
