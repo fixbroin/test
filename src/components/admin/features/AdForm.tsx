@@ -35,9 +35,15 @@ const adPlacements: [string, ...string[]] = [
     'AFTER_HERO_CAROUSEL', 'AFTER_POPULAR_SERVICES', 'AFTER_RECENTLY_ADDED_SERVICES', 'AFTER_CATEGORY_SECTIONS', 'BEFORE_FOOTER_CTA'
 ];
 
+const isValidUrlOrRelativePath = (val?: string) => {
+  if (!val || val.trim() === '') return true;
+  const s = val.trim();
+  return s.startsWith('/') || s.startsWith('http://') || s.startsWith('https://') || s.startsWith('uploads/') || s.startsWith('data:') || s.startsWith('blob:');
+};
+
 const adFormSchema = z.object({
   name: z.string().min(2, "Ad name is required.").max(100, "Name too long."),
-  imageUrl: z.string().url({ message: "Valid image URL or uploaded image required." }).optional().or(z.literal('')),
+  imageUrl: z.string().refine(isValidUrlOrRelativePath, { message: "Must be a valid URL or relative path if provided." }).optional().or(z.literal('')),
   imageHint: z.string().max(50, "Image hint max 50 chars.").optional().or(z.literal('')),
   actionType: z.enum(adActionTypes, { required_error: "Action type is required."}),
   targetValue: z.string().min(1, "Target value is required."),

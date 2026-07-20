@@ -36,6 +36,12 @@ const generateRandomHexString = (length: number) => {
 const OTHER_CATEGORY_VALUE = "__OTHER__";
 const NO_CATEGORY_VALUE = "__NO_CATEGORY__";
 
+const isValidUrlOrRelativePath = (val?: string) => {
+  if (!val || val.trim() === '') return true;
+  const s = val.trim();
+  return s.startsWith('/') || s.startsWith('http://') || s.startsWith('https://') || s.startsWith('uploads/') || s.startsWith('data:') || s.startsWith('blob:');
+};
+
 const blogFormSchema = z.object({
   title: z.string().min(3, "Title must be at least 3 characters long."),
   slug: z.string().min(3, "Slug must be at least 3 characters.").regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/, "Invalid slug format."),
@@ -43,7 +49,7 @@ const blogFormSchema = z.object({
   excerpt: z.string().max(300).optional(),
   tags: z.string().optional(), // Will be converted to array on submit
   readingTime: z.string().max(20).optional(),
-  coverImageUrl: z.string().url("A valid image URL is required.").optional().or(z.literal('')),
+  coverImageUrl: z.string().refine(isValidUrlOrRelativePath, { message: "Must be a valid URL or relative path if provided." }).optional().or(z.literal('')),
   imageHint: z.string().max(50).optional(),
   isPublished: z.boolean().default(false),
   categoryId: z.string().optional(),

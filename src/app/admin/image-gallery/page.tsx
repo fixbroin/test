@@ -9,27 +9,30 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
-import { Image as ImageIcon, Search, Upload, RefreshCw, Loader2, Sparkles, FolderTree, Layers, Wrench, Tv, Settings2, Eye, CheckCircle2, ChevronRight } from "lucide-react";
+import { Image as ImageIcon, Search, Upload, RefreshCw, Loader2, Sparkles, FolderTree, Layers, Wrench, Tv, Settings2, Eye, CheckCircle2, ChevronRight, FileText, Megaphone, Bell } from "lucide-react";
 import Image from 'next/image';
 import { useToast } from "@/hooks/use-toast";
 import PermissionGuard from '@/components/admin/PermissionGuard';
 import { db } from '@/lib/firebase';
-import { collection, getDocs, doc, updateDoc, setDoc } from '@/lib/mysqlDb';
+import { collection, getDocs, doc, getDoc, updateDoc, setDoc } from '@/lib/mysqlDb';
 import { triggerRefresh } from '@/lib/revalidateUtils';
 import { compressImage } from '@/lib/imageCompressor';
+import type { HomepageAd } from '@/types/firestore';
 
 export interface GalleryItem {
   id: string; // Unique gallery item key
   docId: string; // MySQL document ID
-  collectionName: 'adminCategories' | 'adminSubCategories' | 'adminServices' | 'adminSlideshows' | 'adminPopups' | 'webSettings';
+  collectionName: 'adminCategories' | 'adminSubCategories' | 'adminServices' | 'adminSlideshows' | 'adminPopups' | 'blogPosts' | 'webSettings';
   title: string;
-  categoryType: 'category' | 'subcategory' | 'service' | 'slideshow' | 'popup' | 'branding';
+  categoryType: 'category' | 'subcategory' | 'service' | 'slideshow' | 'ad' | 'popup' | 'branding' | 'blog';
   categoryId?: string;
   subCategoryId?: string;
   categoryName?: string; // Parent Category Name
   subCategoryName?: string; // Sub-Category Name
-  imageField: string; // Property name e.g. 'image', 'icon', 'logoUrl', 'galleryImages'
+  order?: number;
+  imageField: string; // Property name e.g. 'image', 'icon', 'coverImageUrl', 'logoUrl'
   arrayIndex?: number; // Index if array property like galleryImages
+  adId?: string; // If item belongs to featuresConfiguration.ads array
   imageUrl: string;
   uploadFolder: string;
 }
@@ -135,6 +138,7 @@ export default function AdminImageGalleryPage() {
             categoryType: 'category',
             categoryId: docSnap.id,
             categoryName: catName,
+            order: catOrder,
             imageField: data.imageUrl ? 'imageUrl' : (data.image ? 'image' : 'bannerUrl'),
             imageUrl: img,
             uploadFolder: 'categories',
@@ -149,6 +153,7 @@ export default function AdminImageGalleryPage() {
             categoryType: 'category',
             categoryId: docSnap.id,
             categoryName: catName,
+            order: catOrder,
             imageField: data.iconUrl ? 'iconUrl' : 'icon',
             imageUrl: icon,
             uploadFolder: 'categories/icons',
@@ -185,6 +190,7 @@ export default function AdminImageGalleryPage() {
             subCategoryId: docSnap.id,
             categoryName: parentCatName,
             subCategoryName: subCatName,
+            order: subCatOrder,
             imageField: data.imageUrl ? 'imageUrl' : (data.image ? 'image' : 'bannerUrl'),
             imageUrl: img,
             uploadFolder: 'subcategories',
@@ -201,6 +207,7 @@ export default function AdminImageGalleryPage() {
             subCategoryId: docSnap.id,
             categoryName: parentCatName,
             subCategoryName: subCatName,
+            order: subCatOrder,
             imageField: data.iconUrl ? 'iconUrl' : 'icon',
             imageUrl: icon,
             uploadFolder: 'subcategories/icons',
@@ -279,7 +286,7 @@ export default function AdminImageGalleryPage() {
         }
       });
 
-      // 4. Fetch Slideshow Banners
+      // 4. Fetch Slideshow Banners (Separate Tab)
       const slidesSnap = await getDocs(collection(db, "adminSlideshows"));
       slidesSnap.docs.forEach(docSnap => {
         const data = docSnap.data() as any;
@@ -298,30 +305,87 @@ export default function AdminImageGalleryPage() {
         }
       });
 
-      // 5. Fetch Popups
-      const popupsSnap = await getDocs(collection(db, "adminPopups"));
-      popupsSnap.docs.forEach(docSnap => {
-        const data = docSnap.data() as any;
-        const img = data.imageUrl || data.image;
-        if (img) {
-          galleryList.push({
-            id: `popup-${docSnap.id}`,
-            docId: docSnap.id,
-            collectionName: 'adminPopups',
-            title: data.title || 'Popup Image',
-            categoryType: 'popup',
-            imageField: data.imageUrl ? 'imageUrl' : 'image',
-            imageUrl: img,
-            uploadFolder: 'popups',
-          });
-        }
-      });
-
-      // 6. Fetch Global Web Settings (Branding & Logos)
-      const globalSettingsSnap = await getDocs(collection(db, "webSettings"));
-      globalSettingsSnap.docs.forEach(docSnap => {
-        if (docSnap.id === 'global') {
+      // 5. Fetch Newsletter Popups (Separate Tab)
+      try {
+        const popupsSnap = await getDocs(collection(db, "adminPopups"));
+        popupsSnap.docs.forEach(docSnap => {
           const data = docSnap.data() as any;
+          const img = data.imageUrl || data.image || data.bannerUrl;
+          if (img) {
+            galleryList.push({
+              id: `popup-${docSnap.id}`,
+              docId: docSnap.id,
+              collectionName: 'adminPopups',
+              title: data.title || data.name || 'Newsletter Popup Image',
+              categoryType: 'popup',
+              imageField: data.imageUrl ? 'imageUrl' : (data.image ? 'image' : 'bannerUrl'),
+              imageUrl: img,
+              uploadFolder: 'popups',
+            });
+          }
+        });
+      } catch (e) {
+        console.warn("Popups fetch error:", e);
+      }
+
+      // 6. Fetch Blog Posts (Cover Image & CoverImageUrl)
+      try {
+        const blogsSnap = await getDocs(collection(db, "blogPosts"));
+        blogsSnap.docs.forEach(docSnap => {
+          const data = docSnap.data() as any;
+          const img = data.coverImageUrl || data.imageUrl || data.image || data.coverImage || data.bannerUrl || data.thumbnailUrl;
+          if (img && typeof img === 'string' && img.trim() !== '') {
+            const fieldName = data.coverImageUrl ? 'coverImageUrl' : (data.imageUrl ? 'imageUrl' : (data.image ? 'image' : (data.coverImage ? 'coverImage' : 'bannerUrl')));
+            galleryList.push({
+              id: `blog-${docSnap.id}`,
+              docId: docSnap.id,
+              collectionName: 'blogPosts',
+              title: data.title || data.h1_title || 'Blog Post Cover',
+              categoryType: 'blog',
+              imageField: fieldName,
+              imageUrl: img,
+              uploadFolder: 'blog',
+            });
+          }
+        });
+      } catch (e) {
+        console.warn("Blog posts fetch error:", e);
+      }
+
+      // 7. Fetch Promotional Ad Banners explicitly from webSettings/featuresConfiguration
+      try {
+        const featDocSnap = await getDoc(doc(db, "webSettings", "featuresConfiguration"));
+        if (featDocSnap.exists()) {
+          const featData = featDocSnap.data() as any;
+          if (Array.isArray(featData?.ads)) {
+            featData.ads.forEach((ad: HomepageAd, idx: number) => {
+              const adImg = ad.imageUrl || (ad as any).image;
+              if (adImg && typeof adImg === 'string' && adImg.trim() !== '') {
+                galleryList.push({
+                  id: `ad-banner-${ad.id || idx}`,
+                  docId: 'featuresConfiguration',
+                  collectionName: 'webSettings',
+                  title: ad.name || `Ad Banner #${idx + 1}`,
+                  categoryType: 'ad',
+                  adId: ad.id,
+                  imageField: 'ads',
+                  arrayIndex: idx,
+                  imageUrl: adImg,
+                  uploadFolder: 'ads',
+                });
+              }
+            });
+          }
+        }
+      } catch (e) {
+        console.warn("Features config ads fetch error:", e);
+      }
+
+      // 8. Fetch Global Web Settings (Branding & Logos)
+      try {
+        const globalDocSnap = await getDoc(doc(db, "webSettings", "global"));
+        if (globalDocSnap.exists()) {
+          const data = globalDocSnap.data() as any;
           if (data.logoUrl) {
             galleryList.push({
               id: 'brand-logo',
@@ -371,7 +435,9 @@ export default function AdminImageGalleryPage() {
             });
           }
         }
-      });
+      } catch (e) {
+        console.warn("Global webSettings fetch error:", e);
+      }
 
       setItems(galleryList);
       restoreScrollPosition();
@@ -404,13 +470,64 @@ export default function AdminImageGalleryPage() {
     return result;
   }, [items, activeTab, searchTerm]);
 
+  // Order-wise Categories for Categories Tab (matching /admin/categories)
+  const orderedCategories = useMemo(() => {
+    const catItems = filteredItems.filter(item => item.categoryType === 'category');
+    return [...catItems].sort((a, b) => (a.order || 0) - (b.order || 0));
+  }, [filteredItems]);
+
+  // Sub-Categories Grouped Category-Wise (matching /admin/sub-categories)
+  const groupedSubCategoryHierarchy = useMemo(() => {
+    const subCatItems = filteredItems.filter(item => item.categoryType === 'subcategory');
+    const result: ParentCategoryGroup[] = [];
+
+    parentCatsList.forEach(pCat => {
+      const itemsForParent = subCatItems.filter(item => item.categoryId === pCat.id);
+      if (itemsForParent.length > 0) {
+        result.push({
+          id: pCat.id,
+          name: pCat.name,
+          order: pCat.order,
+          subCategories: [{
+            id: pCat.id,
+            name: pCat.name,
+            order: pCat.order,
+            items: itemsForParent.sort((a, b) => (a.order || 0) - (b.order || 0))
+          }],
+          unassignedItems: [],
+          totalImages: itemsForParent.length
+        });
+      }
+    });
+
+    const handledIds = new Set<string>();
+    result.forEach(p => p.subCategories.forEach(s => s.items.forEach(i => handledIds.add(i.id))));
+    const orphanItems = subCatItems.filter(i => !handledIds.has(i.id));
+
+    if (orphanItems.length > 0) {
+      result.push({
+        id: 'other-subcategories',
+        name: 'General & Other Sub-Categories',
+        order: 9999,
+        subCategories: [{
+          id: 'general-subcat-group',
+          name: 'General Sub-Categories',
+          order: 1,
+          items: orphanItems
+        }],
+        unassignedItems: [],
+        totalImages: orphanItems.length
+      });
+    }
+
+    return result;
+  }, [filteredItems, parentCatsList]);
+
   // Build Nested Grouped Service Hierarchy matching /admin/services
-  // Parent Category -> Sub-Categories -> Service Image Cards
   const groupedServicesHierarchy = useMemo(() => {
     const serviceItems = filteredItems.filter(item => item.categoryType === 'service');
     const result: ParentCategoryGroup[] = [];
 
-    // Group items by Parent Category
     parentCatsList.forEach(pCat => {
       const relevantSubCats = subCatsList.filter(s => s.parentId === pCat.id);
       
@@ -422,9 +539,8 @@ export default function AdminImageGalleryPage() {
           order: subCat.order,
           items: subCatItems
         };
-      }).filter(subCat => subCat.items.length > 0); // Only keep subcats with images
+      }).filter(subCat => subCat.items.length > 0);
 
-      // Direct parent category items without matching subcat
       const unassigned = serviceItems.filter(item => 
         item.categoryId === pCat.id && 
         !relevantSubCats.some(s => s.id === item.subCategoryId)
@@ -444,7 +560,6 @@ export default function AdminImageGalleryPage() {
       }
     });
 
-    // Also collect any orphan service items not matching known parent categories
     const handledIds = new Set<string>();
     result.forEach(p => {
       p.subCategories.forEach(s => s.items.forEach(i => handledIds.add(i.id)));
@@ -515,7 +630,20 @@ export default function AdminImageGalleryPage() {
       const newImageUrl = uploadData.url;
 
       // Update MySQL Document
-      if (selectedItem.collectionName === 'adminServices' && selectedItem.imageField === 'galleryImages' && selectedItem.arrayIndex !== undefined) {
+      if (selectedItem.collectionName === 'webSettings' && selectedItem.docId === 'featuresConfiguration' && selectedItem.adId) {
+        // Handle Homepage Ad Banner update in featuresConfiguration.ads array
+        const configDocRef = doc(db, 'webSettings', 'featuresConfiguration');
+        const configSnap = await getDoc(configDocRef);
+        if (configSnap.exists()) {
+          const configData = configSnap.data() as any;
+          const currentAds = Array.isArray(configData.ads) ? [...configData.ads] : [];
+          const targetAdIndex = currentAds.findIndex((a: HomepageAd) => a.id === selectedItem.adId);
+          if (targetAdIndex !== -1) {
+            currentAds[targetAdIndex] = { ...currentAds[targetAdIndex], imageUrl: newImageUrl };
+            await setDoc(configDocRef, { ads: currentAds }, { merge: true });
+          }
+        }
+      } else if (selectedItem.collectionName === 'adminServices' && selectedItem.imageField === 'galleryImages' && selectedItem.arrayIndex !== undefined) {
         const serviceDocSnap = await getDocs(collection(db, "adminServices"));
         const targetDoc = serviceDocSnap.docs.find(d => d.id === selectedItem.docId);
         if (targetDoc) {
@@ -532,8 +660,8 @@ export default function AdminImageGalleryPage() {
 
       setUploadProgress(100);
 
-      // Revalidate cache
-      await triggerRefresh('global-cache');
+      // Revalidate cache in background (non-blocking for instant speed)
+      triggerRefresh('global-cache').catch(() => {});
 
       // Update local state list instantly
       setItems(prev => prev.map(item => item.id === selectedItem.id ? { ...item, imageUrl: newImageUrl } : item));
@@ -627,7 +755,7 @@ export default function AdminImageGalleryPage() {
                 </Badge>
                 <CardTitle className="text-3xl md:text-4xl font-extrabold tracking-tight">Website Image Gallery</CardTitle>
                 <CardDescription className="text-emerald-100 text-sm md:text-base mt-1 max-w-2xl">
-                  Manage, preview, and directly change any image across Categories, Sub-Categories, Services, Banners, and Site Logos in one single place.
+                  Manage, preview, and directly change any image across Categories, Sub-Categories, Services, Slideshows, Ad Banners, Popups, Blogs, and Site Logos.
                 </CardDescription>
               </div>
               <Button 
@@ -661,7 +789,7 @@ export default function AdminImageGalleryPage() {
                 <FolderTree className="h-6 w-6" />
               </div>
               <div>
-                <p className="text-xs text-muted-foreground font-medium">Categories & Icons</p>
+                <p className="text-xs text-muted-foreground font-medium">Categories & Sub-Cats</p>
                 <p className="text-2xl font-black">{items.filter(i => i.categoryType === 'category' || i.categoryType === 'subcategory').length}</p>
               </div>
             </div>
@@ -683,8 +811,8 @@ export default function AdminImageGalleryPage() {
                 <Tv className="h-6 w-6" />
               </div>
               <div>
-                <p className="text-xs text-muted-foreground font-medium">Banners & Logos</p>
-                <p className="text-2xl font-black">{items.filter(i => i.categoryType === 'slideshow' || i.categoryType === 'branding' || i.categoryType === 'popup').length}</p>
+                <p className="text-xs text-muted-foreground font-medium">Banners, Popups & Blogs</p>
+                <p className="text-2xl font-black">{items.filter(i => i.categoryType === 'slideshow' || i.categoryType === 'ad' || i.categoryType === 'popup' || i.categoryType === 'blog' || i.categoryType === 'branding').length}</p>
               </div>
             </div>
           </Card>
@@ -704,13 +832,16 @@ export default function AdminImageGalleryPage() {
             </div>
             
             <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full md:w-auto">
-              <TabsList className="grid grid-cols-3 sm:grid-cols-6 w-full md:w-auto h-auto p-1 bg-muted/60">
-                <TabsTrigger value="all" className="text-xs py-1.5">All ({items.length})</TabsTrigger>
-                <TabsTrigger value="category" className="text-xs py-1.5">Categories</TabsTrigger>
-                <TabsTrigger value="subcategory" className="text-xs py-1.5">Sub-Categories</TabsTrigger>
-                <TabsTrigger value="service" className="text-xs py-1.5">Services ({items.filter(i => i.categoryType === 'service').length})</TabsTrigger>
-                <TabsTrigger value="slideshow" className="text-xs py-1.5">Banners</TabsTrigger>
-                <TabsTrigger value="branding" className="text-xs py-1.5">Branding</TabsTrigger>
+              <TabsList className="flex flex-wrap gap-1 w-full md:w-auto h-auto p-1.5 bg-muted/70 rounded-xl">
+                <TabsTrigger value="all" className="text-xs py-1.5 px-3">All ({items.length})</TabsTrigger>
+                <TabsTrigger value="category" className="text-xs py-1.5 px-3">Categories ({items.filter(i => i.categoryType === 'category').length})</TabsTrigger>
+                <TabsTrigger value="subcategory" className="text-xs py-1.5 px-3">Sub-Categories ({items.filter(i => i.categoryType === 'subcategory').length})</TabsTrigger>
+                <TabsTrigger value="service" className="text-xs py-1.5 px-3">Services ({items.filter(i => i.categoryType === 'service').length})</TabsTrigger>
+                <TabsTrigger value="slideshow" className="text-xs py-1.5 px-3">Slideshows ({items.filter(i => i.categoryType === 'slideshow').length})</TabsTrigger>
+                <TabsTrigger value="ad" className="text-xs py-1.5 px-3">Ad Banners ({items.filter(i => i.categoryType === 'ad').length})</TabsTrigger>
+                <TabsTrigger value="popup" className="text-xs py-1.5 px-3">Newsletter Popups ({items.filter(i => i.categoryType === 'popup').length})</TabsTrigger>
+                <TabsTrigger value="blog" className="text-xs py-1.5 px-3">Blogs ({items.filter(i => i.categoryType === 'blog').length})</TabsTrigger>
+                <TabsTrigger value="branding" className="text-xs py-1.5 px-3">Branding</TabsTrigger>
               </TabsList>
             </Tabs>
           </div>
@@ -730,6 +861,48 @@ export default function AdminImageGalleryPage() {
               No website images match your search or selected category filter.
             </p>
           </Card>
+        ) : activeTab === 'subcategory' ? (
+          /* SUB-CATEGORIES GROUPED CATEGORY-WISE MATCHING /admin/sub-categories */
+          <div className="space-y-8">
+            {groupedSubCategoryHierarchy.length === 0 ? (
+              <Card className="p-12 text-center shadow-sm">
+                <Layers className="mx-auto h-12 w-12 text-muted-foreground/40 mb-3" />
+                <h3 className="text-lg font-bold">No Sub-Category Images Found</h3>
+              </Card>
+            ) : (
+              groupedSubCategoryHierarchy.map(pCat => (
+                <Card key={pCat.id} className="overflow-hidden border border-border/80 shadow-md">
+                  {/* Parent Category Header */}
+                  <div className="p-4 bg-slate-900/5 dark:bg-slate-800/40 border-b border-border/60 flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className="p-2 bg-blue-500/10 text-blue-600 rounded-lg">
+                        <FolderTree className="h-5 w-5" />
+                      </div>
+                      <div>
+                        <h3 className="font-extrabold text-lg text-foreground flex items-center gap-2">
+                          {pCat.name}
+                          <Badge variant="secondary" className="text-xs bg-blue-500/15 text-blue-700 dark:text-blue-300 border-none font-bold">
+                            {pCat.totalImages} {pCat.totalImages === 1 ? 'Sub-Category' : 'Sub-Categories'}
+                          </Badge>
+                        </h3>
+                      </div>
+                    </div>
+                  </div>
+
+                  <CardContent className="p-6">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-5">
+                      {pCat.subCategories[0]?.items.map(item => renderImageCard(item))}
+                    </div>
+                  </CardContent>
+                </Card>
+              ))
+            )}
+          </div>
+        ) : activeTab === 'category' ? (
+          /* ORDER-WISE CATEGORIES DISPLAY MATCHING /admin/categories */
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-5">
+            {orderedCategories.map(item => renderImageCard(item))}
+          </div>
         ) : activeTab === 'service' ? (
           /* NESTED CATEGORY & SUB-CATEGORY HIERARCHY MATCHING /admin/services */
           <div className="space-y-8">

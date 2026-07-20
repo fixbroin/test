@@ -103,7 +103,14 @@ export default function AdminUsersPage() {
       const result = await resequenceUserNumbers();
       if (result.success) {
         toast({ title: "Sync Complete", description: `Successfully re-sequenced ${result.count} users.` });
-        window.location.reload(); // Refresh to show new numbers
+        const usersCollectionRef = collection(db, "users");
+        const q = query(usersCollectionRef, orderBy("userNumber", "desc"));
+        const querySnapshot = await getDocs(q);
+        const fetchedUsers = querySnapshot.docs.map(doc => ({
+          ...doc.data(),
+          id: doc.id, 
+        } as FirestoreUser));
+        setUsers(fetchedUsers);
       } else {
         toast({ title: "Sync Failed", description: result.error, variant: "destructive" });
       }
@@ -460,7 +467,7 @@ export default function AdminUsersPage() {
             <Users className="h-4 w-4" />
             <span className="text-[10px] font-black uppercase tracking-[0.2em]">Community Database</span>
           </div>
-          <h1 className="text-4xl font-black tracking-tight">User Directory <span className="text-primary/40 ml-2">({stats.activeUsers})</span></h1>
+          <h1 className="text-4xl font-black tracking-tight">User Directory <span className="text-primary/40 ml-2">({filteredUsers.length || stats.activeUsers})</span></h1>
           <p className="text-muted-foreground text-sm font-medium">Manage and audit your registered user ecosystem.</p>
         </div>
         <div className="flex items-center gap-3">

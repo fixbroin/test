@@ -31,7 +31,7 @@ function clearDocCache(pathPrefix?: string) {
   }
 }
 
-async function withRetry<T>(fn: () => Promise<T>, retries = 2): Promise<T> {
+async function withRetry<T>(fn: () => Promise<T>, retries = 3): Promise<T> {
   let attempt = 0;
   while (attempt <= retries) {
     try {
@@ -39,11 +39,11 @@ async function withRetry<T>(fn: () => Promise<T>, retries = 2): Promise<T> {
     } catch (error: any) {
       const msg = (error?.message || '').toLowerCase();
       const code = error?.code || '';
-      const isConnError = code === 'ECONNRESET' || code === 'PROTOCOL_CONNECTION_LOST' || msg.includes('econnreset') || msg.includes('connection lost');
-      if (isConnError && attempt < retries) {
+      const isRetryable = code === 'ECONNRESET' || code === 'PROTOCOL_CONNECTION_LOST' || code === 'ETIMEDOUT' || code === 'ENETUNREACH' || code === 'ER_LOCK_WAIT_TIMEOUT' || msg.includes('econnreset') || msg.includes('etimedout') || msg.includes('enetunreach') || msg.includes('connection lost') || msg.includes('lock wait timeout');
+      if (isRetryable && attempt < retries) {
         attempt++;
         (globalThis as any)._mysqlPool = undefined;
-        await new Promise(r => setTimeout(r, 150 * attempt));
+        await new Promise(r => setTimeout(r, 300 * attempt));
         continue;
       }
       throw error;
@@ -80,8 +80,21 @@ export async function executeDbGetDoc(path: string, docId?: string) {
 export async function executeDbGetDocs(path: string, constraints: any[] = []) {
   return withRetry(async () => {
     try {
+      const isCacheable = (path === 'adminCategories' || path === 'adminSubCategories' || path === 'adminServices' || path === 'adminSlideshows' || path === 'webSettings' || path === 'adminReviews' || path === 'blogPosts') && constraints.length === 0;
+      const cacheKey = `getDocs:${path}:${JSON.stringify(constraints)}`;
+
+      if (isCacheable) {
+        const cached = getCachedDoc(cacheKey);
+        if (cached) return cached;
+      }
+
       const pool = await getPool();
-      return await getDocsInternal(pool, path, constraints);
+      const result = await getDocsInternal(pool, path, constraints);
+
+      if (isCacheable) {
+        setCachedDoc(cacheKey, result);
+      }
+      return result;
     } catch (error: any) {
       console.error(`Error in executeDbGetDocs on ${path}:`, error);
       throw new Error(error.message || 'Database error');

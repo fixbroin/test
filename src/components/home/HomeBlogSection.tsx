@@ -16,6 +16,7 @@ import Autoplay from "embla-carousel-autoplay";
 import * as React from "react";
 import { Skeleton } from '@/components/ui/skeleton';
 import { Card, CardContent } from '@/components/ui/card';
+import { getCache, setCache } from '@/lib/client-cache';
 
 export default function HomeBlogSection() {
   const [posts, setPosts] = useState<FirestoreBlogPost[]>([]);
@@ -30,13 +31,23 @@ export default function HomeBlogSection() {
   }));
 
   useEffect(() => {
+    const cachedPosts = getCache<FirestoreBlogPost[]>('home_blog_posts', true);
+    if (cachedPosts && cachedPosts.length > 0) {
+      setPosts(cachedPosts);
+      setIsLoading(false);
+    }
+
     const fetchAllPosts = async () => {
-      setIsLoading(true);
+      if (!cachedPosts || cachedPosts.length === 0) {
+        setIsLoading(true);
+      }
       try {
         const postsRef = collection(db, "blogPosts");
         const q = query(postsRef, where("isPublished", "==", true), orderBy("createdAt", "desc"));
         const snapshot = await getDocs(q);
-        setPosts(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as FirestoreBlogPost)));
+        const fetched = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as FirestoreBlogPost));
+        setPosts(fetched);
+        setCache('home_blog_posts', fetched, true);
       } catch (error) {
         console.error("Error fetching blog posts:", error);
       } finally {

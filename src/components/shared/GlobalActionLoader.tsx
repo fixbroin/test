@@ -16,20 +16,24 @@ const GlobalActionLoader: React.FC<GlobalActionLoaderProps> = ({ initialLoaderTy
   const previousPathnameRef = useRef(pathname);
   const timeoutRef = useRef<NodeJS.Timeout | null>(null);
 
-  // 1. Hide loader when pathname changes (standard)
+  // 1. Hide loader ONLY AFTER the new page has painted on screen
   useEffect(() => {
     if (isLoading && pathname !== previousPathnameRef.current) {
-      hideLoading();
+      previousPathnameRef.current = pathname;
+      const timer = setTimeout(() => {
+        hideLoading();
+      }, 200);
+      return () => clearTimeout(timer);
     }
     previousPathnameRef.current = pathname;
   }, [pathname, isLoading, hideLoading]);
 
-  // 2. Safety Timeout: Don't let the loader stay forever (max 3 seconds)
+  // 2. Safety Timeout: Don't let the loader stay forever if navigation fails (8 seconds)
   useEffect(() => {
     if (isLoading) {
       timeoutRef.current = setTimeout(() => {
         hideLoading();
-      }, 3000); // 3 second safety limit
+      }, 8000); // 8 second safety limit
     } else if (timeoutRef.current) {
       clearTimeout(timeoutRef.current);
     }

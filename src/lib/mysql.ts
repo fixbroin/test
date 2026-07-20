@@ -65,36 +65,24 @@ export async function getPool(): Promise<mysql.Pool> {
 
   poolPromise = (async () => {
     try {
-      // 1. First connect without a database name to create it if it doesn't exist
-      const tempConnection = await mysql.createConnection({
-        host,
-        user,
-        password,
-        port
-      });
-      try {
-        await tempConnection.query(`CREATE DATABASE IF NOT EXISTS \`${databaseName}\` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci`);
-      } finally {
-        await tempConnection.end().catch(() => {});
-      }
-
-      // 2. Now create the connection pool with the database selected
+      // Create the connection pool with the database selected directly (saves connection quota)
       const newPool = mysql.createPool({
         host,
         user,
         password,
         database: databaseName,
         port,
+        connectTimeout: 15000,
         waitForConnections: true,
-        connectionLimit: 5,
-        maxIdle: 5,
-        idleTimeout: 30000,
+        connectionLimit: 4,
+        maxIdle: 4,
+        idleTimeout: 60000,
         queueLimit: 0,
         enableKeepAlive: true,
         keepAliveInitialDelay: 10000
       });
 
-      // 3. Run auto-initialization for tables
+      // Run auto-initialization for tables
       await initializeDatabase(newPool);
 
       (globalThis as any)._mysqlPool = newPool;

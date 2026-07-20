@@ -92,25 +92,27 @@ export async function resequenceBookingNumbers() {
       .sort((a, b) => a.timestamp - b.timestamp);
 
     const totalBookings = sortedDocs.length;
-    const batchSize = 500;
-    let count = 0;
-    let processed = 0;
+    let modifiedCount = 0;
+    let batchCount = 0;
     let batch = adminDb.batch();
 
     for (let i = 0; i < sortedDocs.length; i++) {
       const item = sortedDocs[i];
-      batch.update(item.ref, { bookingNumber: i + 1 });
-      count++;
-      processed++;
+      const targetNumber = i + 1;
+      if (item.data.bookingNumber !== targetNumber) {
+        batch.update(item.ref, { bookingNumber: targetNumber });
+        modifiedCount++;
+        batchCount++;
 
-      if (count === batchSize) {
-        await batch.commit();
-        batch = adminDb.batch();
-        count = 0;
+        if (batchCount >= 400) {
+          await batch.commit();
+          batch = adminDb.batch();
+          batchCount = 0;
+        }
       }
     }
     
-    if (count > 0) {
+    if (batchCount > 0) {
       await batch.commit();
     }
 
@@ -119,7 +121,7 @@ export async function resequenceBookingNumbers() {
       updatedAt: Timestamp.now() 
     }, { merge: true });
 
-    return { success: true, count: processed };
+    return { success: true, count: modifiedCount };
   } catch (error) {
     console.error("Error resequencing booking numbers:", error);
     return { success: false, error: String(error) };
@@ -144,25 +146,27 @@ export async function resequenceUserNumbers() {
       .sort((a, b) => a.timestamp - b.timestamp);
 
     const totalUsers = sortedDocs.length;
-    const batchSize = 500;
-    let count = 0;
-    let processed = 0;
+    let modifiedCount = 0;
+    let batchCount = 0;
     let batch = adminDb.batch();
 
     for (let i = 0; i < sortedDocs.length; i++) {
       const item = sortedDocs[i];
-      batch.update(item.ref, { userNumber: i + 1 });
-      count++;
-      processed++;
+      const targetNumber = i + 1;
+      if (item.data.userNumber !== targetNumber) {
+        batch.update(item.ref, { userNumber: targetNumber });
+        modifiedCount++;
+        batchCount++;
 
-      if (count === batchSize) {
-        await batch.commit();
-        batch = adminDb.batch();
-        count = 0;
+        if (batchCount >= 400) {
+          await batch.commit();
+          batch = adminDb.batch();
+          batchCount = 0;
+        }
       }
     }
     
-    if (count > 0) {
+    if (batchCount > 0) {
       await batch.commit();
     }
 
@@ -171,7 +175,7 @@ export async function resequenceUserNumbers() {
       updatedAt: Timestamp.now() 
     }, { merge: true });
 
-    return { success: true, count: processed };
+    return { success: true, count: modifiedCount };
   } catch (error) {
     console.error("Error resequencing user numbers:", error);
     return { success: false, error: String(error) };
