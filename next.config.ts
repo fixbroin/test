@@ -51,10 +51,11 @@ const withPWA = withPWAInit({
   reloadOnOnline: true,
   swcMinify: true,
   fallbacks: {
-    document: '/offline',
+    document: '/404',
   },
 
   workboxOptions: {
+    maximumFileSizeToCacheInBytes: 3000000,
     exclude: [
       /googletagmanager\.com/,
       /admin/,
@@ -62,8 +63,13 @@ const withPWA = withPWAInit({
       /chunk-[A-Za-z0-9]+\.js/,
       /\.map$/,
     ],
-    runtimeCaching: userRuntimeCaching,
-    // The top-level 'plugins' key was incorrect and is removed.
+    runtimeCaching: [
+      {
+        urlPattern: /\/_next\/data\/.*/i,
+        handler: 'NetworkOnly' as const,
+      },
+      ...userRuntimeCaching
+    ],
   },
 
   pwas: {
@@ -121,6 +127,10 @@ const nextConfig: NextConfig = {
   },
 
   typescript: { ignoreBuildErrors: true },
+  experimental: {
+    workerThreads: false,
+    cpus: 2
+  }
 };
 
 export default withPWA(nextConfig);

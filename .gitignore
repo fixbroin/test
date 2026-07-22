@@ -43,7 +43,7 @@ next-env.d.ts
 .env.development
 .env.production
 .env.test
-!.env.example
+.env.example
 
 # firebase
 firebase-debug.log
