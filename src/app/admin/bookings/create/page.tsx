@@ -23,7 +23,7 @@ import { db } from '@/lib/firebase';
 import { 
   collection, query, where, getDocs, doc, getDoc, 
   addDoc, Timestamp, limit, orderBy 
-} from '@/lib/mysqlDb';
+} from "firebase/firestore";
 import { useToast } from "@/hooks/use-toast";
 import { useApplicationConfig } from '@/hooks/useApplicationConfig';
 import { triggerPushNotification } from '@/lib/fcmUtils';

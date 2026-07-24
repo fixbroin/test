@@ -1,6 +1,6 @@
 import { type NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/firebase';
-import { collection, addDoc, Timestamp } from '@/lib/mysqlDb';
+import { collection, addDoc, Timestamp } from 'firebase/firestore';
 import type { FirestoreVisitorInfoLog } from '@/types/firestore';
 import { headers } from 'next/headers';
 

@@ -8,7 +8,7 @@ import { getHomepageData, getAggregateRating } from '@/lib/homepageUtils';
 import { getGlobalWebSettings } from '@/lib/webServerUtils';
 import JsonLdScript from '@/components/shared/JsonLdScript';
 
-export const dynamic = 'force-dynamic';
+export const revalidate = false;
 
 export async function generateMetadata(
   _: {}, 

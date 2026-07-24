@@ -1,6 +1,6 @@
 
 import type { Icon as LucideIconType } from 'lucide-react';
-import { Timestamp } from '@/lib/mysqlDb';
+import { Timestamp } from 'firebase/firestore';
 
 export { Timestamp };
 

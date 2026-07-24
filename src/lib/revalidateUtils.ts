@@ -3,7 +3,7 @@
 
 import { revalidateTag, revalidatePath } from 'next/cache';
 import { adminDb } from './firebaseAdmin';
-import { FieldValue } from './mysqlDbAdmin';
+import { FieldValue } from 'firebase-admin/firestore';
 
 /**
  * Smart Trigger: Tells the server to clear the cache for specific data
@@ -12,11 +12,7 @@ import { FieldValue } from './mysqlDbAdmin';
  */
 export async function triggerRefresh(tag: 'services' | 'categories' | 'cities' | 'bookings' | 'users' | 'content' | 'blog' | 'global' | 'withdrawal-referral-config' | 'withdrawal-provider-config' | 'promo-usage' | string) {
   try {
-    try {
-      (revalidateTag as any)(tag);
-    } catch (e) {
-      // Ignore Next.js internal revalidateTag profile mismatch
-    }
+    revalidateTag(tag, 'max');
     
     // Purge static HTML pages cache globally only for changes affecting public layout/content
     const isPublicContentChange = [

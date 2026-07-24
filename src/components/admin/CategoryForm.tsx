@@ -14,8 +14,8 @@ import { Loader2, Image as ImageIcon, Trash2, Wand2, Edit2, Lock } from "lucide-
 import { useToast } from "@/hooks/use-toast";
 import NextImage from 'next/image';
 import { storage, db } from '@/lib/firebase';
-import { ref as storageRef, uploadBytesResumable, getDownloadURL, deleteObject } from '@/lib/mysqlStorage';
-import { collection, query, where, getDocs, limit } from '@/lib/mysqlDb';
+import { ref as storageRef, uploadBytesResumable, getDownloadURL, deleteObject } from "firebase/storage";
+import { collection, query, where, getDocs, limit } from "firebase/firestore";
 import { Progress } from "@/components/ui/progress";
 import { Switch } from "@/components/ui/switch";
 import { generateCategorySeo } from '@/ai/flows/generateCategorySeoFlow';
@@ -35,10 +35,7 @@ const categoryFormSchema = z.object({
   slug: z.string().min(2, "Slug must be at least 2 characters.").regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/, "Invalid slug format (e.g., my-category-name).").optional().or(z.literal('')),
   order: z.coerce.number().min(0, { message: "Order must be a non-negative number." }),
   isActive: z.boolean().default(true),
-  imageUrl: z.string().refine(
-    (val) => !val || val === "" || val.startsWith('/') || val.startsWith('http://') || val.startsWith('https://') || val.startsWith('uploads/'),
-    { message: "Must be a valid URL or path if provided." }
-  ).optional().or(z.literal('')),
+  imageUrl: z.string().url({ message: "Must be a valid URL if provided." }).optional().or(z.literal('')),
   imageHint: z.string().max(50, { message: "Image hint should be max 50 characters."}).optional().or(z.literal('')),
   h1_title: z.string().optional().or(z.literal('')),
   seo_title: z.string().optional().or(z.literal('')),
@@ -61,9 +58,9 @@ interface CategoryFormProps {
   nextOrder?: number;
 }
 
-const isFirebaseStorageUrl = (url: string | null | undefined): boolean => {
+const isFirebaseStorageUrl = (url: string): boolean => {
   if (!url) return false;
-  return typeof url === 'string' && url.trim().length > 0;
+  return typeof url === 'string' && url.includes("firebasestorage.googleapis.com");
 };
 
 const isValidImageSrc = (url: string | null | undefined): url is string => {
@@ -268,19 +265,19 @@ export default function CategoryForm({ onSubmit: onSubmitProp, initialData, onCa
         setStatusMessage("Uploading image...");
         setUploadProgress(0);
 
-        if (originalImageUrlFromInitialData) {
+        if (originalImageUrlFromInitialData && isFirebaseStorageUrl(originalImageUrlFromInitialData)) {
           try {
             const oldImageRef = storageRef(storage, originalImageUrlFromInitialData);
             await deleteObject(oldImageRef);
           } catch (error) {
-            console.warn("Error deleting old image: ", error);
+            console.warn("Error deleting old image from Firebase Storage: ", error);
           }
         }
 
         const timestamp = Math.floor(Date.now() / 1000);
         const randomString = generateRandomHexString(16);
         const extension = selectedFile.name.split('.').pop()?.toLowerCase() || 'png';
-        const fileName = `category_${timestamp}_${randomString}.${extension}`;
+        const fileName = `blog_cover_${timestamp}_${randomString}.${extension}`;
         const imagePath = `public/uploads/categories/${fileName}`;
         const fileStorageRefInstance = storageRef(storage, imagePath);
         const uploadTask = uploadBytesResumable(fileStorageRefInstance, selectedFile);
@@ -300,7 +297,7 @@ export default function CategoryForm({ onSubmit: onSubmitProp, initialData, onCa
           );
         });
         setStatusMessage("Image uploaded. Saving category...");
-      } else if (!formData.imageUrl && originalImageUrlFromInitialData) {
+      } else if (!formData.imageUrl && originalImageUrlFromInitialData && isFirebaseStorageUrl(originalImageUrlFromInitialData)) {
         setStatusMessage("Removing image from storage...");
         try {
           const oldImageRef = storageRef(storage, originalImageUrlFromInitialData);
@@ -308,7 +305,8 @@ export default function CategoryForm({ onSubmit: onSubmitProp, initialData, onCa
           finalImageUrl = "";
           setStatusMessage("Image removed. Saving category...");
         } catch (error: any) {
-          console.error("Error deleting image from storage: ", error);
+          console.error("Error deleting image from Firebase Storage: ", error);
+          throw new Error(`Failed to delete previous image from storage: ${error.message}. Category not saved.`);
         }
       } else {
         setStatusMessage(initialData ? "Saving changes..." : "Creating category...");

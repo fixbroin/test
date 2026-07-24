@@ -5,9 +5,6 @@ import { AppSettings, FirestoreService, FirestoreSubCategory, TimeSlotCategoryLi
 import { defaultAppSettings } from '@/config/appDefaults';
 import { getZonedDate, formatZonedDateToISO, convertWallClockToUTC } from '@/lib/utils';
 
-export const dynamic = 'force-dynamic';
-export const revalidate = 0;
-
 interface CartEntry {
   serviceId: string;
   quantity: number;
@@ -23,10 +20,10 @@ const DEFAULT_HOURS_WHEN_LIMIT_ENABLED = defaultAppSettings.limitLateBookingHour
 const BUSY_MAP_CACHE = new Map<string, Map<string, Record<string, number>>>();
 const MAX_CACHE_SIZE = 100;
 
-// Config caching to prevent fetching settings on every click (2s TTL for instant admin reflection)
+// Config caching to prevent fetching settings on every click
 let CACHED_APP_CONFIG: AppSettings | null = null;
 let CACHED_APP_CONFIG_TIME = 0;
-const CACHE_TTL_MS = 2000; // 2 seconds for real-time updates
+const CACHE_TTL_MS = 15 * 60 * 1000; // 15 minutes
 
 // --- Helper Functions ---
 
@@ -464,7 +461,7 @@ export async function POST(req: NextRequest) {
 
         // Collect unique subcategory IDs from the resolved services
         const subCategoryIds = new Set<string>();
-        (Object.values(servicesData) as FirestoreService[]).forEach(service => {
+        Object.values(servicesData).forEach(service => {
             if (service.subCategoryId) subCategoryIds.add(service.subCategoryId);
         });
         const subCategoryIdsArray = Array.from(subCategoryIds);
@@ -480,7 +477,7 @@ export async function POST(req: NextRequest) {
 
         // Collect category IDs from resolved subcategories
         const categoryIds = new Set<string>();
-        (Object.values(subCatsData) as FirestoreSubCategory[]).forEach(subCat => {
+        Object.values(subCatsData).forEach(subCat => {
             if (subCat.parentId) categoryIds.add(subCat.parentId);
         });
         const categoryIdsArray = Array.from(categoryIds);

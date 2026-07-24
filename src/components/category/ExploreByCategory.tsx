@@ -4,7 +4,7 @@
 
 import { useState, useEffect } from 'react';
 import { db } from '@/lib/firebase';
-import { collection, getDocs, query, where, orderBy, limit } from '@/lib/mysqlDb';
+import { collection, getDocs, query, where, orderBy, limit } from 'firebase/firestore';
 import type { FirestoreCity, FirestoreArea, FirestoreCategory } from '@/types/firestore';
 import { Loader2, MapPin, Layers } from 'lucide-react';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';

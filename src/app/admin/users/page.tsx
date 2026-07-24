@@ -11,7 +11,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { Users, Eye, Trash2, Loader2, UserCircle, PackageSearch, ShieldCheck, ShieldAlert, XCircle, Search, Download, FileDown, UserCheck, UserX, UserPlus, Phone, Mail, Calendar, MessageCircle, ChevronDown, FileSpreadsheet, FileText as FilePdfIcon, CheckCircle2 } from "lucide-react";
 import type { FirestoreUser, Address } from '@/types/firestore';
 import { db } from '@/lib/firebase'; 
-import { collection, query, orderBy, onSnapshot, doc, updateDoc, deleteDoc, Timestamp, limit, startAfter, getDocs, where, type QueryDocumentSnapshot } from '@/lib/mysqlDb';
+import { collection, query, orderBy, onSnapshot, doc, updateDoc, deleteDoc, Timestamp, limit, startAfter, getDocs, where, type QueryDocumentSnapshot } from "firebase/firestore";
 import { useToast } from "@/hooks/use-toast";
 import UserDetailsModal from '@/components/admin/UserDetailsModal'; 
 import { Input } from '@/components/ui/input';
@@ -103,14 +103,7 @@ export default function AdminUsersPage() {
       const result = await resequenceUserNumbers();
       if (result.success) {
         toast({ title: "Sync Complete", description: `Successfully re-sequenced ${result.count} users.` });
-        const usersCollectionRef = collection(db, "users");
-        const q = query(usersCollectionRef, orderBy("userNumber", "desc"));
-        const querySnapshot = await getDocs(q);
-        const fetchedUsers = querySnapshot.docs.map(doc => ({
-          ...doc.data(),
-          id: doc.id, 
-        } as FirestoreUser));
-        setUsers(fetchedUsers);
+        window.location.reload(); // Refresh to show new numbers
       } else {
         toast({ title: "Sync Failed", description: result.error, variant: "destructive" });
       }
@@ -175,16 +168,17 @@ export default function AdminUsersPage() {
       const fetchInitialUsers = async () => {
         try {
           const usersCollectionRef = collection(db, "users");
-          const q = query(usersCollectionRef, orderBy("userNumber", "desc"));
+          const q = query(usersCollectionRef, orderBy("createdAt", sortOrder), limit(PAGE_SIZE));
           const querySnapshot = await getDocs(q);
           const fetchedUsers = querySnapshot.docs.map(doc => ({
             ...doc.data(),
             id: doc.id, 
           } as FirestoreUser));
           setUsers(fetchedUsers);
-          setHasMore(false);
+          setLastDoc(querySnapshot.docs[querySnapshot.docs.length - 1] || null);
+          setHasMore(querySnapshot.docs.length === PAGE_SIZE);
         } catch (error) {
-          console.error("Error fetching users:", error);
+          console.error("Error fetching users: ", error);
           toast({ title: "Fetch Error", description: "Could not load users.", variant: "destructive" });
         } finally {
           setIsLoading(false);
@@ -229,23 +223,25 @@ export default function AdminUsersPage() {
   };
 
   const filteredUsers = useMemo(() => {
-    let result = users.filter(user => user.displayName || user.email || user.mobileNumber || (user as any).phoneNumber);
-    if (searchTerm) {
-      const lowerSearch = searchTerm.toLowerCase().trim();
-      const normalizedSearchPhone = lowerSearch.replace(/\D/g, '').replace(/^91/, '');
+    if (!searchTerm) return users;
+    
+    const lowerSearch = searchTerm.toLowerCase().trim();
+    // Normalize search term for phone: remove non-digits and leading 91
+    const normalizedSearchPhone = lowerSearch.replace(/\D/g, '').replace(/^91/, '');
 
-      result = result.filter(user => {
-        const nameMatch = (user.displayName || '').toLowerCase().includes(lowerSearch);
-        const emailMatch = (user.email || '').toLowerCase().includes(lowerSearch);
-        const userPhone = (user.mobileNumber || '').replace(/\D/g, '').replace(/^91/, '');
-        const phoneMatch = normalizedSearchPhone ? userPhone.includes(normalizedSearchPhone) : false;
-        const numberMatch = user.userNumber?.toString() === lowerSearch;
-        
-        return nameMatch || emailMatch || phoneMatch || numberMatch;
-      });
-    }
+    return users.filter(user => {
+      const nameMatch = (user.displayName || '').toLowerCase().includes(lowerSearch);
+      const emailMatch = (user.email || '').toLowerCase().includes(lowerSearch);
+      
+      // Normalize user phone for comparison
+      const userPhone = (user.mobileNumber || '').replace(/\D/g, '').replace(/^91/, '');
+      const phoneMatch = normalizedSearchPhone ? userPhone.includes(normalizedSearchPhone) : false;
 
-    return [...result].sort((a, b) => (Number(b.userNumber) || 0) - (Number(a.userNumber) || 0));
+      // Member ID match
+      const numberMatch = user.userNumber?.toString() === lowerSearch;
+      
+      return nameMatch || emailMatch || phoneMatch || numberMatch;
+    });
   }, [users, searchTerm]);
 
   const handleToggleUserStatus = async (userId: string, currentStatus: boolean) => {
@@ -253,11 +249,10 @@ export default function AdminUsersPage() {
     setIsUpdatingStatus(userId);
     try {
       await updateDoc(doc(db, "users", userId), { isActive: !currentStatus });
-      setUsers(prev => prev.map(u => u.id === userId ? { ...u, isActive: !currentStatus } : u));
       await triggerRefresh('users'); // SmartSync
       toast({ title: "Status Updated", description: `User is now ${!currentStatus ? 'Active' : 'Disabled'}.` });
     } catch (error) {
-      toast({ title: "Error Updating Status", variant: "destructive" });
+      toast({ title: "Update Failed", variant: "destructive" });
     } finally {
       setIsUpdatingStatus(null);
     }
@@ -267,13 +262,9 @@ export default function AdminUsersPage() {
     if (!userId) return;
     setIsDeleting(userId);
     try {
-      await Promise.all([
-        deleteDoc(doc(db, "users", userId)),
-        deleteDoc(doc(db, "providerApplications", userId)),
-      ]);
-      setUsers(prev => prev.filter(u => u.id !== userId && u.uid !== userId));
+      await deleteDoc(doc(db, "users", userId));
       await triggerRefresh('users'); // SmartSync
-      toast({ title: "User Deleted", description: "All user records have been permanently removed." });
+      toast({ title: "User Deleted", description: "The record has been removed from Firestore." });
     } catch (error) {
       toast({ title: "Delete Failed", variant: "destructive" });
     } finally {
@@ -380,7 +371,7 @@ export default function AdminUsersPage() {
           </div>
           <div className="min-w-0">
             <p className="font-black text-sm text-foreground truncate tracking-tight">{user.displayName || 'Anonymous User'}</p>
-            <p className="text-[10px] text-muted-foreground font-mono truncate max-w-[150px]">ID: {user.uid || user.id || 'N/A'}</p>
+            <p className="text-[10px] text-muted-foreground font-mono truncate max-w-[150px]">ID: {user.uid}</p>
           </div>
         </div>
         <StatusBadge isActive={user.isActive} isLoading={isUpdatingStatus === user.id} />
@@ -467,7 +458,7 @@ export default function AdminUsersPage() {
             <Users className="h-4 w-4" />
             <span className="text-[10px] font-black uppercase tracking-[0.2em]">Community Database</span>
           </div>
-          <h1 className="text-4xl font-black tracking-tight">User Directory <span className="text-primary/40 ml-2">({filteredUsers.length || stats.activeUsers})</span></h1>
+          <h1 className="text-4xl font-black tracking-tight">User Directory <span className="text-primary/40 ml-2">({stats.activeUsers})</span></h1>
           <p className="text-muted-foreground text-sm font-medium">Manage and audit your registered user ecosystem.</p>
         </div>
         <div className="flex items-center gap-3">
@@ -560,7 +551,7 @@ export default function AdminUsersPage() {
                           <TableCell>
                             <div className="flex flex-col">
                               <span className="font-bold text-foreground">{user.displayName || "Unset Name"}</span>
-                              <span className="text-[10px] font-mono text-muted-foreground uppercase tracking-tighter" title={user.uid || user.id || ''}>{(user.uid || user.id || 'N/A').substring(0,14)}...</span>
+                              <span className="text-[10px] font-mono text-muted-foreground uppercase tracking-tighter" title={user.uid}>{user.uid.substring(0,14)}...</span>
                             </div>
                           </TableCell>
                           <TableCell>

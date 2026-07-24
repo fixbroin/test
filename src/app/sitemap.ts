@@ -1,11 +1,12 @@
 import { MetadataRoute } from 'next';
 import { adminDb } from '@/lib/firebaseAdmin'; 
-import { Timestamp } from '@/lib/mysqlDbAdmin'; 
+import { Timestamp } from 'firebase-admin/firestore'; 
 import type { FirestoreCategory, FirestoreService, FirestoreCity, FirestoreArea, FirestoreBlogPost, ContentPage, AreaServiceSeoSetting } from '@/types/firestore';
 import { getBaseUrl } from '@/lib/config'; 
 import { unstable_cache } from 'next/cache';
 
-export const dynamic = 'force-dynamic';
+export const dynamic = 'force-static'; 
+export const revalidate = false;
 
 const safeToISOString = (timestamp: Timestamp | undefined | string | Date, fallbackDate: string): string => {
   try {

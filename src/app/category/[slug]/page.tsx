@@ -126,7 +126,15 @@ export async function generateMetadata(
 }
 
 export async function generateStaticParams() {
-  return [];
+  try {
+    const categoriesSnapshot = await adminDb.collection('adminCategories').where('isActive', '==', true).get();
+    return categoriesSnapshot.docs
+      .map(doc => ({ slug: (doc.data() as FirestoreCategory).slug }))
+      .filter(p => p.slug);
+  } catch (error) {
+    console.error("[CategoryPage] Error generating static params:", error);
+    return [];
+  }
 }
 
 export default async function CategoryPage({ params }: CategoryPageProps) {

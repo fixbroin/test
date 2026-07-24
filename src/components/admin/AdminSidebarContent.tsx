@@ -12,7 +12,7 @@ import {
   useSidebar,
 } from '@/components/ui/sidebar';
 import Logo from '@/components/shared/Logo';
-import { LayoutGrid, List, Layers, Settings, Users, ShoppingBag, Tag, BarChart3, PlaySquare, Settings2, HelpCircle, MessageSquare, ListChecks, Percent, UserCircle as UserProfileIcon, Target, Map, HandCoins, Megaphone, Bell, Activity, Palette, MessageCircle as ChatIcon, Mail, Zap, Receipt, Tv, Users2, MapPin, Cookie, Globe2, KeyRound, Database, FileText, Construction, Handshake, Banknote, ChevronRight, RefreshCw, ShieldCheck, Image as ImageIcon } from 'lucide-react';
+import { LayoutGrid, List, Layers, Settings, Users, ShoppingBag, Tag, BarChart3, PlaySquare, Settings2, HelpCircle, MessageSquare, ListChecks, Percent, UserCircle as UserProfileIcon, Target, Map, HandCoins, Megaphone, Bell, Activity, Palette, MessageCircle as ChatIcon, Mail, Zap, Receipt, Tv, Users2, MapPin, Cookie, Globe2, KeyRound, Database, FileText, Construction, Handshake, Banknote, ChevronRight, RefreshCw, ShieldCheck } from 'lucide-react';
 import { useGlobalSettings } from '@/hooks/useGlobalSettings';
 import { useLoading } from '@/contexts/LoadingContext';
 import { cn } from '@/lib/utils';
@@ -70,14 +70,11 @@ const navItems = [
   { href: '/admin/promo-codes', label: 'Promo Codes', icon: Percent },
   { type: 'separator', label: 'System Settings' },
   { href: '/admin/theme-settings', label: 'Theme Settings', icon: Palette },
-  { href: '/admin/image-gallery', label: 'Image Gallery', icon: ImageIcon },
   { href: '/admin/settings', label: 'App Settings', icon: Settings },
   { href: '/admin/login-settings', label: 'Login Settings', icon: KeyRound },
   { href: '/admin/web-settings', label: 'Web Settings', icon: Settings2 },
   { href: '/admin/cookie-settings', label: 'Cookie Settings', icon: Cookie },
   { href: '/admin/database-tools', label: 'Database Tools', icon: Database },
-  { href: '/admin/system-logs', label: 'System Logs', icon: FileText },
-  { href: '/admin/api-docs', label: 'API Reference', icon: Globe2 },
 ];
 
 export default function AdminSidebarContent() {

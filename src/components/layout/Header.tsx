@@ -30,7 +30,7 @@ import ThemeToggle from '@/components/shared/ThemeToggle';
 import { useApplicationConfig } from '@/hooks/useApplicationConfig'; 
 import { useFeaturesConfig } from '@/hooks/useFeaturesConfig'; // Import new hook
 import type { ReferralSettings } from '@/types/firestore';
-import { doc, onSnapshot } from '@/lib/mysqlDb';
+import { doc, onSnapshot } from "firebase/firestore";
 import { db } from '@/lib/firebase'; // Added missing import
 
 const NavLink = ({ href, children, onClick, isButton = false }: { href?: string; children: React.ReactNode; onClick?: (e: React.MouseEvent<HTMLAnchorElement | HTMLButtonElement>) => void; isButton?: boolean }) => {
@@ -232,18 +232,9 @@ const Header = () => {
              </div>
             <nav className="hidden md:flex items-center gap-2">
               {baseNavItems.map((item) => (
-                 <Link
+                 <button
                     key={item.href}
-                    href={item.href}
-                    onClick={(e) => {
-                      if (item.isProtected && !user) {
-                        e.preventDefault();
-                        showLoading();
-                        triggerAuthRedirect(item.href);
-                      } else {
-                        showLoading();
-                      }
-                    }}
+                    onClick={(e) => item.isProtected ? handleAuthRequiredNav(e, item.href) : handleSimpleNav(e, item.href)}
                     className={cn(
                       "px-4 py-2 text-sm font-semibold rounded-full transition-all duration-300",
                       currentPathnameFromHook === item.href 
@@ -252,21 +243,12 @@ const Header = () => {
                     )}
                   >
                   {item.label}
-                 </Link>
+                 </button>
               ))}
              
               { featuresConfig.showCustomServiceButton && (
-                 <Link
-                    href="/custom-service"
-                    onClick={(e) => {
-                      if (!user) {
-                        e.preventDefault();
-                        showLoading();
-                        triggerAuthRedirect('/custom-service');
-                      } else {
-                        showLoading();
-                      }
-                    }}
+                 <button
+                    onClick={(e) => handleAuthRequiredNav(e, '/custom-service')}
                     className={cn(
                       "px-4 py-2 text-sm font-semibold rounded-full transition-all duration-300 flex items-center",
                       currentPathnameFromHook === '/custom-service'
@@ -275,7 +257,7 @@ const Header = () => {
                     )}
                   >
                     <Construction className="mr-2 h-4 w-4" /> Custom Service
-                 </Link>
+                 </button>
               )}
               { (appConfig.isProviderRegistrationEnabled || (user && user.email === ADMIN_EMAIL) || providerStatus === 'approved') && (() => {
                 const getProviderButtonDetails = () => {
@@ -301,9 +283,8 @@ const Header = () => {
                 };
                 const providerBtn = getProviderButtonDetails();
                 return (
-                  <Link
-                    href={providerBtn.path}
-                    onClick={() => showLoading()}
+                  <button
+                    onClick={(e) => handleSimpleNav(e, providerBtn.path)}
                     className={cn(
                       "px-4 py-2 text-sm font-semibold rounded-full transition-all duration-300 flex items-center",
                       currentPathnameFromHook === providerBtn.path
@@ -312,7 +293,7 @@ const Header = () => {
                     )}
                   >
                     {providerBtn.icon} {providerBtn.label}
-                  </Link>
+                  </button>
                 );
               })()}
             </nav>
@@ -395,9 +376,9 @@ const Header = () => {
 
             <div className="hidden md:block ml-2">
                {!user && !authIsLoading && (
-                 <Link href="/auth/login" onClick={() => showLoading()} className="inline-flex items-center justify-center rounded-full px-6 py-2 text-sm font-bold bg-primary text-primary-foreground hover:bg-primary/90 shadow-lg shadow-primary/20 transition-all duration-300">
+                 <Button className="rounded-full px-6 font-bold shadow-lg shadow-primary/20" size="sm" onClick={(e) => handleSimpleNav(e, '/auth/login')}>
                    Login
-                 </Link>
+                 </Button>
                )}
                {user && (
                  <DropdownMenu>
