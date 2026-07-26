@@ -89,18 +89,18 @@ export async function generateMetadata(
   };
 }
 
-export async function generateStaticParams() {
-   try {
-    const citiesSnapshot = await adminDb.collection('cities').where('isActive', '==', true).get();
-    const paths = citiesSnapshot.docs.map(doc => ({
-      city: (doc.data() as FirestoreCity).slug as string,
-    }));
-    return paths.filter(p => p.city && !p.city.includes('.') && !RESERVED_SLUGS.includes(p.city));
-  } catch (error) {
-    console.error("Error generating static params for city pages:", error);
-    return [];
-  }
-}
+// export async function generateStaticParams() {
+//    try {
+//     const citiesSnapshot = await adminDb.collection('cities').where('isActive', '==', true).get();
+//     const paths = citiesSnapshot.docs.map(doc => ({
+//       city: (doc.data() as FirestoreCity).slug as string,
+//     }));
+//     return paths.filter(p => p.city && !p.city.includes('.') && !RESERVED_SLUGS.includes(p.city));
+//   } catch (error) {
+//     console.error("Error generating static params for city pages:", error);
+//     return [];
+//   }
+// }
 
 export default async function CityHomePage({ params }: CityPageProps) {
   const { city: citySlug } = await params;
