@@ -34,7 +34,7 @@ const prompt = ai.definePrompt({
   name: 'generateCategorySeoPrompt',
   input: { schema: GenerateCategorySeoInputSchema },
   output: { schema: GenerateCategorySeoOutputSchema },
-  prompt: `You are an expert Local SEO copywriter for "FixBro", the leading home services platform in Bangalore, India.
+  prompt: `You are an expert Local SEO copywriter for "Wecanfix", the leading home services platform in Bangalore, India.
 Your goal is to generate advanced, high-intent SEO content for a service category page to dominate Bangalore search results.
 
 Category Name: {{categoryName}}
@@ -47,10 +47,10 @@ Category Name: {{categoryName}}
 
 **OUTPUT FIELDS:**
 1.  **h1_title**: MUST be exactly "{{categoryName}} in Bangalore".
-2.  **seo_title**: Exactly "{{categoryName}} in Bangalore | {{categoryName}} Near Me | FixBro".
+2.  **seo_title**: Exactly "{{categoryName}} in Bangalore | {{categoryName}} Near Me | Wecanfix".
 3.  **seo_description**: A click-worthy description under 160 chars including the primary keyword and benefits like "Same-Day Service".
 4.  **seo_keywords**: 10 high-volume, localized keywords like "{{categoryName}} near me", "best {{categoryName}} bangalore", etc.
-5.  **seo_content**: A 200-300 word professional, keyword-rich bio. Describe the range of {{categoryName}} services offered in Bangalore, the expertise of FixBro pros, and why customers choose FixBro. Use HTML tags like <p>, <strong>, and <br> for formatting.
+5.  **seo_content**: A 200-300 word professional, keyword-rich bio. Describe the range of {{categoryName}} services offered in Bangalore, the expertise of Wecanfix pros, and why customers choose Wecanfix. Use HTML tags like <p>, <strong>, and <br> for formatting.
 6.  **faqs**: Generate 3-5 Frequently Asked Questions that people in Bangalore ask about {{categoryName}} services.
 7.  **imageHint**: Keywords for finding a relevant high-quality image.
 

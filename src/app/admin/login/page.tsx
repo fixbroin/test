@@ -16,6 +16,7 @@ import { useAuth } from '@/hooks/useAuth';
 import type { LogInData } from '@/contexts/AuthContext';
 import { ADMIN_EMAIL } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
+import { db, collection, query, where, getDocs, limit } from '@/lib/mysqlDb';
 
 const loginSchema = z.object({
   email: z.string().email({ message: "Invalid email address." }),
@@ -52,7 +53,23 @@ export default function AdminLoginPage() {
     form.clearErrors('email');
     form.clearErrors('password');
     
-    if (data.email.toLowerCase() !== ADMIN_EMAIL.toLowerCase()) {
+    const emailLower = data.email.toLowerCase();
+    let isAdmin = emailLower === ADMIN_EMAIL.toLowerCase();
+
+    if (!isAdmin) {
+      try {
+        const adminsRef = collection(db, 'admins');
+        const q = query(adminsRef, where('email', '==', emailLower), where('status', '==', 'active'), limit(1));
+        const querySnap = await getDocs(q);
+        if (!querySnap.empty) {
+          isAdmin = true;
+        }
+      } catch (dbError) {
+        console.error("Failed to verify admin status from database:", dbError);
+      }
+    }
+
+    if (!isAdmin) {
       form.setError("email", { 
         type: "manual", 
         message: "This login is for admin use only." 

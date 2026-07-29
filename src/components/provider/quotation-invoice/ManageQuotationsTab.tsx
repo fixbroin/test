@@ -7,7 +7,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Loader2, Edit, Trash2, PackageSearch, MoreHorizontal, Send, Download, Check, ChevronsUpDown } from "lucide-react";
 import { db } from '@/lib/firebase';
-import { collection, query, orderBy, onSnapshot, doc, deleteDoc, updateDoc, Timestamp, where } from "firebase/firestore";
+import { collection, query, orderBy, onSnapshot, doc, deleteDoc, updateDoc, Timestamp, where } from '@/lib/mysqlDb';
 import type { FirestoreQuotation, QuotationStatus, CompanyDetailsForPdf } from '@/types/firestore';
 import { useToast } from "@/hooks/use-toast";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
@@ -21,6 +21,7 @@ import { uploadPdfToStorage, triggerPdfDownload, dataUriToBlob } from '@/lib/pdf
 import { useGlobalSettings } from '@/hooks/useGlobalSettings';
 import { useAuth } from '@/hooks/useAuth';
 import { getTimestampMillis } from '@/lib/utils';
+import { deleteObject } from '@/lib/mysqlStorage';
 
 interface ManageQuotationsTabProps {
   onEditQuotation: (quotation: FirestoreQuotation) => void;
@@ -39,6 +40,20 @@ export default function ManageQuotationsTab({ onEditQuotation }: ManageQuotation
   const { toast } = useToast();
   const { user: providerUser } = useAuth();
   const { settings: companySettings, isLoading: isLoadingCompanySettings } = useGlobalSettings();
+  const [allowDelete, setAllowDelete] = useState(true);
+
+  useEffect(() => {
+    const settingsRef = doc(db, "webSettings", "quotationInvoiceSettings");
+    const unsubscribe = onSnapshot(settingsRef, (docSnap) => {
+      if (docSnap.exists()) {
+        const data = docSnap.data();
+        setAllowDelete(data.allowProviderDelete !== false);
+      } else {
+        setAllowDelete(true);
+      }
+    });
+    return () => unsubscribe();
+  }, []);
 
   useEffect(() => {
     if (!providerUser) {
@@ -63,7 +78,18 @@ export default function ManageQuotationsTab({ onEditQuotation }: ManageQuotation
   const handleDeleteQuotation = async (quotationId: string) => {
     if (!quotationId) return;
     setIsUpdating(quotationId);
-    try { await deleteDoc(doc(db, "quotations", quotationId)); toast({ title: "Success", description: "Quotation deleted." });
+    try {
+      const quotation = quotations.find(q => q.id === quotationId);
+      if (quotation) {
+        try {
+          const deletePath = quotation.pdfUrl || `/uploads/pdf/${quotation.id}_${quotation.quotationNumber}.pdf`;
+          await deleteObject(deletePath);
+        } catch (storageErr) {
+          console.warn("Storage deletion warning for quotation PDF:", storageErr);
+        }
+      }
+      await deleteDoc(doc(db, "quotations", quotationId));
+      toast({ title: "Success", description: "Quotation deleted." });
     } catch (error) { toast({ title: "Error", description: (error as Error).message, variant: "destructive" });
     } finally { setIsUpdating(null); }
   };
@@ -81,7 +107,7 @@ export default function ManageQuotationsTab({ onEditQuotation }: ManageQuotation
     if (actionType === 'send') setIsSending(quotation.id); else setIsDownloading(quotation.id);
     try {
       const companyInfo: CompanyDetailsForPdf = {
-        name: companySettings?.websiteName || "FixBro", address: companySettings?.address || "",
+        name: companySettings?.websiteName || "Wecanfix", address: companySettings?.address || "",
         contactEmail: companySettings?.contactEmail || "", contactMobile: companySettings?.contactMobile || "",
         logoUrl: companySettings?.logoUrl || undefined,
       };
@@ -92,7 +118,7 @@ export default function ManageQuotationsTab({ onEditQuotation }: ManageQuotation
         const pdfBlob = dataUriToBlob(pdfDataUri); if (!pdfBlob) throw new Error("Failed to generate PDF blob.");
         const storagePath = `quotations_pdf/${quotation.id}_${quotation.quotationNumber}.pdf`;
         const downloadUrl = await uploadPdfToStorage(pdfBlob, storagePath);
-        await updateDoc(doc(db, "quotations", quotation.id), { status: 'Sent', updatedAt: Timestamp.now() });
+        await updateDoc(doc(db, "quotations", quotation.id), { status: 'Sent', pdfUrl: downloadUrl, updatedAt: Timestamp.now() });
         toast({
           duration: 10000, title: "Quotation Ready to Share",
           description: (<div><p>URL: <a href={downloadUrl} target="_blank" rel="noopener noreferrer" className="text-blue-600 underline break-all">{downloadUrl}</a></p><Button size="sm" variant="outline" className="mt-2" onClick={() => navigator.clipboard.writeText(downloadUrl).then(() => toast({description: "URL Copied!"}))}>Copy URL</Button></div>),
@@ -143,17 +169,19 @@ export default function ManageQuotationsTab({ onEditQuotation }: ManageQuotation
                 <Button variant="outline" size="sm" className="text-xs h-8" onClick={() => handleAction('download', quotation)} disabled={isUpdating === quotation.id || isSending === quotation.id || isDownloading === quotation.id}>
                   {isDownloading === quotation.id ? <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin"/> : <Download className="mr-1 h-3.5 w-3.5"/>} PDF
                 </Button>
-                <AlertDialog>
-                    <AlertDialogTrigger asChild>
-                        <Button variant="destructive" size="sm" className="text-xs h-8" disabled={isUpdating === quotation.id || isSending === quotation.id || isDownloading === quotation.id}>
-                          <Trash2 className="mr-1 h-3.5 w-3.5" /> Delete
-                        </Button>
-                    </AlertDialogTrigger>
-                    <AlertDialogContent>
-                        <AlertDialogHeader><AlertDialogTitle>Confirm Deletion</AlertDialogTitle><AlertDialogDescription>Delete quotation {quotation.quotationNumber}?</AlertDialogDescription></AlertDialogHeader>
-                        <AlertDialogFooter><AlertDialogCancel>Cancel</AlertDialogCancel><AlertDialogAction onClick={() => handleDeleteQuotation(quotation.id!)} className="bg-destructive hover:bg-destructive/90">Delete</AlertDialogAction></AlertDialogFooter>
-                    </AlertDialogContent>
-                </AlertDialog>
+                 {allowDelete && (
+                  <AlertDialog>
+                      <AlertDialogTrigger asChild>
+                          <Button variant="destructive" size="sm" className="text-xs h-8" disabled={isUpdating === quotation.id || isSending === quotation.id || isDownloading === quotation.id}>
+                            <Trash2 className="mr-1 h-3.5 w-3.5" /> Delete
+                          </Button>
+                      </AlertDialogTrigger>
+                      <AlertDialogContent>
+                          <AlertDialogHeader><AlertDialogTitle>Confirm Deletion</AlertDialogTitle><AlertDialogDescription>Delete quotation {quotation.quotationNumber}?</AlertDialogDescription></AlertDialogHeader>
+                          <AlertDialogFooter><AlertDialogCancel>Cancel</AlertDialogCancel><AlertDialogAction onClick={() => handleDeleteQuotation(quotation.id!)} className="bg-destructive hover:bg-destructive/90">Delete</AlertDialogAction></AlertDialogFooter>
+                      </AlertDialogContent>
+                  </AlertDialog>
+                 )}
             </div>
         </CardContent>
     </Card>
@@ -207,17 +235,19 @@ export default function ManageQuotationsTab({ onEditQuotation }: ManageQuotation
                         <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => handleAction('download', quotation)} disabled={isUpdating === quotation.id || isSending === quotation.id || isDownloading === quotation.id} title="Download PDF">
                           {isDownloading === quotation.id ? <Loader2 className="h-4 w-4 animate-spin"/> : <Download className="h-4 w-4"/>}
                         </Button>
-                        <AlertDialog>
-                            <AlertDialogTrigger asChild>
-                                <Button variant="destructive" size="icon" className="h-8 w-8" disabled={isUpdating === quotation.id || isSending === quotation.id || isDownloading === quotation.id} title="Delete">
-                                  <Trash2 className="h-4 w-4" />
-                                </Button>
-                            </AlertDialogTrigger>
-                            <AlertDialogContent>
-                                <AlertDialogHeader><AlertDialogTitle>Confirm Deletion</AlertDialogTitle><AlertDialogDescription>Delete quotation {quotation.quotationNumber} for {quotation.customerName}?</AlertDialogDescription></AlertDialogHeader>
-                                <AlertDialogFooter><AlertDialogCancel>Cancel</AlertDialogCancel><AlertDialogAction onClick={() => handleDeleteQuotation(quotation.id!)} className="bg-destructive hover:bg-destructive/90">Delete</AlertDialogAction></AlertDialogFooter>
-                            </AlertDialogContent>
-                        </AlertDialog>
+                         {allowDelete && (
+                          <AlertDialog>
+                              <AlertDialogTrigger asChild>
+                                  <Button variant="destructive" size="icon" className="h-8 w-8" disabled={isUpdating === quotation.id || isSending === quotation.id || isDownloading === quotation.id} title="Delete">
+                                    <Trash2 className="h-4 w-4" />
+                                  </Button>
+                              </AlertDialogTrigger>
+                              <AlertDialogContent>
+                                  <AlertDialogHeader><AlertDialogTitle>Confirm Deletion</AlertDialogTitle><AlertDialogDescription>Delete quotation {quotation.quotationNumber} for {quotation.customerName}?</AlertDialogDescription></AlertDialogHeader>
+                                  <AlertDialogFooter><AlertDialogCancel>Cancel</AlertDialogCancel><AlertDialogAction onClick={() => handleDeleteQuotation(quotation.id!)} className="bg-destructive hover:bg-destructive/90">Delete</AlertDialogAction></AlertDialogFooter>
+                              </AlertDialogContent>
+                          </AlertDialog>
+                         )}
                       </div>
                     </TableCell>
                 </TableRow>

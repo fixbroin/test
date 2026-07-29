@@ -16,6 +16,7 @@ import { Badge } from '@/components/ui/badge';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Separator } from '@/components/ui/separator';
 import type { AppSettings, LeaveRequest } from '@/types/firestore';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 
 const parseTimeToMinutes = (timeStr: string): number => {
     if (!timeStr || !timeStr.includes(':')) return 0;
@@ -55,9 +56,14 @@ export default function ScheduleSelection({ onSelect, initialDate, initialSlot }
   const [leavesList, setLeavesList] = useState<any[]>([]);
   const [leaveReason, setLeaveReason] = useState<string | null>(null);
   const [isDateLeave, setIsDateLeave] = useState<boolean>(false);
+  const [isCalendarOpen, setIsCalendarOpen] = useState(false);
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const [isDragging, setIsDragging] = useState(false);
 
   const { toast } = useToast();
   const { config: appConfig, isLoading: isLoadingAppSettings } = useApplicationConfig();
+  const [datesWithNoSlots, setDatesWithNoSlots] = useState<string[]>([]);
+  const shouldAutoRedirect = useRef(true);
 
   useEffect(() => {
     const fetchLeaves = async () => {
@@ -72,6 +78,76 @@ export default function ScheduleSelection({ onSelect, initialDate, initialSlot }
     };
     fetchLeaves();
   }, []);
+
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+
+    let isDown = false;
+    let startX = 0;
+    let scrollLeft = 0;
+    let dragDistance = 0;
+
+    const handleMouseDown = (e: MouseEvent) => {
+      isDown = true;
+      startX = e.pageX - el.offsetLeft;
+      scrollLeft = el.scrollLeft;
+      dragDistance = 0;
+      setIsDragging(false);
+    };
+
+    const handleMouseLeave = () => {
+      isDown = false;
+    };
+
+    const handleMouseUp = () => {
+      // Small timeout to allow mouseup click prevention to register
+      setTimeout(() => {
+        setIsDragging(false);
+      }, 50);
+      isDown = false;
+    };
+
+    const handleMouseMove = (e: MouseEvent) => {
+      if (!isDown) return;
+      e.preventDefault();
+      const x = e.pageX - el.offsetLeft;
+      const walk = (x - startX) * 1.5;
+      dragDistance = Math.abs(x - startX);
+      if (dragDistance > 5) {
+        setIsDragging(true);
+      }
+      el.scrollLeft = scrollLeft - walk;
+    };
+
+    el.addEventListener('mousedown', handleMouseDown);
+    el.addEventListener('mouseleave', handleMouseLeave);
+    el.addEventListener('mouseup', handleMouseUp);
+    el.addEventListener('mousemove', handleMouseMove);
+
+    return () => {
+      el.removeEventListener('mousedown', handleMouseDown);
+      el.removeEventListener('mouseleave', handleMouseLeave);
+      el.removeEventListener('mouseup', handleMouseUp);
+      el.removeEventListener('mousemove', handleMouseMove);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!selectedDate || !scrollRef.current) return;
+    
+    // Find the button representing the selected date ISO
+    const selectedISO = formatZonedDateToISO(selectedDate, appConfig?.timezone || 'Asia/Kolkata');
+    const activeBtn = scrollRef.current.querySelector(`[data-date-iso="${selectedISO}"]`);
+    
+    if (activeBtn) {
+      activeBtn.scrollIntoView({
+        behavior: 'smooth',
+        block: 'nearest',
+        inline: 'center'
+      });
+    }
+  }, [selectedDate, appConfig?.timezone]);
 
   const leaveModifiers = useMemo(() => {
     return {
@@ -220,63 +296,75 @@ export default function ScheduleSelection({ onSelect, initialDate, initialSlot }
             
             setAvailableTimeSlots(res.slots);
 
-            if (res.slots.length === 0 && !res.isLeave && !isSearchingForNextDay) {
+            const dateISO = formatZonedDateToISO(selectedDate, appConfig?.timezone || 'Asia/Kolkata');
+            if (res.slots.length === 0 && !res.isLeave) {
+                setDatesWithNoSlots(prev => prev.includes(dateISO) ? prev : [...prev, dateISO]);
+
                 toast({
                     variant: "destructive",
                     title: "No Slots Available",
                     description: `Sorry, there are no slots available for ${selectedDate.toLocaleDateString('en-IN', { weekday: 'long', month: 'long', day: 'numeric' })}.`,
                 });
 
-                if (!isCurrent) return;
-                setIsSearchingForNextDay(true);
-                const searchDaysCount = 7;
-                const fetchPromises = [];
+                if (shouldAutoRedirect.current && !isSearchingForNextDay) {
+                    if (!isCurrent) return;
+                    setIsSearchingForNextDay(true);
+                    const searchDaysCount = 7;
+                    const fetchPromises = [];
 
-                for (let i = 1; i <= searchDaysCount; i++) {
-                    const targetDay = new Date(selectedDate);
-                    targetDay.setDate(targetDay.getDate() + i);
+                    for (let i = 1; i <= searchDaysCount; i++) {
+                        const targetDay = new Date(selectedDate);
+                        targetDay.setDate(targetDay.getDate() + i);
+                        
+                        fetchPromises.push((async () => {
+                            try {
+                                const res = await fetchAvailableSlots(targetDay);
+                                return { date: targetDay, res };
+                            } catch {
+                                return { date: targetDay, res: { slots: [], isLeave: false } };
+                            }
+                        })());
+                    }
+
+                    const results = await Promise.all(fetchPromises);
                     
-                    fetchPromises.push((async () => {
-                        try {
-                            const res = await fetchAvailableSlots(targetDay);
-                            return { date: targetDay, res };
-                        } catch {
-                            return { date: targetDay, res: { slots: [], isLeave: false } };
-                        }
-                    })());
-                }
+                    if (!isCurrent) {
+                      setIsSearchingForNextDay(false);
+                      return;
+                    }
 
-                const results = await Promise.all(fetchPromises);
-                
-                if (!isCurrent) {
-                  setIsSearchingForNextDay(false);
-                  return;
-                }
+                    results.forEach(item => {
+                      if (item.res.slots.length === 0 && !item.res.isLeave) {
+                        const itemISO = formatZonedDateToISO(item.date, appConfig?.timezone || 'Asia/Kolkata');
+                        setDatesWithNoSlots(prev => prev.includes(itemISO) ? prev : [...prev, itemISO]);
+                      }
+                    });
 
-                const sortedResults = results.sort((a, b) => a.date.getTime() - b.date.getTime());
-                const foundDay = sortedResults.find(item => item.res.slots.length > 0 && !item.res.isLeave);
+                    const sortedResults = results.sort((a, b) => a.date.getTime() - b.date.getTime());
+                    const foundDay = sortedResults.find(item => item.res.slots.length > 0 && !item.res.isLeave);
 
-                if (foundDay) {
-                    const nextAvailableDate = new Date(foundDay.date);
-                    setSelectedDate(nextAvailableDate);
-                    setDisplayMonth(nextAvailableDate); 
-                    setAvailableTimeSlots(foundDay.res.slots);
+                    if (foundDay) {
+                        const nextAvailableDate = new Date(foundDay.date);
+                        setSelectedDate(nextAvailableDate);
+                        setDisplayMonth(nextAvailableDate); 
+                        setAvailableTimeSlots(foundDay.res.slots);
+                        
+                        toast({
+                            variant: "success" as any,
+                            title: "Available Slots Found!",
+                            description: `We found slots for you on ${foundDay.date.toLocaleDateString('en-IN', { weekday: 'long', month: 'long', day: 'numeric' })}.`,
+                        });
+                    } else {
+                        toast({
+                            variant: "destructive",
+                            title: "No Upcoming Slots",
+                            description: `Could not find any available slots in the next ${searchDaysCount} days.`,
+                        });
+                    }
                     
-                    toast({
-                        variant: "success" as any,
-                        title: "Available Slots Found!",
-                        description: `We found slots for you on ${foundDay.date.toLocaleDateString('en-IN', { weekday: 'long', month: 'long', day: 'numeric' })}.`,
-                    });
-                } else {
-                    toast({
-                        variant: "destructive",
-                        title: "No Upcoming Slots",
-                        description: `Could not find any available slots in the next ${searchDaysCount} days.`,
-                    });
-                }
-                
-                if (isCurrent) {
-                  setIsSearchingForNextDay(false);
+                    if (isCurrent) {
+                      setIsSearchingForNextDay(false);
+                    }
                 }
             }
         } catch (error) {
@@ -299,6 +387,7 @@ export default function ScheduleSelection({ onSelect, initialDate, initialSlot }
 
   const handleDateSelect = (date: Date | undefined) => {
     if (!date) return;
+    shouldAutoRedirect.current = false; // Disable auto-redirect on manual date selection
     setSelectedDate(date);
     setDisplayMonth(date);
     setSelectedTimeSlot(undefined);
@@ -323,6 +412,31 @@ export default function ScheduleSelection({ onSelect, initialDate, initialSlot }
     return d;
   }, [appConfig.timezone]);
 
+  const dateList = useMemo(() => {
+    const list = [];
+    let startDate = today;
+
+    if (selectedDate) {
+      const daysDiff = Math.ceil((selectedDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+      if (daysDiff > 14) {
+        startDate = selectedDate;
+      }
+    }
+
+    for (let i = 0; i < 15; i++) {
+      const d = new Date(startDate);
+      d.setDate(startDate.getDate() + i);
+      list.push(d);
+    }
+    return list;
+  }, [today, selectedDate]);
+
+  const isPivotedToFuture = useMemo(() => {
+    if (!selectedDate) return false;
+    const daysDiff = Math.ceil((selectedDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+    return daysDiff > 14;
+  }, [selectedDate, today]);
+
   useEffect(() => {
     if (!selectedDate && !isLoadingAppSettings) {
       setSelectedDate(today);
@@ -340,40 +454,114 @@ export default function ScheduleSelection({ onSelect, initialDate, initialSlot }
   }
 
   return (
-    <div className="space-y-6">
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+    <div className="space-y-6 w-full min-w-0">
+      <div className="flex flex-col gap-6 w-full min-w-0">
         {/* Calendar Selection */}
-        <div className="lg:col-span-5 space-y-4">
+        <div className="space-y-4 w-full min-w-0">
           <div className="flex items-center gap-2">
              <div className="h-6 w-1 bg-primary rounded-full" />
              <h3 className="text-lg font-bold">Pick a Date</h3>
           </div>
           
-          <div className="flex justify-center bg-background p-2 rounded-xl border">
-            <Calendar
-              mode="single"
-              selected={selectedDate}
-              onSelect={handleDateSelect}
-              month={displayMonth}
-              onMonthChange={setDisplayMonth}
-              disabled={(date) => date < today}
-              modifiers={leaveModifiers}
-              modifiersStyles={leaveModifiersStyles}
-              className="rounded-md"
-            />
-          </div>
-          
-          <div className="bg-primary/5 p-4 rounded-lg flex items-start gap-3">
-            <CheckCircle2 className="h-5 w-5 text-primary mt-0.5" />
-            <div>
-              <p className="text-sm font-semibold">Service Duration</p>
-              <p className="text-xs text-muted-foreground">Estimated duration: <span className="text-primary font-bold">{totalCartDuration} mins</span></p>
+          <div className="w-full overflow-hidden">
+            <div ref={scrollRef} className="flex overflow-x-auto gap-2.5 pb-2 pt-1 scrollbar-none select-none w-full cursor-grab active:cursor-grabbing">
+              {isPivotedToFuture && (
+                <button
+                  type="button"
+                  onClick={() => handleDateSelect(today)}
+                  className="flex flex-col items-center justify-center p-2 rounded-xl border border-dashed border-primary/50 bg-primary/5 hover:bg-primary/10 min-w-[64px] h-[80px] text-primary transition-all shrink-0"
+                >
+                  <Clock className="h-5 w-5 mb-1" />
+                  <span className="text-[10px] font-bold">Back to</span>
+                  <span className="text-[8px] font-semibold opacity-85">Today</span>
+                </button>
+              )}
+              
+              {dateList.map((date) => {
+                const dateISO = formatZonedDateToISO(date, appConfig?.timezone);
+                const selectedDateISO = selectedDate ? formatZonedDateToISO(selectedDate, appConfig?.timezone) : '';
+                const isSelected = dateISO === selectedDateISO;
+                const isHoliday = leaveModifiers.holiday(date);
+                const isPartial = leaveModifiers.partialLeave(date);
+                const isFull = datesWithNoSlots.includes(dateISO);
+
+                return (
+                  <button
+                    key={dateISO}
+                    data-date-iso={dateISO}
+                    type="button"
+                    onClick={() => {
+                      if (isDragging) return;
+                      handleDateSelect(date);
+                    }}
+                    className={`flex flex-col items-center justify-center p-2 rounded-xl border min-w-[64px] h-[80px] transition-all shrink-0
+                      ${isSelected 
+                        ? 'bg-primary border-primary text-primary-foreground shadow-md font-bold' 
+                        : isFull
+                          ? 'border-red-100 bg-red-50/30 text-red-500 hover:bg-red-50/50 dark:border-red-900/30 dark:bg-red-950/10 dark:text-red-400'
+                          : 'bg-background hover:bg-muted/30 border-muted text-foreground'
+                      }
+                      ${isHoliday ? 'border-dashed border-red-300 bg-red-50 text-red-600 dark:bg-red-950/20 dark:text-red-400' : ''}
+                      ${isPartial ? 'border-dashed border-amber-300 bg-amber-50 text-amber-600 dark:bg-amber-950/20 dark:text-amber-400' : ''}
+                    `}
+                  >
+                    <span className="text-[9px] uppercase font-bold tracking-wider opacity-85">
+                      {date.toLocaleDateString('en-US', { weekday: 'short' })}
+                    </span>
+                    <span className="text-xl font-extrabold leading-none mt-1">
+                      {date.getDate()}
+                    </span>
+                    <span className="text-[9px] font-semibold mt-1 opacity-75">
+                      {date.toLocaleDateString('en-US', { month: 'short' })}
+                    </span>
+                  </button>
+                );
+              })}
+
+              <button
+                type="button"
+                onClick={() => setIsCalendarOpen(true)}
+                className="flex flex-col items-center justify-center p-2 rounded-xl border border-dashed border-primary/50 bg-primary/5 hover:bg-primary/10 min-w-[64px] h-[80px] text-primary transition-all shrink-0"
+              >
+                <CalendarDays className="h-5 w-5 mb-1" />
+                <span className="text-[10px] font-bold">More</span>
+                <span className="text-[8px] font-semibold opacity-85">Dates</span>
+              </button>
             </div>
+          </div>
+
+          <Dialog open={isCalendarOpen} onOpenChange={setIsCalendarOpen}>
+            <DialogContent className="max-w-[95vw] sm:max-w-md bg-background border rounded-2xl shadow-lg p-0">
+              <DialogHeader className="p-4 border-b">
+                <DialogTitle>Select Date</DialogTitle>
+              </DialogHeader>
+              <div className="p-4 flex justify-center">
+                <Calendar
+                  mode="single"
+                  selected={selectedDate}
+                  onSelect={(date) => {
+                    handleDateSelect(date);
+                    setIsCalendarOpen(false);
+                  }}
+                  month={displayMonth}
+                  onMonthChange={setDisplayMonth}
+                  disabled={(date) => date < today}
+                  modifiers={leaveModifiers}
+                  modifiersStyles={leaveModifiersStyles}
+                  className="rounded-md"
+                />
+              </div>
+            </DialogContent>
+          </Dialog>
+          
+          <div className="bg-primary/5 p-3 rounded-xl flex items-center gap-3 w-fit">
+            <CheckCircle2 className="h-5 w-5 text-primary" />
+            <p className="text-sm font-medium">Estimated Service Duration: <span className="text-primary font-bold">{totalCartDuration} mins</span></p>
           </div>
         </div>
 
         {/* Time Slot Selection */}
-        <div className="lg:col-span-7 space-y-4" ref={slotsSectionRef}>
+        <div className="space-y-4 pt-6 border-t" ref={slotsSectionRef}>
           <div className="flex items-center justify-between gap-2">
             <div className="flex items-center gap-2">
               <div className="h-6 w-1 bg-primary rounded-full" />
@@ -409,7 +597,7 @@ export default function ScheduleSelection({ onSelect, initialDate, initialSlot }
                         <RadioGroup
                           value={selectedTimeSlot}
                           onValueChange={setSelectedTimeSlot}
-                          className="grid grid-cols-2 sm:grid-cols-3 gap-3"
+                          className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3"
                         >
                           {availableTimeSlots.map(({ slot, remainingCapacity }) => (
                             <div key={slot}>
@@ -530,9 +718,9 @@ export default function ScheduleSelection({ onSelect, initialDate, initialSlot }
                       </p>
                     </div>
                   ) : (
-                    <div className="flex flex-col items-center justify-center py-12 px-6 text-center border-2 border-dashed rounded-2xl bg-muted/5">
-                      <AlertTriangle className="h-10 w-10 text-muted-foreground mb-4 opacity-50" />
-                      <h4 className="font-bold text-lg mb-1">No slots available</h4>
+                    <div className="flex flex-col items-center justify-center py-12 px-6 text-center border-2 border-dashed rounded-2xl bg-red-500/[0.02] border-red-500/20 dark:bg-red-950/[0.02] dark:border-red-900/20">
+                      <AlertTriangle className="h-10 w-10 text-red-500 dark:text-red-400 mb-4" />
+                      <h4 className="font-bold text-lg mb-1 text-red-600 dark:text-red-400">No slots available</h4>
                       <p className="text-muted-foreground text-sm max-w-xs">
                         This date is fully booked. Please select another date.
                       </p>

@@ -5,7 +5,7 @@ import AppImage from '@/components/ui/AppImage';
 import { ArrowRight, Calendar, User, Clock } from 'lucide-react';
 import Link from 'next/link';
 import { format } from 'date-fns';
-import { Timestamp } from 'firebase-admin/firestore';
+import { Timestamp } from '@/lib/mysqlDbAdmin';
 import JsonLdScript from '@/components/shared/JsonLdScript';
 import { getBaseUrl } from '@/lib/config';
 import type { Metadata } from 'next';
@@ -115,7 +115,7 @@ export async function generateMetadata(
   const seoSettings = await getGlobalSEOSettings();
   const appBaseUrl = getBaseUrl();
 
-  const title = post.metaTitle || post.meta_title || `${post.title} | FixBro Blog`;
+  const title = post.metaTitle || post.meta_title || `${post.title} | Wecanfix Blog`;
   const description = post.metaDescription || post.meta_description || post.excerpt || post.title || '';
   
   const rawOgImage = post.coverImageUrl || seoSettings.structuredDataImage || `/default-image.png`;
@@ -208,11 +208,11 @@ export default async function BlogPostPage({ params }: BlogPostPageProps) {
     "dateModified": getIsoDate(post.updatedAt || post.createdAt),
     "author": {
       "@type": "Person",
-      "name": post.authorName || "FixBro Expert"
+      "name": post.authorName || "Wecanfix Expert"
     },
     "publisher": {
       "@type": "Organization",
-      "name": "FixBro",
+      "name": "Wecanfix",
       "logo": {
         "@type": "ImageObject",
         "url": `${appBaseUrl}/android-chrome-512x512.png`
@@ -270,7 +270,7 @@ export default async function BlogPostPage({ params }: BlogPostPageProps) {
                     <div className="w-8 h-8 md:w-10 md:h-10 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold text-xs md:text-sm">
                       {post.authorName?.charAt(0) || <User className="h-4 w-4 md:h-5 md:w-5" />}
                     </div>
-                    <span>{post.authorName || 'FixBro Expert'}</span>
+                    <span>{post.authorName || 'Wecanfix Expert'}</span>
                   </div>
                   <div className="flex items-center gap-2">
                     <Calendar className="h-4 w-4 md:h-5 md:w-5 text-primary" />

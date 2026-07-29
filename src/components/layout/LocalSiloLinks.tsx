@@ -2,12 +2,12 @@
 "use client";
 
 import React, { useState, useEffect } from 'react';
-import Link from 'next/link';
+import Link from '@/components/shared/TransitionLink';
 import { useGlobalSettings } from '@/hooks/useGlobalSettings';
 import { Skeleton } from '@/components/ui/skeleton';
 import { MapPin, ArrowRight, Loader2 } from 'lucide-react';
 import { db } from '@/lib/firebase';
-import { collection, getDocs, query, where, limit, orderBy } from 'firebase/firestore';
+import { collection, getDocs, query, where, limit, orderBy } from '@/lib/mysqlDb';
 import type { FirestoreCity, FirestoreArea, FirestoreCategory } from '@/types/firestore';
 import { getCategorySearchTerm } from '@/lib/seoAdvancedUtils';
 
@@ -135,16 +135,24 @@ const LocalSiloLinks = () => {
 
         <div className="mt-8 flex flex-wrap items-center gap-4 text-xs text-muted-foreground">
             <span className="font-semibold text-foreground/70">Browse by Area:</span>
-            {data.areas.slice(0, 6).map((area) => (
-                <Link 
-                    key={area.id} 
-                    href={`/${data.city?.slug}/${area.slug}`}
-                    className="hover:text-primary transition-colors underline decoration-dotted underline-offset-4"
-                >
-                    {area.name}
-                </Link>
-            ))}
-            <Link href="/sitemap" className="text-primary font-medium hover:underline">View All Locations →</Link>
+            {data.areas.slice(0, 6).map((area) => {
+                const areaUrl = `/${data.city?.slug}/${area.slug}`;
+                return (
+                    <Link 
+                        key={area.id} 
+                        href={areaUrl}
+                        className="hover:text-primary transition-colors underline decoration-dotted underline-offset-4"
+                    >
+                        {area.name}
+                    </Link>
+                );
+            })}
+            <Link 
+                href="/sitemap" 
+                className="text-primary font-medium hover:underline"
+            >
+                View All Locations →
+            </Link>
         </div>
       </div>
     </div>

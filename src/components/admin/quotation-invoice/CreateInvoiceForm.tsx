@@ -17,7 +17,7 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDes
 import { Loader2, ReceiptText, UserPlus, PlusCircle, Trash2, CalendarIcon, Save, Send, Download, Search, UserCircle as UserIcon, XCircle, Check, ChevronsUpDown } from "lucide-react";
 import type { FirestoreUser, InvoiceItem, FirestoreInvoice, InvoicePaymentStatus, InvoicePaymentMode, CompanyDetailsForPdf } from '@/types/firestore';
 import { db, storage } from '@/lib/firebase';
-import { collection, getDocs, addDoc, Timestamp, query, orderBy, doc, setDoc, updateDoc, getDoc } from "firebase/firestore";
+import { collection, getDocs, addDoc, Timestamp, query, orderBy, doc, setDoc, updateDoc, getDoc } from '@/lib/mysqlDb';
 import { useToast } from "@/hooks/use-toast";
 import { nanoid } from 'nanoid';
 import { cn } from '@/lib/utils';
@@ -278,7 +278,7 @@ export default function CreateInvoiceForm({ initialData, onSaveSuccess }: Create
       const savedInvoice = { id: invoiceSnap.id, ...invoiceSnap.data() } as FirestoreInvoice;
       
       const companyInfo: CompanyDetailsForPdf = {
-        name: companySettings?.websiteName || "FixBro", address: companySettings?.address || "",
+        name: companySettings?.websiteName || "Wecanfix", address: companySettings?.address || "",
         contactEmail: companySettings?.contactEmail || "", contactMobile: companySettings?.contactMobile || "",
         logoUrl: companySettings?.logoUrl || undefined,
       };
@@ -289,6 +289,7 @@ export default function CreateInvoiceForm({ initialData, onSaveSuccess }: Create
 
       const storagePath = `invoices_pdf/${currentInitialData.id}_${savedInvoice.invoiceNumber}.pdf`;
       const downloadUrl = await uploadPdfToStorage(pdfBlob, storagePath);
+      await updateDoc(doc(db, "invoices", currentInitialData.id), { pdfUrl: downloadUrl, updatedAt: Timestamp.now() });
       
       toast({
         duration: 10000,
@@ -321,7 +322,7 @@ export default function CreateInvoiceForm({ initialData, onSaveSuccess }: Create
       const savedInvoice = { id: invoiceSnap.id, ...invoiceSnap.data() } as FirestoreInvoice;
 
       const companyInfo: CompanyDetailsForPdf = {
-        name: companySettings?.websiteName || "FixBro", address: companySettings?.address || "",
+        name: companySettings?.websiteName || "Wecanfix", address: companySettings?.address || "",
         contactEmail: companySettings?.contactEmail || "", contactMobile: companySettings?.contactMobile || "",
         logoUrl: companySettings?.logoUrl || undefined,
       };

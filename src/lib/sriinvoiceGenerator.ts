@@ -37,9 +37,9 @@ export const generateInvoicePdf = async (invoice: FirestoreInvoice, companyDetai
   const doc = new jsPDF();
 
   const defaultCompanyDetails: CompanyDetailsForPdf = {
-    name: companyDetails?.name || process.env.NEXT_PUBLIC_WEBSITE_NAME || "FixBro",
+    name: companyDetails?.name || process.env.NEXT_PUBLIC_WEBSITE_NAME || "Wecanfix",
     address: companyDetails?.address || "#44 G S Palya Road Konappana Agrahara Electronic City Phase 2 -560100",
-    contactEmail: companyDetails?.contactEmail || 'support@fixbro.in',
+    contactEmail: companyDetails?.contactEmail || 'support@wecanfix.in',
     contactMobile: companyDetails?.contactMobile || '+91-7353113455',
     logoUrl: companyDetails?.logoUrl, // Can be undefined
   };

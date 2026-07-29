@@ -11,7 +11,7 @@ import { PlusCircle, Edit, Trash2, Loader2, Percent, CheckCircle, XCircle, Packa
 import type { FirestoreTax } from '@/types/firestore';
 import TaxForm, { type TaxFormData } from '@/components/admin/TaxForm';
 import { db } from '@/lib/firebase';
-import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc, orderBy, query, Timestamp } from "firebase/firestore";
+import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc, orderBy, query, Timestamp } from '@/lib/mysqlDb';
 import { useToast } from "@/hooks/use-toast";
 import { triggerRefresh } from '@/lib/revalidateUtils';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";

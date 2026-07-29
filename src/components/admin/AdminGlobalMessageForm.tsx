@@ -13,7 +13,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardFooter, CardDescription }
 import { Loader2, SendHorizonal, AlertTriangle, XCircle, Megaphone, Clock, Info } from "lucide-react"; 
 import { useToast } from '@/hooks/use-toast';
 import { db } from '@/lib/firebase';
-import { doc, setDoc, Timestamp } from "firebase/firestore";
+import { doc, setDoc, Timestamp } from '@/lib/mysqlDb';
 import { triggerRefresh } from '@/lib/revalidateUtils';
 import type { GlobalAdminPopup } from '@/types/firestore';
 import { useGlobalSettings } from '@/hooks/useGlobalSettings';

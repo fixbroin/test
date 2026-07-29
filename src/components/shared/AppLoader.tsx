@@ -14,18 +14,18 @@ export default function AppLoader({ text, initialLoaderType }: AppLoaderProps) {
   const appName =
     globalSettings?.websiteName ||
     process.env.NEXT_PUBLIC_WEBSITE_NAME ||
-    "FixBro";
+    "Wecanfix";
   // Check if we can read the cached loaderType from cookies or localStorage to prevent flash
   let cookieLoaderType: string | null = null;
   let cachedLoaderType: string | null = null;
   if (typeof window !== 'undefined') {
     try {
-      const match = document.cookie.split('; ').find(row => row.startsWith('fixbro-loader-type='));
+      const match = document.cookie.split('; ').find(row => row.startsWith('wecanfix-loader-type='));
       if (match) {
         cookieLoaderType = match.split('=')[1];
       }
       
-      const stored = localStorage.getItem("fixbro_cache_global-web-settings");
+      const stored = localStorage.getItem("wecanfix_cache_global-web-settings");
       if (stored) {
         const parsed = JSON.parse(stored);
         if (parsed?.data?.loaderType) {

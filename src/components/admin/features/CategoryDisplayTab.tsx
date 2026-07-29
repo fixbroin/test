@@ -9,7 +9,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Loader2, Save, ListChecks } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { db } from '@/lib/firebase';
-import { doc, getDoc, setDoc, Timestamp, collection, query, orderBy, getDocs } from "firebase/firestore";
+import { doc, getDoc, setDoc, Timestamp, collection, query, orderBy, getDocs } from '@/lib/mysqlDb';
 import type { FeaturesConfiguration, FirestoreCategory } from '@/types/firestore';
 import AppImage from '@/components/ui/AppImage';
 import { triggerRefresh } from '@/lib/revalidateUtils';

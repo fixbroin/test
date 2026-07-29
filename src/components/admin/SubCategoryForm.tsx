@@ -18,8 +18,8 @@ import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 import AppImage from '@/components/ui/AppImage';
 import { storage, db } from '@/lib/firebase';
-import { ref as storageRef, uploadBytesResumable, getDownloadURL, deleteObject } from "firebase/storage";
-import { collection, query, where, getDocs, limit } from "firebase/firestore";
+import { ref as storageRef, uploadBytesResumable, getDownloadURL, deleteObject } from '@/lib/mysqlStorage';
+import { collection, query, where, getDocs, limit } from '@/lib/mysqlDb';
 import { Progress } from "@/components/ui/progress";
 import { Switch } from "@/components/ui/switch"; // Import Switch
 import { compressImage } from "@/lib/imageCompressor";
@@ -35,7 +35,10 @@ const subCategoryFormSchema = z.object({
   parentId: z.string({ required_error: "Please select a parent category." }),
   order: z.coerce.number().min(0, { message: "Order must be a non-negative number." }),
   isActive: z.boolean().default(true),
-  imageUrl: z.string().url({ message: "Must be a valid URL if provided." }).optional().or(z.literal('')),
+  imageUrl: z.string().refine(
+    (val) => !val || val === "" || val.startsWith('/') || val.startsWith('http://') || val.startsWith('https://') || val.startsWith('uploads/'),
+    { message: "Must be a valid URL or path if provided." }
+  ).optional().or(z.literal('')),
   imageHint: z.string().max(50, { message: "Image hint should be max 50 characters."}).optional().or(z.literal('')),
 });
 
@@ -50,9 +53,9 @@ interface SubCategoryFormProps {
   isSubmitting?: boolean;
 }
 
-const isFirebaseStorageUrl = (url: string): boolean => {
+const isFirebaseStorageUrl = (url: string | null | undefined): boolean => {
   if (!url) return false;
-  return typeof url === 'string' && url.includes("firebasestorage.googleapis.com");
+  return typeof url === 'string' && url.trim().length > 0;
 };
 
 const generateRandomHexString = (length: number) => {
@@ -257,12 +260,12 @@ export default function SubCategoryForm({ onSubmit: onSubmitProp, initialData, o
         setStatusMessage("Uploading image...");
         setUploadProgress(0);
 
-        if (originalImageUrlFromInitialData && isFirebaseStorageUrl(originalImageUrlFromInitialData)) {
+        if (originalImageUrlFromInitialData) {
           try {
             const oldImageRef = storageRef(storage, originalImageUrlFromInitialData);
             await deleteObject(oldImageRef);
           } catch (error) {
-            console.warn("Error deleting old image from Firebase Storage: ", error);
+            console.warn("Error deleting old image: ", error);
           }
         }
 
@@ -297,7 +300,7 @@ export default function SubCategoryForm({ onSubmit: onSubmitProp, initialData, o
         });
         setUploadProgress(100);
         setStatusMessage("Image uploaded. Saving sub-category...");
-      } else if (!formData.imageUrl && originalImageUrlFromInitialData && isFirebaseStorageUrl(originalImageUrlFromInitialData)) {
+      } else if (!formData.imageUrl && originalImageUrlFromInitialData) {
         setStatusMessage("Removing image from storage...");
         try {
           const oldImageRef = storageRef(storage, originalImageUrlFromInitialData);
@@ -305,8 +308,7 @@ export default function SubCategoryForm({ onSubmit: onSubmitProp, initialData, o
           finalImageUrl = "";
           setStatusMessage("Image removed. Saving sub-category...");
         } catch (error: any) {
-          console.error("Error deleting image from Firebase Storage: ", error);
-          throw new Error(`Failed to delete previous image from storage: ${error.message}. Sub-category not saved.`);
+          console.error("Error deleting image from storage: ", error);
         }
       } else {
            setStatusMessage(initialData ? "Saving changes..." : "Creating sub-category...");

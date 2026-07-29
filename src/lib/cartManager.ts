@@ -2,7 +2,7 @@
 "use client";
 
 import { db } from '@/lib/firebase';
-import { doc, setDoc, deleteDoc, getDoc, Timestamp } from 'firebase/firestore';
+import { doc, setDoc, deleteDoc, getDoc, Timestamp } from '@/lib/mysqlDb';
 import type { UserCart } from '@/types/firestore';
 
 export interface CartEntry {
@@ -10,7 +10,7 @@ export interface CartEntry {
   quantity: number;
 }
 
-const CART_STORAGE_KEY = 'fixbroUserCart';
+const CART_STORAGE_KEY = 'wecanfixUserCart';
 
 /**
  * Gets cart entries from localStorage. This is the primary source for guests and the initial source for logged-in users before sync.
@@ -121,7 +121,7 @@ export const syncCartToFirestore = async (userId: string, cartEntries: CartEntry
  */
 export const saveActiveCheckoutEntries = (entries: CartEntry[]): void => {
   if (typeof window !== 'undefined' && window.localStorage) {
-    window.localStorage.setItem('fixbroActiveCheckoutItems', JSON.stringify(entries));
+    window.localStorage.setItem('wecanfixActiveCheckoutItems', JSON.stringify(entries));
   }
 };
 
@@ -132,7 +132,7 @@ export const getActiveCheckoutEntries = (): CartEntry[] => {
   if (typeof window === 'undefined' || typeof window.localStorage === 'undefined') {
     return [];
   }
-  const storedActive = window.localStorage.getItem('fixbroActiveCheckoutItems');
+  const storedActive = window.localStorage.getItem('wecanfixActiveCheckoutItems');
   if (storedActive) {
     try {
       const parsed = JSON.parse(storedActive);
@@ -157,9 +157,9 @@ export const removeCheckedOutItemsFromCart = async (userId: string | undefined):
     await syncCartToFirestore(userId, remaining);
   }
   if (typeof window !== 'undefined') {
-    window.localStorage.removeItem('fixbroActiveCheckoutItems');
-    window.localStorage.removeItem('fixbroActiveCheckoutCategory');
-    window.localStorage.removeItem('fixbroActiveCheckoutCategoryName');
+    window.localStorage.removeItem('wecanfixActiveCheckoutItems');
+    window.localStorage.removeItem('wecanfixActiveCheckoutCategory');
+    window.localStorage.removeItem('wecanfixActiveCheckoutCategoryName');
     window.dispatchEvent(new StorageEvent('storage', { key: CART_STORAGE_KEY }));
   }
 };

@@ -3,7 +3,7 @@
 
 import { getMessaging, getToken, onMessage, isSupported } from "firebase/messaging";
 import { app, db } from "./firebase"; // Ensure your firebase.ts exports 'app'
-import { doc, setDoc, Timestamp, getDoc } from "firebase/firestore";
+import { doc, setDoc, Timestamp, getDoc } from '@/lib/mysqlDb';
 import type { MarketingSettings } from "@/types/firestore";
 import { isWebView, sendPushNotificationData } from './webview-bridge'; // Import WebView bridge functions
 

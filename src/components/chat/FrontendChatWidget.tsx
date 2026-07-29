@@ -7,7 +7,7 @@ import { MessageSquare, XIcon, Loader2 } from 'lucide-react';
 import { useGlobalSettings } from '@/hooks/useGlobalSettings';
 import { useAuth } from '@/hooks/useAuth';
 import { db } from '@/lib/firebase';
-import { doc, onSnapshot, collection, query, where, limit, getDocs } from 'firebase/firestore';
+import { doc, onSnapshot, collection, query, where, limit, getDocs } from '@/lib/mysqlDb';
 import type { ChatSession, FirestoreUser } from '@/types/firestore';
 import { Badge } from '@/components/ui/badge';
 import { ADMIN_EMAIL } from '@/contexts/AuthContext';

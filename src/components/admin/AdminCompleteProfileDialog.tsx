@@ -89,7 +89,7 @@ export default function AdminCompleteProfileDialog({
           </div>
           <DialogTitle className="text-2xl font-black tracking-tight uppercase">Admin Onboarding</DialogTitle>
           <DialogDescription className="text-sm font-medium">
-            Welcome to the FixBro Team! Please verify your official contact details to secure your account.
+            Welcome to the Wecanfix Team! Please verify your official contact details to secure your account.
           </DialogDescription>
         </DialogHeader>
 

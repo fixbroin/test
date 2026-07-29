@@ -6,27 +6,36 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Switch } from "@/components/ui/switch";
-import { PlusCircle, Edit, Trash2, PackageSearch, Layers } from "lucide-react";
-import type { AreaServiceSeoSetting, FirestoreCity, FirestoreArea, FirestoreService } from '@/types/firestore';
+import { PlusCircle, Edit, Trash2, PackageSearch, Layers, Zap, Loader2, Search } from "lucide-react";
+import type { AreaServiceSeoSetting, FirestoreCity, FirestoreArea, FirestoreService, FirestoreCategory, FirestoreSubCategory } from '@/types/firestore';
 import AreaServiceSeoForm, { type AreaServiceSeoFormData } from '@/components/admin/AreaServiceSeoForm';
 import { db } from '@/lib/firebase';
-import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc, Timestamp, where, query } from "firebase/firestore";
+import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc, Timestamp, where, query, getDoc, limit, orderBy } from '@/lib/mysqlDb';
 import { useToast } from "@/hooks/use-toast";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Skeleton } from '@/components/ui/skeleton';
 import { triggerRefresh } from '@/lib/revalidateUtils';
 import { submitToGoogleIndexing } from '@/lib/googleIndexing';
 import { useAuth } from '@/hooks/useAuth';
+import { executeDbClearTable, executeBulkServiceSeoGenerate } from '@/app/actions/dbActions';
 import { hasActionPermission } from '@/config/rbac';
 import PermissionGuard from '@/components/admin/PermissionGuard';
-import { getAdminServices, getCities, getAreas, getAreaServiceSeoSettings } from '@/lib/webServerUtils';
+import { getAdminServices, getCities, getAreas, getAreaServiceSeoSettings, getAdminCategories, getAdminSubCategories } from '@/lib/webServerUtils';
 import { getCache, setCache } from '@/lib/client-cache';
+import { Progress } from "@/components/ui/progress";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Input } from "@/components/ui/input";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { generateFreeAreaServiceSeoData, getNearbyAreasSorted } from "@/lib/seoGenerator";
 
 export default function ServiceSeoPage() {
   const [settings, setSettings] = useState<AreaServiceSeoSetting[]>([]);
   const [cities, setCities] = useState<FirestoreCity[]>([]);
   const [areas, setAreas] = useState<FirestoreArea[]>([]);
   const [services, setServices] = useState<FirestoreService[]>([]);
+  const [categories, setCategories] = useState<FirestoreCategory[]>([]);
+  const [displayLimit, setDisplayLimit] = useState(500);
 
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingSetting, setEditingSetting] = useState<AreaServiceSeoSetting | null>(null);
@@ -40,43 +49,189 @@ export default function ServiceSeoPage() {
 
   const serviceSeoRef = collection(db, "areaServiceSeoSettings");
 
+  // Batch Generation State
+  const [isBatchOpen, setIsBatchOpen] = useState(false);
+  const [batchCityId, setBatchCityId] = useState<string>("all");
+  const [batchAreaId, setBatchAreaId] = useState<string>("all");
+  const [batchCategoryId, setBatchCategoryId] = useState<string>("all");
+  const [batchServiceId, setBatchServiceId] = useState<string>("all");
+  const [batchOverwrite, setBatchOverwrite] = useState(false);
+  const [batchRunning, setBatchRunning] = useState(false);
+  const [batchProgress, setBatchProgress] = useState(0);
+  const [batchStatus, setBatchStatus] = useState("");
+
+  // Delete All State
+  const [isDeleteAllOpen, setIsDeleteAllOpen] = useState(false);
+  const [deleteRunning, setDeleteRunning] = useState(false);
+  const [deleteProgress, setDeleteProgress] = useState(0);
+  const [deleteStatus, setDeleteStatus] = useState("");
+
+  // Dialog Picker Open States
+  const [isCitySearchOpen, setIsCitySearchOpen] = useState(false);
+  const [isAreaSearchOpen, setIsAreaSearchOpen] = useState(false);
+  const [isCategorySearchOpen, setIsCategorySearchOpen] = useState(false);
+  const [isServiceSearchOpen, setIsServiceSearchOpen] = useState(false);
+
+  // Search Query States
+  const [citySearchQuery, setCitySearchQuery] = useState("");
+  const [areaSearchQuery, setAreaSearchQuery] = useState("");
+  const [categorySearchQuery, setCategorySearchQuery] = useState("");
+  const [serviceSearchQuery, setServiceSearchQuery] = useState("");
+
+  const resolveUniqueSlug = async (collectionRef: any, baseSlug: string, currentId?: string): Promise<string> => {
+    let uniqueSlug = baseSlug;
+    let counter = 1;
+    let isUnique = false;
+
+    while (!isUnique) {
+      const q = query(
+        collectionRef,
+        where("slug", "==", uniqueSlug),
+        limit(1)
+      );
+      const querySnapshot = await getDocs(q);
+      
+      if (querySnapshot.empty) {
+        isUnique = true;
+      } else {
+        const docSnap = querySnapshot.docs[0];
+        if (currentId && docSnap.id === currentId) {
+          isUnique = true;
+        } else {
+          uniqueSlug = `${baseSlug}-${counter}`;
+          counter++;
+        }
+      }
+    }
+    return uniqueSlug;
+  };
+
+  const handleStartBatch = async () => {
+    setBatchRunning(true);
+    setBatchProgress(0);
+    setBatchStatus("Initializing server-side bulk generation...");
+
+    try {
+      setBatchProgress(20);
+      setBatchStatus("Running bulk SEO generation on database server (this takes about 2-5 seconds)...");
+
+      const result = await executeBulkServiceSeoGenerate({
+        batchCityId,
+        batchAreaId,
+        batchCategoryId,
+        batchServiceId,
+        batchOverwrite
+      });
+
+      setBatchProgress(100);
+
+      toast({
+        title: "Batch Generation Completed!",
+        description: `Successfully processed all service pages. Created: ${result.createdCount}, Updated: ${result.updatedCount}, Skipped: ${result.skippedCount}.`,
+        className: "bg-green-100 border-green-300 text-green-700"
+      });
+
+      setIsBatchOpen(false);
+      await triggerRefresh('seo-settings');
+      await fetchData(true);
+    } catch (err) {
+      console.error("Error in batch generation:", err);
+      toast({ title: "Batch Failed", description: (err as Error).message || "An error occurred.", variant: "destructive" });
+    } finally {
+      setBatchRunning(false);
+    }
+  };
+
+  const handleDeleteAll = async () => {
+    setDeleteRunning(true);
+    setDeleteProgress(0);
+    setDeleteStatus("Initializing deletion...");
+
+    try {
+      const total = settings.length;
+
+      if (total === 0) {
+        toast({ title: "No overrides", description: "There are no overrides to delete.", variant: "destructive" });
+        setDeleteRunning(false);
+        return;
+      }
+
+      setDeleteStatus("Clearing all service-wise overrides from database...");
+      setDeleteProgress(50);
+      
+      await executeDbClearTable('areaServiceSeoSettings');
+      
+      setDeleteProgress(100);
+
+      toast({
+        title: "All Overrides Deleted",
+        description: `Successfully deleted all ${total} overrides.`,
+        className: "bg-green-100 border-green-300 text-green-700"
+      });
+
+      setIsDeleteAllOpen(false);
+      await triggerRefresh('seo-settings');
+      await fetchData(true);
+    } catch (err) {
+      console.error("Error deleting all overrides:", err);
+      toast({ title: "Delete Failed", description: (err as Error).message || "An error occurred.", variant: "destructive" });
+    } finally {
+      setDeleteRunning(false);
+    }
+  };
+
+  const generateSeoSlug = (parts: (string | undefined)[]): string => {
+    return parts.filter(Boolean).map(part => part!.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '')).join('/');
+  };
+
   const fetchData = async (forceRefresh = false) => {
     setIsLoading(true);
     try {
-      if (!forceRefresh) {
-        const cachedCities = getCache<FirestoreCity[]>('admin-cities-for-service-seo', true);
-        const cachedAreas = getCache<FirestoreArea[]>('admin-areas-for-service-seo', true);
-        const cachedServices = getCache<FirestoreService[]>('admin-services-for-service-seo', true);
-        const cachedSettings = getCache<AreaServiceSeoSetting[]>('admin-service-seo-settings', true);
+      let cachedCities = getCache<FirestoreCity[]>('admin-cities-for-service-seo', true);
+      let cachedAreas = getCache<FirestoreArea[]>('admin-areas-for-service-seo', true);
+      let cachedServices = getCache<FirestoreService[]>('admin-services-for-service-seo', true);
+      let cachedCategories = getCache<FirestoreCategory[]>('admin-categories-for-service-seo', true);
 
-        if (cachedCities && cachedAreas && cachedServices && cachedSettings) {
-          setCities(cachedCities);
-          setAreas(cachedAreas);
-          setServices(cachedServices);
-          setSettings(cachedSettings);
-          setIsLoading(false);
-          return;
-        }
+      if (forceRefresh || !cachedCities || !cachedAreas || !cachedServices || !cachedCategories || !cachedServices.some(s => s.parentCategoryId !== undefined)) {
+        // Fetch fresh static data from Server Actions
+        const [fetchedCities, fetchedAreas, fetchedServices, fetchedCategories, fetchedSubCategories] = await Promise.all([
+          getCities(),
+          getAreas(),
+          getAdminServices(),
+          getAdminCategories(),
+          getAdminSubCategories()
+        ]);
+
+        const resolvedServices = fetchedServices.map(srv => {
+          if (srv.parentCategoryId) return srv;
+          const subCat = fetchedSubCategories.find(sub => String(sub.id) === String(srv.subCategoryId));
+          return {
+            ...srv,
+            parentCategoryId: subCat?.parentId || undefined
+          };
+        });
+
+        cachedCities = fetchedCities;
+        cachedAreas = fetchedAreas;
+        cachedServices = resolvedServices;
+        cachedCategories = fetchedCategories;
+
+        // Save static lists to client memory cache
+        setCache('admin-cities-for-service-seo', fetchedCities, true);
+        setCache('admin-areas-for-service-seo', fetchedAreas, true);
+        setCache('admin-services-for-service-seo', resolvedServices, true);
+        setCache('admin-categories-for-service-seo', fetchedCategories, true);
       }
 
-      // Fetch fresh data from Server Actions (statically compiled / cached on server)
-      const [fetchedCities, fetchedAreas, fetchedServices, fetchedSettings] = await Promise.all([
-        getCities(),
-        getAreas(),
-        getAdminServices(),
-        getAreaServiceSeoSettings()
-      ]);
+      setCities(cachedCities);
+      setAreas(cachedAreas);
+      setServices(cachedServices);
+      setCategories(cachedCategories);
 
-      setCities(fetchedCities);
-      setAreas(fetchedAreas);
-      setServices(fetchedServices);
+      // ALWAYS load settings fresh from server on page reload/navigation to avoid stale caches
+      const fetchedSettings = await getAreaServiceSeoSettings();
       setSettings(fetchedSettings);
-
-      // Save to client memory cache
-      setCache('admin-cities-for-service-seo', fetchedCities, true);
-      setCache('admin-areas-for-service-seo', fetchedAreas, true);
-      setCache('admin-services-for-service-seo', fetchedServices, true);
-      setCache('admin-service-seo-settings', fetchedSettings, true);
+      setDisplayLimit(500);
 
     } catch (error) {
       console.error("Error loading Service-wise SEO data:", error);
@@ -97,9 +252,23 @@ export default function ServiceSeoPage() {
     setIsFormOpen(true);
   };
 
-  const handleEditSetting = (setting: AreaServiceSeoSetting) => {
-    setEditingSetting(setting);
-    setIsFormOpen(true);
+  const handleEditSetting = async (setting: AreaServiceSeoSetting) => {
+    setIsSubmitting(true);
+    try {
+      const docRef = doc(serviceSeoRef, setting.id!);
+      const docSnap = await getDoc(docRef);
+      if (docSnap.exists()) {
+        setEditingSetting({ id: docSnap.id, ...docSnap.data() } as AreaServiceSeoSetting);
+        setIsFormOpen(true);
+      } else {
+        toast({ title: "Error", description: "SEO Override not found.", variant: "destructive" });
+      }
+    } catch (err) {
+      console.error("Error loading override details:", err);
+      toast({ title: "Error", description: "Failed to load override details.", variant: "destructive" });
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const handleDeleteSetting = async (id: string) => {
@@ -224,7 +393,7 @@ export default function ServiceSeoPage() {
   return (
     <div className="space-y-6">
       <Card>
-        <CardHeader className="flex flex-row items-center justify-between">
+        <CardHeader className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div>
             <CardTitle className="text-2xl flex items-center">
               <Layers className="mr-2 h-6 w-6 text-primary" /> Service-wise Local SEO Overrides
@@ -233,11 +402,17 @@ export default function ServiceSeoPage() {
               Create dedicated local SEO landing pages linking to specific services in targeted areas (e.g. Bed dismantling in Whitefield).
             </CardDescription>
           </div>
-          <PermissionGuard moduleId="seo_overrides" action="create">
-            <Button onClick={handleAddSetting} disabled={isSubmitting || cities.length === 0 || services.length === 0}>
-              <PlusCircle className="mr-2 h-4 w-4" /> Add Page
-            </Button>
-          </PermissionGuard>
+          <div className="flex flex-wrap md:flex-nowrap gap-2 shrink-0">
+            <PermissionGuard moduleId="seo_overrides" action="create">
+              <Button variant="outline" onClick={() => setIsBatchOpen(true)} disabled={isSubmitting || cities.length === 0}><Zap className="mr-2 h-4 w-4 text-amber-500" />Batch Generate (Free)</Button>
+              {settings.length > 0 && (
+                <Button variant="destructive" onClick={() => setIsDeleteAllOpen(true)} disabled={isSubmitting}><Trash2 className="mr-2 h-4 w-4" />Delete All</Button>
+              )}
+              <Button onClick={handleAddSetting} disabled={isSubmitting || cities.length === 0 || services.length === 0}>
+                <PlusCircle className="mr-2 h-4 w-4" /> Add Page
+              </Button>
+            </PermissionGuard>
+          </div>
         </CardHeader>
         <CardContent>
           {settings.length === 0 ? (
@@ -264,7 +439,7 @@ export default function ServiceSeoPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {settings.map((setting) => (
+                {settings.slice(0, displayLimit).map((setting) => (
                   <TableRow key={setting.id}>
                     <TableCell className="font-semibold">{setting.cityName}</TableCell>
                     <TableCell>{setting.areaName}</TableCell>
@@ -317,6 +492,22 @@ export default function ServiceSeoPage() {
               </TableBody>
             </Table>
           )}
+
+          {settings.length > displayLimit && (
+            <div className="mt-4 flex flex-col sm:flex-row justify-between items-center gap-4 text-sm text-muted-foreground border-t pt-4">
+              <div>
+                Showing first {Math.min(displayLimit, settings.length)} of {settings.length} overrides.
+              </div>
+              <div className="flex gap-2">
+                <Button variant="outline" size="sm" onClick={() => setDisplayLimit(prev => prev + 500)}>
+                  Load More (+500)
+                </Button>
+                <Button variant="outline" size="sm" onClick={() => setDisplayLimit(settings.length)}>
+                  Load All ({settings.length})
+                </Button>
+              </div>
+            </div>
+          )}
         </CardContent>
       </Card>
 
@@ -340,6 +531,340 @@ export default function ServiceSeoPage() {
               onCancel={() => setIsFormOpen(false)}
               isSubmitting={isSubmitting}
             />
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={isBatchOpen} onOpenChange={(open) => { if (!batchRunning) setIsBatchOpen(open); }}>
+        <DialogContent className="max-w-md p-6">
+          <DialogHeader>
+            <DialogTitle>Batch Generate Area-Service SEO Overrides</DialogTitle>
+            <DialogDescription>
+              Automatically generate and save spinned local SEO copy for all selected service and area combinations. This operates entirely client-side for free.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 py-4">
+            <div className="space-y-2 flex flex-col">
+              <label className="text-sm font-medium">Target City</label>
+              <Dialog open={isCitySearchOpen} onOpenChange={setIsCitySearchOpen}>
+                <Button 
+                  type="button"
+                  variant="outline" 
+                  onClick={() => setIsCitySearchOpen(true)}
+                  disabled={batchRunning}
+                  className="w-full justify-between font-normal"
+                >
+                  <span>{batchCityId === "all" ? "All Cities" : (cities.find(c => c.id === batchCityId)?.name || "Select City")}</span>
+                  <span className="text-xs text-slate-400">▼</span>
+                </Button>
+                <DialogContent className="sm:max-w-[425px]">
+                  <DialogHeader>
+                    <DialogTitle>Select Target City</DialogTitle>
+                    <DialogDescription>Search and select the target city for batch generation.</DialogDescription>
+                  </DialogHeader>
+                  <div className="space-y-4 py-4">
+                    <div className="relative">
+                      <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+                      <Input
+                        placeholder="Search city..."
+                        className="pl-8"
+                        value={citySearchQuery}
+                        onChange={(e) => setCitySearchQuery(e.target.value)}
+                      />
+                    </div>
+                    <ScrollArea className="h-[250px] rounded-md border p-2">
+                      <div className="space-y-1">
+                        <Button
+                          variant={batchCityId === "all" ? "secondary" : "ghost"}
+                          className="w-full justify-start text-left h-auto py-2 px-3"
+                          onClick={() => {
+                            setBatchCityId("all");
+                            setBatchAreaId("all");
+                            setIsCitySearchOpen(false);
+                            setCitySearchQuery("");
+                          }}
+                        >
+                          All Cities
+                        </Button>
+                        {cities
+                          .filter(c => c.name.toLowerCase().includes(citySearchQuery.toLowerCase()))
+                          .map((city) => (
+                            <Button
+                              key={city.id}
+                              variant={batchCityId === city.id ? "secondary" : "ghost"}
+                              className="w-full justify-start text-left h-auto py-2 px-3"
+                              onClick={() => {
+                                setBatchCityId(city.id!);
+                                setBatchAreaId("all");
+                                setIsCitySearchOpen(false);
+                                setCitySearchQuery("");
+                              }}
+                            >
+                              {city.name}
+                            </Button>
+                          ))}
+                      </div>
+                    </ScrollArea>
+                  </div>
+                </DialogContent>
+              </Dialog>
+            </div>
+
+            <div className="space-y-2 flex flex-col">
+              <label className="text-sm font-medium">Target Area</label>
+              <Dialog open={isAreaSearchOpen} onOpenChange={setIsAreaSearchOpen}>
+                <Button 
+                  type="button"
+                  variant="outline" 
+                  onClick={() => setIsAreaSearchOpen(true)}
+                  disabled={batchRunning}
+                  className="w-full justify-between font-normal"
+                >
+                  <span>{batchAreaId === "all" ? "All Areas" : (areas.find(a => a.id === batchAreaId)?.name || "Select Area")}</span>
+                  <span className="text-xs text-slate-400">▼</span>
+                </Button>
+                <DialogContent className="sm:max-w-[425px]">
+                  <DialogHeader>
+                    <DialogTitle>Select Target Area</DialogTitle>
+                    <DialogDescription>Search and select the target area for batch generation.</DialogDescription>
+                  </DialogHeader>
+                  <div className="space-y-4 py-4">
+                    <div className="relative">
+                      <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+                      <Input
+                        placeholder="Search area..."
+                        className="pl-8"
+                        value={areaSearchQuery}
+                        onChange={(e) => setAreaSearchQuery(e.target.value)}
+                      />
+                    </div>
+                    <ScrollArea className="h-[250px] rounded-md border p-2">
+                      <div className="space-y-1">
+                        <Button
+                          variant={batchAreaId === "all" ? "secondary" : "ghost"}
+                          className="w-full justify-start text-left h-auto py-2 px-3"
+                          onClick={() => {
+                            setBatchAreaId("all");
+                            setIsAreaSearchOpen(false);
+                            setAreaSearchQuery("");
+                          }}
+                        >
+                          All Areas
+                        </Button>
+                        {(batchCityId === "all" ? areas : areas.filter(a => String(a.cityId) === String(batchCityId)))
+                          .filter(a => a.name.toLowerCase().includes(areaSearchQuery.toLowerCase()))
+                          .map((area) => (
+                            <Button
+                              key={area.id}
+                              variant={batchAreaId === area.id ? "secondary" : "ghost"}
+                              className="w-full justify-start text-left h-auto py-2 px-3"
+                              onClick={() => {
+                                setBatchAreaId(area.id!);
+                                setIsAreaSearchOpen(false);
+                                setAreaSearchQuery("");
+                              }}
+                            >
+                              {area.name}
+                            </Button>
+                          ))}
+                      </div>
+                    </ScrollArea>
+                  </div>
+                </DialogContent>
+              </Dialog>
+            </div>
+
+            <div className="space-y-2 flex flex-col">
+              <label className="text-sm font-medium">Target Category</label>
+              <Dialog open={isCategorySearchOpen} onOpenChange={setIsCategorySearchOpen}>
+                <Button 
+                  type="button"
+                  variant="outline" 
+                  onClick={() => setIsCategorySearchOpen(true)}
+                  disabled={batchRunning}
+                  className="w-full justify-between font-normal"
+                >
+                  <span>{batchCategoryId === "all" ? "All Categories" : (categories.find(c => c.id === batchCategoryId)?.name || "Select Category")}</span>
+                  <span className="text-xs text-slate-400">▼</span>
+                </Button>
+                <DialogContent className="sm:max-w-[425px]">
+                  <DialogHeader>
+                    <DialogTitle>Select Target Category</DialogTitle>
+                    <DialogDescription>Search and select the target category for batch generation.</DialogDescription>
+                  </DialogHeader>
+                  <div className="space-y-4 py-4">
+                    <div className="relative">
+                      <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+                      <Input
+                        placeholder="Search category..."
+                        className="pl-8"
+                        value={categorySearchQuery}
+                        onChange={(e) => setCategorySearchQuery(e.target.value)}
+                      />
+                    </div>
+                    <ScrollArea className="h-[250px] rounded-md border p-2">
+                      <div className="space-y-1">
+                        <Button
+                          variant={batchCategoryId === "all" ? "secondary" : "ghost"}
+                          className="w-full justify-start text-left h-auto py-2 px-3"
+                          onClick={() => {
+                            setBatchCategoryId("all");
+                            setBatchServiceId("all");
+                            setIsCategorySearchOpen(false);
+                            setCategorySearchQuery("");
+                          }}
+                        >
+                          All Categories
+                        </Button>
+                        {categories
+                          .filter(c => c.name.toLowerCase().includes(categorySearchQuery.toLowerCase()))
+                          .map((cat) => (
+                            <Button
+                              key={cat.id}
+                              variant={batchCategoryId === cat.id ? "secondary" : "ghost"}
+                              className="w-full justify-start text-left h-auto py-2 px-3"
+                              onClick={() => {
+                                setBatchCategoryId(cat.id!);
+                                setBatchServiceId("all");
+                                setIsCategorySearchOpen(false);
+                                setCategorySearchQuery("");
+                              }}
+                            >
+                              {cat.name}
+                            </Button>
+                          ))}
+                      </div>
+                    </ScrollArea>
+                  </div>
+                </DialogContent>
+              </Dialog>
+            </div>
+
+            <div className="space-y-2 flex flex-col">
+              <label className="text-sm font-medium">Target Service</label>
+              <Dialog open={isServiceSearchOpen} onOpenChange={setIsServiceSearchOpen}>
+                <Button 
+                  type="button"
+                  variant="outline" 
+                  onClick={() => setIsServiceSearchOpen(true)}
+                  disabled={batchRunning}
+                  className="w-full justify-between font-normal"
+                >
+                  <span>{batchServiceId === "all" ? "All Services" : (services.find(s => s.id === batchServiceId)?.name || "Select Service")}</span>
+                  <span className="text-xs text-slate-400">▼</span>
+                </Button>
+                <DialogContent className="sm:max-w-[425px]">
+                  <DialogHeader>
+                    <DialogTitle>Select Target Service</DialogTitle>
+                    <DialogDescription>Search and select the target service for batch generation.</DialogDescription>
+                  </DialogHeader>
+                  <div className="space-y-4 py-4">
+                    <div className="relative">
+                      <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+                      <Input
+                        placeholder="Search service..."
+                        className="pl-8"
+                        value={serviceSearchQuery}
+                        onChange={(e) => setServiceSearchQuery(e.target.value)}
+                      />
+                    </div>
+                    <ScrollArea className="h-[250px] rounded-md border p-2">
+                      <div className="space-y-1">
+                        <Button
+                          variant={batchServiceId === "all" ? "secondary" : "ghost"}
+                          className="w-full justify-start text-left h-auto py-2 px-3"
+                          onClick={() => {
+                            setBatchServiceId("all");
+                            setIsServiceSearchOpen(false);
+                            setServiceSearchQuery("");
+                          }}
+                        >
+                          All Services
+                        </Button>
+                        {(batchCategoryId === "all" ? services : services.filter(s => String(s.parentCategoryId) === String(batchCategoryId)))
+                          .filter(s => s.name.toLowerCase().includes(serviceSearchQuery.toLowerCase()))
+                          .map((srv) => (
+                            <Button
+                              key={srv.id}
+                              variant={batchServiceId === srv.id ? "secondary" : "ghost"}
+                              className="w-full justify-start text-left h-auto py-2 px-3"
+                              onClick={() => {
+                                setBatchServiceId(srv.id!);
+                                setIsServiceSearchOpen(false);
+                                setServiceSearchQuery("");
+                              }}
+                            >
+                              {srv.name}
+                            </Button>
+                          ))}
+                      </div>
+                    </ScrollArea>
+                  </div>
+                </DialogContent>
+              </Dialog>
+            </div>
+
+            <div className="flex items-center space-x-2 pt-2">
+              <Checkbox 
+                id="overwrite" 
+                checked={batchOverwrite} 
+                onCheckedChange={(checked) => setBatchOverwrite(!!checked)}
+                disabled={batchRunning}
+              />
+              <label htmlFor="overwrite" className="text-sm font-medium leading-none cursor-pointer">
+                Overwrite existing custom overrides
+              </label>
+            </div>
+
+            {batchRunning && (
+              <div className="space-y-2 pt-4">
+                <Progress value={batchProgress} className="w-full" />
+                <p className="text-xs text-muted-foreground animate-pulse">{batchStatus}</p>
+              </div>
+            )}
+          </div>
+
+          <div className="flex justify-end gap-2 pt-4 border-t">
+            <Button variant="outline" onClick={() => setIsBatchOpen(false)} disabled={batchRunning}>
+              Cancel
+            </Button>
+            <Button onClick={handleStartBatch} disabled={batchRunning}>
+              {batchRunning && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              {batchRunning ? "Generating..." : "Start Batch Generation"}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={isDeleteAllOpen} onOpenChange={(open) => { if (!deleteRunning) setIsDeleteAllOpen(open); }}>
+        <DialogContent className="max-w-md p-6">
+          <DialogHeader>
+            <DialogTitle className="text-destructive flex items-center gap-2">
+              <Trash2 className="h-6 w-6" /> Danger: Delete All Overrides?
+            </DialogTitle>
+            <DialogDescription>
+              Are you absolutely sure you want to delete **ALL** service-wise local SEO overrides? This action cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 py-4">
+            {deleteRunning && (
+              <div className="space-y-2 pt-2">
+                <Progress value={deleteProgress} className="w-full" />
+                <p className="text-xs text-muted-foreground animate-pulse">{deleteStatus}</p>
+              </div>
+            )}
+          </div>
+
+          <div className="flex justify-end gap-2 pt-4 border-t">
+            <Button variant="outline" onClick={() => setIsDeleteAllOpen(false)} disabled={deleteRunning}>
+              Cancel
+            </Button>
+            <Button variant="destructive" onClick={handleDeleteAll} disabled={deleteRunning}>
+              {deleteRunning && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              {deleteRunning ? "Deleting..." : "Yes, Delete All"}
+            </Button>
           </div>
         </DialogContent>
       </Dialog>

@@ -23,10 +23,10 @@ export async function generateMetadata(
   const seoSettings = await getGlobalSEOSettings();
   const appBaseUrl = getBaseUrl();
 
-  if (!pageData) return { title: `About Us | FixBro` };
+  if (!pageData) return { title: `About Us | Wecanfix` };
 
-  const title = pageData.metaTitle || `About Us | ${seoSettings.siteName || 'FixBro'}`;
-  const description = pageData.metaDescription || pageData.excerpt || "Learn more about FixBro - Bangalore's most trusted home services provider.";
+  const title = pageData.metaTitle || `About Us | ${seoSettings.siteName || 'Wecanfix'}`;
+  const description = pageData.metaDescription || pageData.excerpt || "Learn more about Wecanfix - Bangalore's most trusted home services provider.";
 
   return {
     title: title,
@@ -74,10 +74,10 @@ export default async function AboutUsPage() {
   const organizationSchema = {
     "@context": "https://schema.org",
     "@type": "Organization",
-    "name": "FixBro",
+    "name": "Wecanfix",
     "url": appBaseUrl,
     "logo": `${appBaseUrl}/android-chrome-512x512.png`,
-    "description": pageData.metaDescription || "FixBro is Bangalore's leading home services provider, offering professional carpentry, electrical, plumbing, and more.",
+    "description": pageData.metaDescription || "Wecanfix is Bangalore's leading home services provider, offering professional carpentry, electrical, plumbing, and more.",
     "contactPoint": {
       "@type": "ContactPoint",
       "telephone": "+91-7353113455",
@@ -86,11 +86,11 @@ export default async function AboutUsPage() {
       "availableLanguage": ["en", "kn", "hi"]
     },
     "sameAs": [
-      "https://www.facebook.com/fixbro.in",
-      "https://x.com/fixbro_in",
-      "https://www.instagram.com/fixbro.in/",
-      "https://www.linkedin.com/company/fixbro-in",
-      "https://www.youtube.com/@fixbro-in"
+      "https://www.facebook.com/wecanfix.in",
+      "https://x.com/wecanfix_in",
+      "https://www.instagram.com/wecanfix.in/",
+      "https://www.linkedin.com/company/wecanfix-in",
+      "https://www.youtube.com/@wecanfix-in"
     ]
   };
 

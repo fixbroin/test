@@ -31,7 +31,7 @@ interface Step1CategorySkillsProps {
   isSaving: boolean;
 }
 
-const STORAGE_KEY = 'fixbro_reg_step1';
+const STORAGE_KEY = 'wecanfix_reg_step1';
 
 export default function Step1CategorySkills({
   onNext,

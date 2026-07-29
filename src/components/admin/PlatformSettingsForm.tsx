@@ -26,6 +26,7 @@ const platformFeeItemSchema = z.object({
     .max(100, "Tax rate cannot exceed 100.")
     .default(0),
   isActive: z.boolean().default(true),
+  description: z.string().optional().default("Charged per booking to cover platform security and maintain verified pros."),
 }).refine(data => {
     if (data.type === 'percentage' && (data.value < 0.01 || data.value > 100)) {
         return false;
@@ -69,6 +70,7 @@ export default function PlatformSettingsForm({ initialFees, onSave, isSaving }: 
         ...fee,
         id: fee.id || nanoid(), // Use existing ID or generate one
         feeTaxRatePercent: fee.feeTaxRatePercent ?? 0, // Ensure default for older data
+        description: fee.description || "Charged per booking to cover platform security and maintain verified pros.",
     }));
     form.reset({ platformFees: feesWithIds });
   }, [initialFees, form]);
@@ -81,6 +83,7 @@ export default function PlatformSettingsForm({ initialFees, onSave, isSaving }: 
       value: 0,
       feeTaxRatePercent: 0,
       isActive: true,
+      description: "Charged per booking to cover platform security and maintain verified pros.",
     });
   };
 
@@ -113,7 +116,18 @@ export default function PlatformSettingsForm({ initialFees, onSave, isSaving }: 
                     render={({ field: itemField }) => (
                       <FormItem>
                         <FormLabel>Fee Name</FormLabel>
-                        <FormControl><Input placeholder="e.g., Convenience Fee" {...itemField} disabled={isSaving} /></FormControl>
+                        <FormControl><Input placeholder="e.g., Platform Fees 1" {...itemField} disabled={isSaving} /></FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name={`platformFees.${index}.description`}
+                    render={({ field: itemField }) => (
+                      <FormItem>
+                        <FormLabel>Fee Description (displayed in info tooltip)</FormLabel>
+                        <FormControl><Input placeholder="e.g., Charged per booking to cover platform security and maintain verified pros." {...itemField} disabled={isSaving} /></FormControl>
                         <FormMessage />
                       </FormItem>
                     )}

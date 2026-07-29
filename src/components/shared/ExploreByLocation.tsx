@@ -3,7 +3,7 @@
 
 import { useState, useEffect } from 'react';
 import { db } from '@/lib/firebase';
-import { collection, getDocs, query, where, orderBy } from 'firebase/firestore';
+import { collection, getDocs, query, where, orderBy } from '@/lib/mysqlDb';
 import type { FirestoreCity, FirestoreArea, FirestoreCategory } from '@/types/firestore';
 import { Loader2, Tag } from 'lucide-react';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
@@ -11,6 +11,7 @@ import Link from 'next/link';
 import { useLoading } from '@/contexts/LoadingContext';
 import { useRouter } from 'next/navigation';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 
 interface CityWithAreas extends FirestoreCity {
   areas: FirestoreArea[];
@@ -25,6 +26,7 @@ export default function ExploreByLocation({ initialData, categories = [] }: Expl
   const [citiesWithAreas, setCitiesWithAreas] = useState<CityWithAreas[]>(initialData || []);
   const [allCategories, setAllCategories] = useState<FirestoreCategory[]>(categories);
   const [isLoading, setIsLoading] = useState(!initialData || categories.length === 0);
+  const [areaLimits, setAreaLimits] = useState<Record<string, number>>({});
   const { showLoading } = useLoading();
   const router = useRouter();
 
@@ -141,7 +143,7 @@ export default function ExploreByLocation({ initialData, categories = [] }: Expl
                     <div>
                         <h4 className="text-sm font-bold text-muted-foreground uppercase tracking-wider mb-4">Localities in {city.name}</h4>
                         <Accordion type="single" collapsible className="w-full">
-                            {city.areas.map(area => (
+                            {city.areas.slice(0, areaLimits[city.id] || 30).map(area => (
                                 <AccordionItem key={area.id} value={area.id} className="border-none">
                                     <AccordionTrigger className="text-sm font-medium py-2 hover:text-primary transition-colors">
                                         {area.name}
@@ -172,6 +174,25 @@ export default function ExploreByLocation({ initialData, categories = [] }: Expl
                                 </AccordionItem>
                             ))}
                         </Accordion>
+
+                        {city.areas.length > (areaLimits[city.id] || 30) && (
+                            <div className="mt-4 flex justify-center gap-2 pt-2 border-t">
+                                <Button 
+                                    variant="outline" 
+                                    size="sm" 
+                                    onClick={() => setAreaLimits(prev => ({ ...prev, [city.id]: (prev[city.id] || 30) + 50 }))}
+                                >
+                                    Load More Localities (+50)
+                                </Button>
+                                <Button 
+                                    variant="outline" 
+                                    size="sm" 
+                                    onClick={() => setAreaLimits(prev => ({ ...prev, [city.id]: city.areas.length }))}
+                                >
+                                    Load All ({city.areas.length})
+                                </Button>
+                            </div>
+                        )}
                     </div>
                 )}
               </AccordionContent>

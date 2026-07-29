@@ -8,7 +8,7 @@ import { getHomepageData, getAggregateRating } from '@/lib/homepageUtils';
 import { getGlobalWebSettings } from '@/lib/webServerUtils';
 import JsonLdScript from '@/components/shared/JsonLdScript';
 
-export const revalidate = false;
+export const dynamic = 'force-dynamic';
 
 export async function generateMetadata(
   _: {}, 
@@ -20,7 +20,7 @@ export async function generateMetadata(
   const webSettings = await getGlobalWebSettings();
   const appBaseUrl = getBaseUrl();
 
-  const title = seoSettings.homepageMetaTitle || seoSettings.siteName || 'FixBro';
+  const title = seoSettings.homepageMetaTitle || seoSettings.siteName || 'Wecanfix';
   const description = seoSettings.homepageMetaDescription || seoSettings.defaultMetaDescription || '';
   const keywords = (seoSettings.homepageMetaKeywords || seoSettings.defaultMetaKeywords || '').split(',').map(k => k.trim()).filter(k => k);
 
@@ -28,7 +28,7 @@ export async function generateMetadata(
   const rawOgImage = ogImageFromWebSettings || seoSettings.structuredDataImage || `/default-image.png`;
   const ogImage = rawOgImage.startsWith('http') ? rawOgImage : `${appBaseUrl}${rawOgImage.startsWith('/') ? '' : '/'}${rawOgImage}`;
 
-  const siteName = resolvedParent.openGraph?.siteName || seoSettings.siteName || 'FixBro';
+  const siteName = resolvedParent.openGraph?.siteName || seoSettings.siteName || 'Wecanfix';
 
   return {
     title: title,
@@ -59,7 +59,7 @@ export default async function Page() {
   ]);
 
   const appBaseUrl = getBaseUrl();
-  const siteName = homepageData.seoSettings.siteName || 'FixBro';
+  const siteName = homepageData.seoSettings.siteName || 'Wecanfix';
   const seoSettings = homepageData.seoSettings;
 
   const rawSchemaImage = seoSettings.structuredDataImage || `/android-chrome-512x512.png`;
@@ -145,7 +145,7 @@ export default async function Page() {
         "name": "Who is the best carpenter in Bangalore for home repairs?",
         "acceptedAnswer": {
           "@type": "Answer",
-          "text": "FixBro provides top-rated, verified professional carpenters in Bangalore for all home furniture repairs, assembly, and custom woodwork with transparent pricing."
+          "text": "Wecanfix provides top-rated, verified professional carpenters in Bangalore for all home furniture repairs, assembly, and custom woodwork with transparent pricing."
         }
       },
       {
@@ -153,7 +153,7 @@ export default async function Page() {
         "name": "How to book home services in Bangalore?",
         "acceptedAnswer": {
           "@type": "Answer",
-          "text": "You can easily book professional home services in Bangalore through FixBro. Choose your service, select your locality, and book an expert in under 60 seconds."
+          "text": "You can easily book professional home services in Bangalore through Wecanfix. Choose your service, select your locality, and book an expert in under 60 seconds."
         }
       }
     ]

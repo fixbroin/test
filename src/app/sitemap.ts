@@ -1,12 +1,11 @@
 import { MetadataRoute } from 'next';
 import { adminDb } from '@/lib/firebaseAdmin'; 
-import { Timestamp } from 'firebase-admin/firestore'; 
+import { Timestamp } from '@/lib/mysqlDbAdmin'; 
 import type { FirestoreCategory, FirestoreService, FirestoreCity, FirestoreArea, FirestoreBlogPost, ContentPage, AreaServiceSeoSetting } from '@/types/firestore';
 import { getBaseUrl } from '@/lib/config'; 
 import { unstable_cache } from 'next/cache';
 
-export const dynamic = 'force-static'; 
-export const revalidate = false;
+export const dynamic = 'force-dynamic';
 
 const safeToISOString = (timestamp: Timestamp | undefined | string | Date, fallbackDate: string): string => {
   try {
@@ -233,28 +232,46 @@ async function getSitemapEntries(): Promise<MetadataRoute.Sitemap> {
   return uniqueEntries;
 }
 
-export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
-  return unstable_cache(
-    async () => {
-      try {
-        return await getSitemapEntries();
-      } catch (error) {
-        console.error("SITEMAP_GENERATION_ERROR: Failed to generate sitemap entries:", error);
-        const appBaseUrl = getBaseUrl(); 
-        return [
-          {
-            url: appBaseUrl,
-            lastModified: new Date().toISOString(),
-            changeFrequency: 'yearly' as const,
-            priority: 0.1,
-          },
-        ];
-      }
-    },
-    ['sitemap-data'],
-    { 
-      revalidate: false, 
-      tags: ['sitemap', 'global-cache'] 
-    }
-  )();
+const SITEMAP_SIZE = 45000;
+
+const getCachedSitemapEntries = unstable_cache(
+  async () => {
+    return await getSitemapEntries();
+  },
+  ['sitemap-data-v2'],
+  { 
+    revalidate: false, 
+    tags: ['sitemap', 'global-cache'] 
+  }
+);
+
+export async function generateSitemaps() {
+  try {
+    const entries = await getCachedSitemapEntries();
+    const numSitemaps = Math.ceil(entries.length / SITEMAP_SIZE);
+    return Array.from({ length: Math.max(1, numSitemaps) }, (_, i) => ({ id: i }));
+  } catch (error) {
+    console.error("Error in generateSitemaps:", error);
+    return [{ id: 0 }];
+  }
+}
+
+export default async function sitemap({ id }: { id: number }): Promise<MetadataRoute.Sitemap> {
+  try {
+    const allEntries = await getCachedSitemapEntries();
+    const start = id * SITEMAP_SIZE;
+    const end = start + SITEMAP_SIZE;
+    return allEntries.slice(start, end);
+  } catch (error) {
+    console.error("SITEMAP_GENERATION_ERROR: Failed to generate sitemap entries:", error);
+    const appBaseUrl = getBaseUrl(); 
+    return [
+      {
+        url: appBaseUrl,
+        lastModified: new Date().toISOString(),
+        changeFrequency: 'yearly' as const,
+        priority: 0.1,
+      },
+    ];
+  }
 }

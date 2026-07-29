@@ -16,8 +16,8 @@ export async function generateMetadata(): Promise<Metadata> {
   const seoSettings = await getGlobalSEOSettings();
   const appBaseUrl = getBaseUrl();
   
-  const title = `Expert Home Maintenance Tips & Guides | Blog${seoSettings.defaultMetaTitleSuffix || ' | FixBro'}`;
-  const description = "Discover professional tips, DIY guides, and home maintenance advice from FixBro experts. Learn how to keep your home in top shape.";
+  const title = `Expert Home Maintenance Tips & Guides | Blog${seoSettings.defaultMetaTitleSuffix || ' | Wecanfix'}`;
+  const description = "Discover professional tips, DIY guides, and home maintenance advice from Wecanfix experts. Learn how to keep your home in top shape.";
 
   const rawOgImage = seoSettings.structuredDataImage || `/default-image.png`;
   const ogImage = rawOgImage.startsWith('http') ? rawOgImage : `${appBaseUrl}${rawOgImage.startsWith('/') ? '' : '/'}${rawOgImage}`;
@@ -32,7 +32,7 @@ export async function generateMetadata(): Promise<Metadata> {
       title,
       description,
       url: `${appBaseUrl}/blog`,
-      siteName: seoSettings.siteName || 'FixBro',
+      siteName: seoSettings.siteName || 'Wecanfix',
       type: 'website',
       images: [{ url: ogImage, width: 1200, height: 630, alt: title }],
     },
@@ -53,12 +53,12 @@ export default async function BlogListPage() {
   const blogListingSchema = {
     "@context": "https://schema.org",
     "@type": "Blog",
-    "name": "FixBro Blog",
-    "description": "Expert home maintenance tips, guides, and updates from FixBro.",
+    "name": "Wecanfix Blog",
+    "description": "Expert home maintenance tips, guides, and updates from Wecanfix.",
     "url": `${appBaseUrl}/blog`,
     "publisher": {
       "@type": "Organization",
-      "name": "FixBro",
+      "name": "Wecanfix",
       "logo": {
         "@type": "ImageObject",
         "url": `${appBaseUrl}/android-chrome-512x512.png`
@@ -75,7 +75,7 @@ export default async function BlogListPage() {
         "image": absImage,
         "author": {
           "@type": "Person",
-          "name": post.authorName || "FixBro Expert"
+          "name": post.authorName || "Wecanfix Expert"
         }
       };
     })
@@ -93,7 +93,7 @@ export default async function BlogListPage() {
               Our <span className="text-primary">Blog</span>
             </h1>
             <p className="text-lg md:text-xl text-muted-foreground leading-relaxed">
-              Expert tips, home maintenance guides, and the latest updates from the FixBro team.
+              Expert tips, home maintenance guides, and the latest updates from the Wecanfix team.
             </p>
           </div>
         </div>

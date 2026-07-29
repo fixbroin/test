@@ -32,7 +32,7 @@ export async function generateMetadata(
     content: webSettings.cookiePolicyContent,
   } as ContentPage : null);
 
-  const siteName = resolvedParent.openGraph?.siteName || seoSettings.siteName || "FixBro";
+  const siteName = resolvedParent.openGraph?.siteName || seoSettings.siteName || "Wecanfix";
   const defaultSuffix = seoSettings.defaultMetaTitleSuffix || ` - ${siteName}`;
   const appBaseUrl = getBaseUrl();
 

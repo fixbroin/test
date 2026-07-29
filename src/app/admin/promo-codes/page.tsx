@@ -11,7 +11,7 @@ import { PlusCircle, Edit, Trash2, Loader2, Percent, XCircle, EyeOff, Eye, Histo
 import type { FirestorePromoCode, DiscountType } from '@/types/firestore';
 import PromoCodeForm, { type PromoCodeFormData } from '@/components/admin/PromoCodeForm';
 import { db } from '@/lib/firebase';
-import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc, orderBy, query, Timestamp, where } from "firebase/firestore";
+import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc, orderBy, query, Timestamp, where } from '@/lib/mysqlDb';
 import { useToast } from "@/hooks/use-toast";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { getTimestampMillis } from '@/lib/utils';

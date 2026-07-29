@@ -4,7 +4,7 @@
 import { google } from 'googleapis';
 import { adminDb } from './firebaseAdmin';
 import { getBaseUrl } from './config';
-import { Timestamp } from 'firebase-admin/firestore';
+import { Timestamp } from './mysqlDbAdmin';
 
 /**
  * Parses the service account config from the environment and initializes Google authentication.
@@ -71,7 +71,7 @@ export async function submitToGoogleIndexing(
   identifier: any,
   isActive: boolean = true
 ) {
-  const baseUrl = getBaseUrl() || 'https://fixbro.in';
+  const baseUrl = getBaseUrl() || 'https://wecanfix.in';
   const urls: string[] = [];
   const action = isActive ? 'URL_UPDATED' : 'URL_DELETED';
 
@@ -216,7 +216,7 @@ export async function submitToGoogleIndexing(
 }
 
 export async function runBulkIndexingBatch() {
-  const baseUrl = getBaseUrl() || 'https://fixbro.in';
+  const baseUrl = getBaseUrl() || 'https://wecanfix.in';
   const urls: string[] = [];
 
   // 1. Static Pages

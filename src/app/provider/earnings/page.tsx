@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter }
 import { Loader2, DollarSign, PackageSearch, HandCoins, Banknote, AlertTriangle, RefreshCw } from "lucide-react";
 import type { FirestoreBooking, ProviderFeeType, FirestoreUser, WithdrawalRequest } from '@/types/firestore';
 import { db } from '@/lib/firebase';
-import { collection, query, where, onSnapshot, orderBy, doc, getDoc, getDocs, Timestamp } from "firebase/firestore";
+import { collection, query, where, onSnapshot, orderBy, doc, getDoc, getDocs, Timestamp } from '@/lib/mysqlDb';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
 import { useApplicationConfig } from '@/hooks/useApplicationConfig';
@@ -14,7 +14,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import Link from 'next/link';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { runTransaction, updateDoc } from 'firebase/firestore';
+import { runTransaction, updateDoc } from '@/lib/mysqlDb';
 
 const calculateProviderFee = (bookingAmount: number, feeType?: ProviderFeeType, feeValue?: number): number => {
     if (!feeType || !feeValue || feeValue <= 0) return 0;

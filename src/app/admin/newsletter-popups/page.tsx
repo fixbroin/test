@@ -11,8 +11,8 @@ import { PlusCircle, Edit, Trash2, Loader2, Megaphone, CheckCircle, XCircle, Eye
 import type { FirestorePopup } from '@/types/firestore';
 import PopupForm from '@/components/admin/PopupForm';
 import { db, storage } from '@/lib/firebase';
-import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc, getDoc, orderBy, query, Timestamp } from "firebase/firestore";
-import { ref as storageRef, deleteObject } from "firebase/storage";
+import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc, getDoc, orderBy, query, Timestamp } from '@/lib/mysqlDb';
+import { ref as storageRef, deleteObject } from '@/lib/mysqlStorage';
 import { useToast } from "@/hooks/use-toast";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Badge } from '@/components/ui/badge';
@@ -20,7 +20,7 @@ import PermissionGuard from '@/components/admin/PermissionGuard';
 import { useAuth } from '@/hooks/useAuth';
 import { hasActionPermission } from '@/config/rbac';
 
-const isFirebaseStorageUrl = (url: string | null | undefined): boolean => !!url && typeof url === 'string' && url.includes("firebasestorage.googleapis.com");
+const isFirebaseStorageUrl = (url: string | null | undefined): boolean => !!url && typeof url === 'string' && url.trim().length > 0;
 
 export default function AdminNewsletterPopupsPage() {
   const { adminPermissions } = useAuth();

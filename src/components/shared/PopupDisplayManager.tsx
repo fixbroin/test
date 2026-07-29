@@ -8,7 +8,7 @@ import { Input } from '@/components/ui/input';
 import AppImage from '@/components/ui/AppImage';
 import { XIcon, Mail, Loader2, User, Phone,CheckCircle } from 'lucide-react'; 
 import { db } from '@/lib/firebase';
-import { collection, query, where, orderBy, getDocs, addDoc, Timestamp, limit } from 'firebase/firestore'; 
+import { collection, query, where, orderBy, getDocs, addDoc, Timestamp, limit } from '@/lib/mysqlDb'; 
 import type { FirestorePopup, PopupDisplayFrequency, InquirySource, InquiryStatus, FirestorePopupInquiry, FirestoreNotification } from '@/types/firestore'; 
 import { usePathname, useRouter } from 'next/navigation';
 import { useToast } from '@/hooks/use-toast';
@@ -20,9 +20,9 @@ import { triggerPushNotification } from '@/lib/fcmUtils';
 import { ADMIN_EMAIL } from '@/contexts/AuthContext';
 import { cn } from '@/lib/utils';
 
-const POPUP_SESSION_STORAGE_KEY_PREFIX = 'fixbroPopupShown_';
-const POPUP_DAY_STORAGE_KEY_PREFIX = 'fixbroPopupDayShown_'; 
-const NEWSLETTER_SUBMITTED_KEY = 'fixbro_newsletter_submitted'; // Key for permanent submission tracking
+const POPUP_SESSION_STORAGE_KEY_PREFIX = 'wecanfixPopupShown_';
+const POPUP_DAY_STORAGE_KEY_PREFIX = 'wecanfixPopupDayShown_'; 
+const NEWSLETTER_SUBMITTED_KEY = 'wecanfix_newsletter_submitted'; // Key for permanent submission tracking
 
 export default function PopupDisplayManager() {
   const [allActivePopups, setAllActivePopups] = useState<FirestorePopup[]>([]);
@@ -228,7 +228,7 @@ export default function PopupDisplayManager() {
             document.documentElement.addEventListener('mouseout', handleDesktopMouseOut);
             exitIntentListenerRef.current = () => document.documentElement.removeEventListener('mouseout', handleDesktopMouseOut);
           } else { 
-            const mobileExitIntentStateKey = 'fixbroMobileExitIntentMarker';
+            const mobileExitIntentStateKey = 'wecanfixMobileExitIntentMarker';
             let statePushedByManager = false;
             const pushOurState = () => {
                 if (history.state?.[mobileExitIntentStateKey] !== true) {

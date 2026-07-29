@@ -1,7 +1,7 @@
 
 import { NextResponse } from 'next/server';
 import { adminAuth, adminDb } from '@/lib/firebaseAdmin';
-import { Timestamp, FieldValue } from 'firebase-admin/firestore';
+import { Timestamp, FieldValue } from '@/lib/mysqlDbAdmin';
 import { SUPER_ADMIN_PERMISSIONS } from '@/config/rbac';
 
 export async function POST(request: Request) {
@@ -118,12 +118,12 @@ export async function DELETE(request: Request) {
       const targetRole = adminToDeleteData?.role;
 
       // 1. PROTECT MAIN SUPER ADMIN FROM DELETION (Cannot be deleted via API by anyone)
-      if (targetEmail === "fixbro.in@gmail.com") {
+      if (targetEmail === "wecanfix.in@gmail.com") {
         return NextResponse.json({ error: 'The primary super admin cannot be removed.' }, { status: 403 });
       }
 
       // 2. PROTECT OTHER SUPER ADMINS (Only the Main Admin can delete other Super Admins)
-      if (targetRole === 'super_admin' && decodedToken.email !== "fixbro.in@gmail.com") {
+      if (targetRole === 'super_admin' && decodedToken.email !== "wecanfix.in@gmail.com") {
         return NextResponse.json({ error: 'Only the Primary Admin can remove other Super Admins.' }, { status: 403 });
       }
 

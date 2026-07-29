@@ -28,7 +28,7 @@ const StickyCartContinueButton = () => {
     updateCartCount(); 
 
     const handleStorageChange = (event: StorageEvent) => {
-      if (event.key === 'fixbroUserCart') {
+      if (event.key === 'wecanfixUserCart') {
         updateCartCount();
       }
     };

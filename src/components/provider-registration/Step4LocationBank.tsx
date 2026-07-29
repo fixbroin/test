@@ -16,10 +16,10 @@ import { Loader2, MapPin, Banknote, Camera, Image as ImageIcon, Trash2, Check, L
 import NextImage from 'next/image';
 import { useToast } from "@/hooks/use-toast";
 import { storage, db } from '@/lib/firebase';
-import { ref as storageRefStandard, uploadBytesResumable, getDownloadURL, deleteObject } from "firebase/storage";
+import { ref as storageRefStandard, uploadBytesResumable, getDownloadURL, deleteObject } from '@/lib/mysqlStorage';
 import { Progress } from "@/components/ui/progress";
 import { useEffect, useRef, useState, useCallback } from "react";
-import { Timestamp, doc, getDoc } from "firebase/firestore";
+import { Timestamp, doc, getDoc } from '@/lib/mysqlDb';
 import { nanoid } from 'nanoid';
 import { useApplicationConfig } from '@/hooks/useApplicationConfig';
 import dynamic from 'next/dynamic';
@@ -27,7 +27,7 @@ import { compressImage } from "@/lib/imageCompressor";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
 
-const STORAGE_KEY = 'fixbro_reg_step4';
+const STORAGE_KEY = 'wecanfix_reg_step4';
 
 const MapAddressSelector = dynamic(() => import('@/components/checkout/MapAddressSelector'), {
   loading: () => <div className="flex items-center justify-center h-64 bg-muted rounded-md"><Loader2 className="h-8 w-8 animate-spin" /></div>,

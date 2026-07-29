@@ -6,7 +6,7 @@ import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
 import { BarChart, DollarSign, ShoppingBag, Users, Loader2, AlertTriangle, UserPlus, TagIcon, History, HandCoins, Search } from "lucide-react";
 import { db } from '@/lib/firebase';
-import { collection, onSnapshot, query, where, Timestamp, orderBy, limit, getDocs } from "firebase/firestore";
+import { collection, onSnapshot, query, where, Timestamp, orderBy, limit, getDocs } from '@/lib/mysqlDb';
 import type { FirestoreBooking, FirestoreUser, UserActivity, FirestoreService } from '@/types/firestore';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';

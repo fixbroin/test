@@ -2,7 +2,7 @@
 'use server';
 
 import { adminDb } from './firebaseAdmin';
-import { FieldValue, Timestamp } from 'firebase-admin/firestore';
+import { FieldValue, Timestamp } from './mysqlDbAdmin';
 
 export async function incrementSystemStats(updates: {
   totalBookings?: number;
@@ -37,34 +37,82 @@ export async function incrementSystemStats(updates: {
   }
 }
 
+function getExactTimestampMillis(data: any): number {
+  const dateStr = data.scheduledDate || data.bookingDate;
+  const timeStr = data.scheduledTimeSlot || data.bookingTime;
+
+  if (dateStr) {
+    try {
+      const parts = String(dateStr).split('-').map(Number);
+      if (parts.length === 3) {
+        let h = 12, m = 0;
+        if (timeStr) {
+          const match = String(timeStr).match(/(\d+):(\d+)\s*(AM|PM)?/i);
+          if (match) {
+            h = parseInt(match[1], 10);
+            m = parseInt(match[2], 10);
+            const ampm = match[3]?.toUpperCase();
+            if (ampm === 'PM' && h < 12) h += 12;
+            if (ampm === 'AM' && h === 12) h = 0;
+          }
+        }
+        return new Date(parts[0], parts[1] - 1, parts[2], h, m).getTime();
+      }
+    } catch (e) {}
+  }
+
+  const ca = data.createdAt;
+  if (ca) {
+    if (typeof ca._seconds === 'number') return ca._seconds * 1000;
+    if (typeof ca.seconds === 'number') return ca.seconds * 1000;
+    if (typeof ca === 'string' || typeof ca === 'number') {
+      const t = new Date(ca).getTime();
+      if (!isNaN(t)) return t;
+    }
+  }
+
+  return 0;
+}
+
 /**
  * Resequences all booking numbers to remove gaps from deletions.
  */
 export async function resequenceBookingNumbers() {
   try {
     const statsRef = adminDb.collection('appConfiguration').doc('stats');
-    const bookingsSnap = await adminDb.collection('bookings').orderBy('createdAt', 'asc').get();
-    const totalBookings = bookingsSnap.size;
+    const bookingsSnap = await adminDb.collection('bookings').get();
     
-    const batchSize = 500;
-    let count = 0;
-    let processed = 0;
+    // Sort chronologically (oldest = 1, latest = highest number)
+    const sortedDocs = bookingsSnap.docs
+      .map(doc => ({
+        ref: doc.ref,
+        data: doc.data(),
+        timestamp: getExactTimestampMillis(doc.data())
+      }))
+      .sort((a, b) => a.timestamp - b.timestamp);
+
+    const totalBookings = sortedDocs.length;
+    let modifiedCount = 0;
+    let batchCount = 0;
     let batch = adminDb.batch();
 
-    for (let i = 0; i < bookingsSnap.docs.length; i++) {
-      const doc = bookingsSnap.docs[i];
-      batch.update(doc.ref, { bookingNumber: i + 1 });
-      count++;
-      processed++;
+    for (let i = 0; i < sortedDocs.length; i++) {
+      const item = sortedDocs[i];
+      const targetNumber = i + 1;
+      if (item.data.bookingNumber !== targetNumber) {
+        batch.update(item.ref, { bookingNumber: targetNumber });
+        modifiedCount++;
+        batchCount++;
 
-      if (count === batchSize) {
-        await batch.commit();
-        batch = adminDb.batch();
-        count = 0;
+        if (batchCount >= 400) {
+          await batch.commit();
+          batch = adminDb.batch();
+          batchCount = 0;
+        }
       }
     }
     
-    if (count > 0) {
+    if (batchCount > 0) {
       await batch.commit();
     }
 
@@ -73,7 +121,7 @@ export async function resequenceBookingNumbers() {
       updatedAt: Timestamp.now() 
     }, { merge: true });
 
-    return { success: true, count: processed };
+    return { success: true, count: modifiedCount };
   } catch (error) {
     console.error("Error resequencing booking numbers:", error);
     return { success: false, error: String(error) };
@@ -86,28 +134,39 @@ export async function resequenceBookingNumbers() {
 export async function resequenceUserNumbers() {
   try {
     const statsRef = adminDb.collection('appConfiguration').doc('stats');
-    const usersSnap = await adminDb.collection('users').orderBy('createdAt', 'asc').get();
-    const totalUsers = usersSnap.size;
+    const usersSnap = await adminDb.collection('users').get();
     
-    const batchSize = 500;
-    let count = 0;
-    let processed = 0;
+    // Sort chronologically (oldest = 1, latest = highest number)
+    const sortedDocs = usersSnap.docs
+      .map(doc => ({
+        ref: doc.ref,
+        data: doc.data(),
+        timestamp: getExactTimestampMillis(doc.data())
+      }))
+      .sort((a, b) => a.timestamp - b.timestamp);
+
+    const totalUsers = sortedDocs.length;
+    let modifiedCount = 0;
+    let batchCount = 0;
     let batch = adminDb.batch();
 
-    for (let i = 0; i < usersSnap.docs.length; i++) {
-      const doc = usersSnap.docs[i];
-      batch.update(doc.ref, { userNumber: i + 1 });
-      count++;
-      processed++;
+    for (let i = 0; i < sortedDocs.length; i++) {
+      const item = sortedDocs[i];
+      const targetNumber = i + 1;
+      if (item.data.userNumber !== targetNumber) {
+        batch.update(item.ref, { userNumber: targetNumber });
+        modifiedCount++;
+        batchCount++;
 
-      if (count === batchSize) {
-        await batch.commit();
-        batch = adminDb.batch();
-        count = 0;
+        if (batchCount >= 400) {
+          await batch.commit();
+          batch = adminDb.batch();
+          batchCount = 0;
+        }
       }
     }
     
-    if (count > 0) {
+    if (batchCount > 0) {
       await batch.commit();
     }
 
@@ -116,7 +175,7 @@ export async function resequenceUserNumbers() {
       updatedAt: Timestamp.now() 
     }, { merge: true });
 
-    return { success: true, count: processed };
+    return { success: true, count: modifiedCount };
   } catch (error) {
     console.error("Error resequencing user numbers:", error);
     return { success: false, error: String(error) };

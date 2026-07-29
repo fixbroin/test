@@ -111,7 +111,7 @@ export default async function ReferralPage() {
                     Refer & Earn
                 </h1>
                 <p className="text-lg text-muted-foreground max-w-2xl">
-                    Share the FixBro experience with your friends and earn rewards. Track your earnings and manage your wallet here.
+                    Share the Wecanfix experience with your friends and earn rewards. Track your earnings and manage your wallet here.
                 </p>
             </div>
             <div className="shrink-0">

@@ -53,9 +53,9 @@ export function cleanSeoString(text: string | undefined | null): string {
   // We allow "Carpenter in Whitefield | Carpenter near me" because they are not adjacent.
   cleaned = cleaned.replace(/\b(\w+)\s+\1\b/gi, '$1');
 
-  // 3. Specific cleanup for FixBro
-  // If "FixBro" is at the end of multiple segments, it's fine. 
-  // e.g., "Carpenter in Whitefield | FixBro"
+  // 3. Specific cleanup for Wecanfix
+  // If "Wecanfix" is at the end of multiple segments, it's fine. 
+  // e.g., "Carpenter in Whitefield | Wecanfix"
 
   return cleaned;
 }

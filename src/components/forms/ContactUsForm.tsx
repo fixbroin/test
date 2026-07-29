@@ -11,7 +11,7 @@ import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, For
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { User, Mail, Phone, MessageSquare, Loader2, Send } from "lucide-react";
 import { db } from '@/lib/firebase';
-import { collection, addDoc, Timestamp, query, where, getDocs, limit } from 'firebase/firestore';
+import { collection, addDoc, Timestamp, query, where, getDocs, limit } from '@/lib/mysqlDb';
 import type { FirestoreContactUsInquiry, InquiryStatus, FirestoreNotification } from '@/types/firestore';
 import { useToast } from "@/hooks/use-toast";
 import { useState } from 'react';

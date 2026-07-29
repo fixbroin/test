@@ -17,7 +17,7 @@ import {
 } from 'firebase/auth';
 import { auth, db } from '@/lib/firebase';
 import { initializeFCM, onForegroundMessage } from '@/lib/fcmUtils';
-import { doc, setDoc, Timestamp, getDoc, onSnapshot, collection, query, where, getDocs, limit, runTransaction, or } from "firebase/firestore";
+import { doc, setDoc, Timestamp, getDoc, onSnapshot, collection, query, where, getDocs, limit, runTransaction, or } from '@/lib/mysqlDb';
 import { useRouter } from 'next/navigation';
 import { useToast } from '@/hooks/use-toast';
 import type { FirestoreUser, MarketingAutomationSettings, ReferralSettings, Referral, FirestoreNotification, ProviderApplicationStatus } from '@/types/firestore';
@@ -33,7 +33,7 @@ import { incrementSystemStats } from '@/lib/systemStatsUtils';
 import type { AdminPermissions, AdminRole } from '@/config/rbac';
 import { SUPER_ADMIN_PERMISSIONS, getFirstAccessiblePath } from '@/config/rbac';
 // Define and export ADMIN_EMAIL here
-export const ADMIN_EMAIL = "fixbro.in@gmail.com";
+export const ADMIN_EMAIL = "wecanfix.in@gmail.com";
 
 export interface SignUpData {
   email: string;
@@ -420,7 +420,7 @@ export const AuthProvider: React.FC<PropsWithChildren> = ({ children }) => {
         
                 const referralDocRef = doc(collection(db, "referrals"));
                 const newReferral: Omit<Referral, 'id'> = {
-                    referrerId: referrerId,
+                    referrerId: referrerId || "",
                     referredUserId: user.uid,
                     referredUserEmail: newUsersEmail || "N/A",
                     status: 'pending',
@@ -433,7 +433,7 @@ export const AuthProvider: React.FC<PropsWithChildren> = ({ children }) => {
                 transaction.set(referralDocRef, newReferral);
         
                 const referrerNotification: Omit<FirestoreNotification, 'id'> = {
-                    userId: referrerId,
+                    userId: referrerId || "",
                     title: "New Referral Signup!",
                     message: `${details.fullName} has signed up using your link. You'll get your bonus when they complete their first booking.`,
                     type: 'success',
@@ -504,7 +504,7 @@ export const AuthProvider: React.FC<PropsWithChildren> = ({ children }) => {
                       body: JSON.stringify({
                           to: user.phoneNumber || details.mobileNumber,
                           templateName: marketingConfig.whatsAppOnSignup.templateName,
-                          parameters: [details.fullName, "FixBro"],
+                          parameters: [details.fullName, "Wecanfix"],
                       }),
                   });
               } catch (waError) {
@@ -523,7 +523,7 @@ export const AuthProvider: React.FC<PropsWithChildren> = ({ children }) => {
         // 1. Notify User
         const userNotification: Omit<FirestoreNotification, 'id'> = {
           userId: user.uid,
-          title: "Welcome to FixBro!",
+          title: "Welcome to Wecanfix!",
           message: `Hi ${details.fullName}, thank you for joining us! We're excited to help you with your home services.`,
           type: 'success',
           href: '/profile',
@@ -546,7 +546,7 @@ export const AuthProvider: React.FC<PropsWithChildren> = ({ children }) => {
           const adminNotification: Omit<FirestoreNotification, 'id'> = {
             userId: adminId,
             title: "New User Registered!",
-            message: `${details.fullName} has just signed up on FixBro.`,
+            message: `${details.fullName} has just signed up on Wecanfix.`,
             type: 'info',
             href: `/admin/users`, // Assuming there's a users management page
             read: false,
@@ -565,7 +565,7 @@ export const AuthProvider: React.FC<PropsWithChildren> = ({ children }) => {
       }
       // --- END SIGNUP NOTIFICATIONS ---
   
-      toast({ title: "Account Created!", description: "Welcome to FixBro!" });
+      toast({ title: "Account Created!", description: "Welcome to Wecanfix!" });
   
       const redirectPathFromQuery = typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('redirect') : null;
       let finalRedirectPath = '/';

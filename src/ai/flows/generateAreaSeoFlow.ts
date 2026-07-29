@@ -66,9 +66,9 @@ const prompt = ai.definePrompt({
   },
 
   prompt: `
-You are an advanced Local SEO expert for FixBro.
+You are an advanced Local SEO expert for Wecanfix.
 
-FixBro provides:
+Wecanfix provides:
 - Carpenter services
 - Plumbing services
 - Electrician services
@@ -138,7 +138,7 @@ Rules:
   - carpenter/plumber/electrician
 
 Example:
-"Book trusted carpenter, plumber & electrician services in Whitefield Bangalore by FixBro experts near you."
+"Book trusted carpenter, plumber & electrician services in Whitefield Bangalore by Wecanfix experts near you."
 
 4. seo_keywords
 Rules:

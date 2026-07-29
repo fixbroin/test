@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import CategoryCard from './CategoryCard';
 import type { FirestoreCategory } from '@/types/firestore';
 import { db } from '@/lib/firebase';
-import { collection, getDocs, orderBy, query, where } from 'firebase/firestore';
+import { collection, getDocs, orderBy, query, where } from '@/lib/mysqlDb';
 import { Skeleton } from '@/components/ui/skeleton';
 import { ArrowDown, ArrowUp } from 'lucide-react';
 import { getCache, setCache } from '@/lib/client-cache';
@@ -31,20 +31,16 @@ const HomeCategoriesSection = () => {
   }, []);
 
   useEffect(() => {
-    const fetchCategories = async () => {
-      const cacheKey = 'home-categories';
-      const lastFetchKey = 'home-categories-last-fetch';
-      const cachedCategories = getCache<FirestoreCategory[]>(cacheKey, true);
-      const lastFetch = localStorage.getItem(lastFetchKey);
-      const now = Date.now();
-      const ONE_DAY = 24 * 60 * 60 * 1000;
+    const cachedCats = getCache<FirestoreCategory[]>('home_categories', true);
+    if (cachedCats && cachedCats.length > 0) {
+      setCategories(cachedCats);
+      setIsLoading(false);
+    }
 
-      if (cachedCategories && lastFetch && (now - parseInt(lastFetch) < ONE_DAY)) {
-        setCategories(cachedCategories);
-        setIsLoading(false);
-        return;
+    const fetchCategories = async () => {
+      if (!cachedCats || cachedCats.length === 0) {
+        setIsLoading(true);
       }
-      setIsLoading(true);
       setError(null);
       try {
         const categoriesCollectionRef = collection(db, "adminCategories");
@@ -52,8 +48,7 @@ const HomeCategoriesSection = () => {
         const data = await getDocs(q);
         const fetchedCategories = data.docs.map((doc) => ({ ...doc.data(), id: doc.id } as FirestoreCategory));
         setCategories(fetchedCategories);
-        setCache(cacheKey, fetchedCategories, true); 
-        localStorage.setItem(lastFetchKey, now.toString());
+        setCache('home_categories', fetchedCategories, true);
       } catch (err) {
         console.error("Error fetching categories for grid: ", err);
         setError("Failed to load categories.");

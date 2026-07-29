@@ -39,7 +39,7 @@ export async function generateMetadata(
   const pageData = await getContentPageData(PAGE_SLUG);
   const seoSettings = await getGlobalSEOSettings();
   const webSettings = await getGlobalWebSettings();
-  const siteName = resolvedParent.openGraph?.siteName || seoSettings.siteName || "FixBro";
+  const siteName = resolvedParent.openGraph?.siteName || seoSettings.siteName || "Wecanfix";
   const defaultSuffix = seoSettings.defaultMetaTitleSuffix || ` - ${siteName}`;
   const appBaseUrl = getBaseUrl(); 
 

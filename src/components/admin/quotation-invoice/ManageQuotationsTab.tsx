@@ -7,7 +7,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Loader2, Edit, Trash2, PackageSearch, AlertTriangle, FileText, MoreHorizontal, Send, Download, Check, ChevronsUpDown } from "lucide-react";
 import { db, storage } from '@/lib/firebase';
-import { collection, query, orderBy, onSnapshot, doc, deleteDoc, updateDoc, Timestamp, getDoc } from "firebase/firestore";
+import { collection, query, orderBy, onSnapshot, doc, deleteDoc, updateDoc, Timestamp, getDoc } from '@/lib/mysqlDb';
 import type { FirestoreQuotation, QuotationStatus, CompanyDetailsForPdf } from '@/types/firestore';
 import { useToast } from "@/hooks/use-toast";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
@@ -20,6 +20,7 @@ import { generateQuotationPdf } from '@/lib/quotationGenerator';
 import { uploadPdfToStorage, triggerPdfDownload, dataUriToBlob } from '@/lib/pdfUtils';
 import { useGlobalSettings } from '@/hooks/useGlobalSettings';
 import { getTimestampMillis } from '@/lib/utils';
+import { deleteObject } from '@/lib/mysqlStorage';
 
 interface ManageQuotationsTabProps {
   onEditQuotation: (quotation: FirestoreQuotation) => void;
@@ -63,6 +64,15 @@ export default function ManageQuotationsTab({ onEditQuotation }: ManageQuotation
     if (!quotationId) return;
     setIsUpdating(quotationId);
     try {
+      const quotation = quotations.find(q => q.id === quotationId);
+      if (quotation) {
+        try {
+          const deletePath = quotation.pdfUrl || `/uploads/pdf/${quotation.id}_${quotation.quotationNumber}.pdf`;
+          await deleteObject(deletePath);
+        } catch (storageErr) {
+          console.warn("Storage deletion warning for quotation PDF:", storageErr);
+        }
+      }
       await deleteDoc(doc(db, "quotations", quotationId));
       toast({ title: "Success", description: "Quotation deleted successfully." });
     } catch (error) {
@@ -93,7 +103,7 @@ export default function ManageQuotationsTab({ onEditQuotation }: ManageQuotation
     setIsSending(quotation.id);
     try {
       const companyInfo: CompanyDetailsForPdf = {
-        name: companySettings?.websiteName || "FixBro",
+        name: companySettings?.websiteName || "Wecanfix",
         address: companySettings?.address || "",
         contactEmail: companySettings?.contactEmail || "",
         contactMobile: companySettings?.contactMobile || "",
@@ -107,7 +117,7 @@ export default function ManageQuotationsTab({ onEditQuotation }: ManageQuotation
       const storagePath = `quotations_pdf/${quotation.id}_${quotation.quotationNumber}.pdf`;
       const downloadUrl = await uploadPdfToStorage(pdfBlob, storagePath);
       
-      await updateDoc(doc(db, "quotations", quotation.id), { status: 'Sent', updatedAt: Timestamp.now() });
+      await updateDoc(doc(db, "quotations", quotation.id), { status: 'Sent', pdfUrl: downloadUrl, updatedAt: Timestamp.now() });
 
       toast({
         duration: 10000,
@@ -133,7 +143,7 @@ export default function ManageQuotationsTab({ onEditQuotation }: ManageQuotation
     setIsDownloading(quotation.id);
     try {
       const companyInfo: CompanyDetailsForPdf = {
-        name: companySettings?.websiteName || "FixBro",
+        name: companySettings?.websiteName || "Wecanfix",
         address: companySettings?.address || "",
         contactEmail: companySettings?.contactEmail || "",
         contactMobile: companySettings?.contactMobile || "",

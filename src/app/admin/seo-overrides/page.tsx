@@ -8,21 +8,26 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { Switch } from "@/components/ui/switch";
 import { PlusCircle, Edit, Trash2, Loader2, PackageSearch, Zap } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import type { CityCategorySeoSetting, AreaCategorySeoSetting, FirestoreCategory, FirestoreCity, FirestoreArea } from '@/types/firestore';
 import CityCategorySeoForm, { type CityCategorySeoFormData } from '@/components/admin/CityCategorySeoForm';
 import AreaCategorySeoForm, { type AreaCategorySeoFormData } from '@/components/admin/AreaCategorySeoForm';
 import { db } from '@/lib/firebase';
-import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc, orderBy, query, Timestamp, where, getDoc } from "firebase/firestore";
+import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc, orderBy, query, Timestamp, where, getDoc, limit } from '@/lib/mysqlDb';
 import { useToast } from "@/hooks/use-toast";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Skeleton } from '@/components/ui/skeleton';
 import { triggerRefresh } from '@/lib/revalidateUtils';
 import { submitToGoogleIndexing } from '@/lib/googleIndexing';
 import { useAuth } from '@/hooks/useAuth';
+import { executeDbClearTable, executeBulkOverridesSeoGenerate } from '@/app/actions/dbActions';
 import { hasActionPermission } from '@/config/rbac';
 import PermissionGuard from '@/components/admin/PermissionGuard';
 import { getCache, setCache } from '@/lib/client-cache';
 import { getAdminCategories, getCities, getAreas, getCityCategorySeoSettings, getAreaCategorySeoSettings } from '@/lib/webServerUtils';
+import { Progress } from "@/components/ui/progress";
+import { Checkbox } from "@/components/ui/checkbox";
+import { generateFreeCityCategorySeoData, generateFreeAreaCategorySeoData, getNearbyAreasSorted } from "@/lib/seoGenerator";
 
 const generateSeoSlug = (parts: (string | undefined)[]): string => {
     return parts.filter(Boolean).map(part => part!.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '')).join('/');
@@ -35,6 +40,8 @@ export default function SeoOverridesPage() {
   const [categories, setCategories] = useState<FirestoreCategory[]>([]);
   const [cities, setCities] = useState<FirestoreCity[]>([]);
   const [areas, setAreas] = useState<FirestoreArea[]>([]);
+  const [cityDisplayLimit, setCityDisplayLimit] = useState(500);
+  const [areaDisplayLimit, setAreaDisplayLimit] = useState(500);
 
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingSetting, setEditingSetting] = useState<CityCategorySeoSetting | AreaCategorySeoSetting | null>(null);
@@ -49,63 +56,162 @@ export default function SeoOverridesPage() {
   const cityCatSeoRef = collection(db, "cityCategorySeoSettings");
   const areaCatSeoRef = collection(db, "areaCategorySeoSettings");
 
+  // Batch Generation State
+  const [isBatchOpen, setIsBatchOpen] = useState(false);
+  const [batchCityId, setBatchCityId] = useState<string>("all");
+  const [batchCategoryId, setBatchCategoryId] = useState<string>("all");
+  const [batchOverwrite, setBatchOverwrite] = useState(false);
+  const [batchRunning, setBatchRunning] = useState(false);
+  const [batchProgress, setBatchProgress] = useState(0);
+  const [batchStatus, setBatchStatus] = useState("");
+
+  // Delete All State
+  const [isDeleteAllOpen, setIsDeleteAllOpen] = useState(false);
+  const [deleteRunning, setDeleteRunning] = useState(false);
+  const [deleteProgress, setDeleteProgress] = useState(0);
+  const [deleteStatus, setDeleteStatus] = useState("");
+
+  const resolveUniqueSlug = async (collectionRef: any, baseSlug: string, currentId?: string): Promise<string> => {
+    let uniqueSlug = baseSlug;
+    let counter = 1;
+    let isUnique = false;
+
+    while (!isUnique) {
+      const q = query(
+        collectionRef,
+        where("slug", "==", uniqueSlug),
+        limit(1)
+      );
+      const querySnapshot = await getDocs(q);
+      
+      if (querySnapshot.empty) {
+        isUnique = true;
+      } else {
+        const docSnap = querySnapshot.docs[0];
+        if (currentId && docSnap.id === currentId) {
+          isUnique = true;
+        } else {
+          uniqueSlug = `${baseSlug}-${counter}`;
+          counter++;
+        }
+      }
+    }
+    return uniqueSlug;
+  };
+
+  const handleStartBatch = async () => {
+    setBatchRunning(true);
+    setBatchProgress(0);
+    setBatchStatus("Initializing server-side bulk generation...");
+
+    try {
+      setBatchProgress(20);
+      setBatchStatus("Running bulk SEO generation on database server (this takes about 2-5 seconds)...");
+
+      const result = await executeBulkOverridesSeoGenerate({
+        activeTab: activeTab as "city-category" | "area-category",
+        batchCityId,
+        batchCategoryId,
+        batchOverwrite
+      });
+
+      setBatchProgress(100);
+
+      toast({
+        title: "Batch Generation Completed!",
+        description: `Successfully processed all combinations. Created: ${result.createdCount}, Updated: ${result.updatedCount}, Skipped: ${result.skippedCount}.`,
+        className: "bg-green-100 border-green-300 text-green-700"
+      });
+
+      setIsBatchOpen(false);
+      await triggerRefresh('seo-settings');
+      await fetchData(true);
+    } catch (err) {
+      console.error("Error in batch generation:", err);
+      toast({ title: "Batch Failed", description: (err as Error).message || "An error occurred.", variant: "destructive" });
+    } finally {
+      setBatchRunning(false);
+    }
+  };
+
+  const handleDeleteAll = async () => {
+    setDeleteRunning(true);
+    setDeleteProgress(0);
+    setDeleteStatus("Initializing deletion...");
+
+    try {
+      const targetSettings = activeTab === "city-category" ? cityCategorySettings : areaCategorySettings;
+      const collectionRef = activeTab === "city-category" ? cityCatSeoRef : areaCatSeoRef;
+      const total = targetSettings.length;
+
+      if (total === 0) {
+        toast({ title: "No overrides", description: "There are no overrides to delete in this tab.", variant: "destructive" });
+        setDeleteRunning(false);
+        return;
+      }
+
+      setDeleteStatus(`Clearing all overrides from the ${activeTab === 'city-category' ? 'cityCategorySeoSettings' : 'areaCategorySeoSettings'} table...`);
+      setDeleteProgress(50);
+
+      const targetTable = activeTab === "city-category" ? "cityCategorySeoSettings" : "areaCategorySeoSettings";
+      await executeDbClearTable(targetTable);
+
+      setDeleteProgress(100);
+
+      toast({
+        title: "All Overrides Deleted",
+        description: `Successfully deleted all ${total} overrides in the ${activeTab === 'city-category' ? 'City-Category' : 'Area-Category'} section.`,
+        className: "bg-green-100 border-green-300 text-green-700"
+      });
+
+      setIsDeleteAllOpen(false);
+      await triggerRefresh('seo-settings');
+      await fetchData(true);
+    } catch (err) {
+      console.error("Error deleting all overrides:", err);
+      toast({ title: "Delete Failed", description: (err as Error).message || "An error occurred.", variant: "destructive" });
+    } finally {
+      setDeleteRunning(false);
+    }
+  };
+
   const fetchData = async (forceRefresh = false) => {
     setIsLoading(true);
     try {
-      // --- SmartSync: Version Checking ---
-      let remoteVersion = 0;
-      if (!forceRefresh) {
-        try {
-          const versionDocRef = doc(db, "appConfiguration", "cacheVersions");
-          const versionSnap = await getDoc(versionDocRef);
-          if (versionSnap.exists()) {
-            remoteVersion = versionSnap.data().seoSettings || 0;
-          }
-        } catch (e) { console.warn("Failed to fetch cache versions:", e); }
+      let cachedCats = getCache<FirestoreCategory[]>('admin-cats-for-seo', true);
+      let cachedCities = getCache<FirestoreCity[]>('admin-cities-for-seo', true);
+      let cachedAreas = getCache<FirestoreArea[]>('admin-areas-for-seo', true);
 
-        const localVersionKey = 'admin-seo-overrides-full-version';
-        const localVersion = parseInt(localStorage.getItem(localVersionKey) || "0");
-        const cachedCats = getCache<FirestoreCategory[]>('admin-cats-for-seo', true);
-        const cachedCities = getCache<FirestoreCity[]>('admin-cities-for-seo', true);
-        const cachedAreas = getCache<FirestoreArea[]>('admin-areas-for-seo', true);
-        const cachedCitySeo = getCache<CityCategorySeoSetting[]>('admin-city-category-seo', true);
-        const cachedAreaSeo = getCache<AreaCategorySeoSetting[]>('admin-area-category-seo', true);
+      if (forceRefresh || !cachedCats || !cachedCities || !cachedAreas) {
+        const [fetchedCats, fetchedCities, fetchedAreas] = await Promise.all([
+          getAdminCategories(),
+          getCities(),
+          getAreas()
+        ]);
 
-        if (cachedCats && cachedCities && cachedAreas && cachedCitySeo && cachedAreaSeo && remoteVersion <= localVersion) {
-          setCategories(cachedCats);
-          setCities(cachedCities);
-          setAreas(cachedAreas);
-          setCityCategorySettings(cachedCitySeo);
-          setAreaCategorySettings(cachedAreaSeo);
-          setIsLoading(false);
-          return;
-        }
+        cachedCats = fetchedCats;
+        cachedCities = fetchedCities;
+        cachedAreas = fetchedAreas;
+
+        setCache('admin-cats-for-seo', fetchedCats, true);
+        setCache('admin-cities-for-seo', fetchedCities, true);
+        setCache('admin-areas-for-seo', fetchedAreas, true);
       }
 
-      // Use Server-Side Cache + Client-Side Cache
-      const [fetchedCats, fetchedCities, fetchedAreas, fetchedCitySeo, fetchedAreaSeo] = await Promise.all([
-        getAdminCategories(),
-        getCities(),
-        getAreas(),
+      setCategories(cachedCats);
+      setCities(cachedCities);
+      setAreas(cachedAreas);
+
+      // ALWAYS load settings fresh from server on page reload/navigation to avoid stale caches
+      const [fetchedCitySeo, fetchedAreaSeo] = await Promise.all([
         getCityCategorySeoSettings(),
         getAreaCategorySeoSettings()
       ]);
 
-      setCategories(fetchedCats);
-      setCities(fetchedCities);
-      setAreas(fetchedAreas);
       setCityCategorySettings(fetchedCitySeo);
       setAreaCategorySettings(fetchedAreaSeo);
-
-      // Update local cache
-      if (!forceRefresh) {
-        setCache('admin-cats-for-seo', fetchedCats, true);
-        setCache('admin-cities-for-seo', fetchedCities, true);
-        setCache('admin-areas-for-seo', fetchedAreas, true);
-        setCache('admin-city-category-seo', fetchedCitySeo, true);
-        setCache('admin-area-category-seo', fetchedAreaSeo, true);
-        localStorage.setItem('admin-seo-overrides-full-version', remoteVersion.toString());
-      }
+      setCityDisplayLimit(500);
+      setAreaDisplayLimit(500);
     } catch (error) {
       console.error("Error fetching SEO override data:", error);
       toast({ title: "Error", description: "Could not load SEO override data.", variant: "destructive" });
@@ -126,10 +232,25 @@ export default function SeoOverridesPage() {
     setIsFormOpen(true);
   };
 
-  const handleEditSetting = (setting: CityCategorySeoSetting | AreaCategorySeoSetting, type: 'cityCategory' | 'areaCategory') => {
-    setEditingSetting(setting);
-    setFormType(type);
-    setIsFormOpen(true);
+  const handleEditSetting = async (setting: CityCategorySeoSetting | AreaCategorySeoSetting, type: 'cityCategory' | 'areaCategory') => {
+    setIsSubmitting(true);
+    const collectionRef = type === 'cityCategory' ? cityCatSeoRef : areaCatSeoRef;
+    try {
+      const docRef = doc(collectionRef, setting.id!);
+      const docSnap = await getDoc(docRef);
+      if (docSnap.exists()) {
+        setEditingSetting({ id: docSnap.id, ...docSnap.data() } as any);
+        setFormType(type);
+        setIsFormOpen(true);
+      } else {
+        toast({ title: "Error", description: "SEO Override not found.", variant: "destructive" });
+      }
+    } catch (err) {
+      console.error("Error loading override details:", err);
+      toast({ title: "Error", description: "Failed to load override details.", variant: "destructive" });
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const handleDeleteSetting = async (id: string, type: 'cityCategory' | 'areaCategory') => {
@@ -322,11 +443,17 @@ export default function SeoOverridesPage() {
         </TabsList>
         <TabsContent value="city-category">
           <Card>
-            <CardHeader className="flex flex-row items-center justify-between">
+            <CardHeader className="flex flex-col md:flex-row md:items-center justify-between gap-4">
               <div><CardTitle>City-Category Specific Settings</CardTitle><CardDescription>Overrides for /[city]/category/[categorySlug] pages.</CardDescription></div>
-              <PermissionGuard moduleId="seo_overrides" action="create">
-                <Button onClick={() => handleAddSetting('cityCategory')} disabled={isSubmitting || cities.length === 0 || categories.length === 0}><PlusCircle className="mr-2 h-4 w-4"/>Add New</Button>
-              </PermissionGuard>
+              <div className="flex flex-wrap md:flex-nowrap gap-2 shrink-0">
+                <PermissionGuard moduleId="seo_overrides" action="create">
+                  <Button variant="outline" onClick={() => { setFormType('cityCategory'); setIsBatchOpen(true); }} disabled={isSubmitting || cities.length === 0}><Zap className="mr-2 h-4 w-4 text-amber-500" />Batch Generate (Free)</Button>
+                  {cityCategorySettings.length > 0 && (
+                    <Button variant="destructive" onClick={() => setIsDeleteAllOpen(true)} disabled={isSubmitting}><Trash2 className="mr-2 h-4 w-4"/>Delete All</Button>
+                  )}
+                  <Button onClick={() => handleAddSetting('cityCategory')} disabled={isSubmitting || cities.length === 0 || categories.length === 0}><PlusCircle className="mr-2 h-4 w-4"/>Add New</Button>
+                </PermissionGuard>
+              </div>
             </CardHeader>
             <CardContent>
               {cityCategorySettings.length === 0 ? (
@@ -335,7 +462,7 @@ export default function SeoOverridesPage() {
                 <Table>
                   <TableHeader><TableRow><TableHead>City</TableHead><TableHead>Category</TableHead><TableHead>Slug Segment</TableHead><TableHead>H1 Title</TableHead><TableHead className="text-center">Active</TableHead><TableHead className="text-right">Actions</TableHead></TableRow></TableHeader>
                   <TableBody>
-                    {cityCategorySettings.map(setting => (
+                    {cityCategorySettings.slice(0, cityDisplayLimit).map(setting => (
                       <TableRow key={setting.id}>
                         <TableCell>{setting.cityName}</TableCell><TableCell>{setting.categoryName}</TableCell>
                         <TableCell className="text-xs text-muted-foreground">{setting.slug}</TableCell>
@@ -362,16 +489,38 @@ export default function SeoOverridesPage() {
                   </TableBody>
                 </Table>
               )}
+
+              {cityCategorySettings.length > cityDisplayLimit && (
+                <div className="mt-4 flex flex-col sm:flex-row justify-between items-center gap-4 text-sm text-muted-foreground border-t pt-4">
+                  <div>
+                    Showing first {Math.min(cityDisplayLimit, cityCategorySettings.length)} of {cityCategorySettings.length} overrides.
+                  </div>
+                  <div className="flex gap-2">
+                    <Button variant="outline" size="sm" onClick={() => setCityDisplayLimit(prev => prev + 500)}>
+                      Load More (+500)
+                    </Button>
+                    <Button variant="outline" size="sm" onClick={() => setCityDisplayLimit(cityCategorySettings.length)}>
+                      Load All ({cityCategorySettings.length})
+                    </Button>
+                  </div>
+                </div>
+              )}
             </CardContent>
           </Card>
         </TabsContent>
         <TabsContent value="area-category">
           <Card>
-            <CardHeader className="flex flex-row items-center justify-between">
+            <CardHeader className="flex flex-col md:flex-row md:items-center justify-between gap-4">
               <div><CardTitle>Area-Category Specific Settings</CardTitle><CardDescription>Overrides for /[city]/[area]/[categorySlug] pages.</CardDescription></div>
-              <PermissionGuard moduleId="seo_overrides" action="create">
-                <Button onClick={() => handleAddSetting('areaCategory')} disabled={isSubmitting || cities.length === 0 || areas.length === 0 || categories.length === 0}><PlusCircle className="mr-2 h-4 w-4"/>Add New</Button>
-              </PermissionGuard>
+              <div className="flex flex-wrap md:flex-nowrap gap-2 shrink-0">
+                <PermissionGuard moduleId="seo_overrides" action="create">
+                  <Button variant="outline" onClick={() => { setFormType('areaCategory'); setIsBatchOpen(true); }} disabled={isSubmitting || cities.length === 0}><Zap className="mr-2 h-4 w-4 text-amber-500" />Batch Generate (Free)</Button>
+                  {areaCategorySettings.length > 0 && (
+                    <Button variant="destructive" onClick={() => setIsDeleteAllOpen(true)} disabled={isSubmitting}><Trash2 className="mr-2 h-4 w-4"/>Delete All</Button>
+                  )}
+                  <Button onClick={() => handleAddSetting('areaCategory')} disabled={isSubmitting || cities.length === 0 || areas.length === 0 || categories.length === 0}><PlusCircle className="mr-2 h-4 w-4"/>Add New</Button>
+                </PermissionGuard>
+              </div>
             </CardHeader>
             <CardContent>
             {areaCategorySettings.length === 0 ? (
@@ -380,7 +529,7 @@ export default function SeoOverridesPage() {
                 <Table>
                     <TableHeader><TableRow><TableHead>City</TableHead><TableHead>Area</TableHead><TableHead>Category</TableHead><TableHead>Slug Segment</TableHead><TableHead>H1 Title</TableHead><TableHead className="text-center">Active</TableHead><TableHead className="text-right">Actions</TableHead></TableRow></TableHeader>
                     <TableBody>
-                    {areaCategorySettings.map(setting => (
+                    {areaCategorySettings.slice(0, areaDisplayLimit).map(setting => (
                         <TableRow key={setting.id}>
                         <TableCell>{setting.cityName}</TableCell><TableCell>{setting.areaName}</TableCell><TableCell>{setting.categoryName}</TableCell>
                         <TableCell className="text-xs text-muted-foreground">{setting.slug}</TableCell>
@@ -406,6 +555,22 @@ export default function SeoOverridesPage() {
                     ))}
                     </TableBody>
                 </Table>
+            )}
+
+            {areaCategorySettings.length > areaDisplayLimit && (
+              <div className="mt-4 flex flex-col sm:flex-row justify-between items-center gap-4 text-sm text-muted-foreground border-t pt-4">
+                <div>
+                  Showing first {Math.min(areaDisplayLimit, areaCategorySettings.length)} of {areaCategorySettings.length} overrides.
+                </div>
+                <div className="flex gap-2">
+                  <Button variant="outline" size="sm" onClick={() => setAreaDisplayLimit(prev => prev + 500)}>
+                    Load More (+500)
+                  </Button>
+                  <Button variant="outline" size="sm" onClick={() => setAreaDisplayLimit(areaCategorySettings.length)}>
+                    Load All ({areaCategorySettings.length})
+                  </Button>
+                </div>
+              </div>
             )}
             </CardContent>
           </Card>
@@ -443,6 +608,110 @@ export default function SeoOverridesPage() {
                 isSubmitting={isSubmitting}
               />
             ) : null}
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={isBatchOpen} onOpenChange={(open) => { if (!batchRunning) setIsBatchOpen(open); }}>
+        <DialogContent className="max-w-md p-6">
+          <DialogHeader>
+            <DialogTitle>Batch Generate Free SEO Overrides</DialogTitle>
+            <DialogDescription>
+              Automatically generate and save spinned local SEO copy for all selected combinations. This operates entirely client-side for free.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Target City</label>
+              <Select value={batchCityId} onValueChange={setBatchCityId} disabled={batchRunning}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select City" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Cities</SelectItem>
+                  {cities.map(c => (
+                    <SelectItem key={c.id} value={c.id!}>{c.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Target Category</label>
+              <Select value={batchCategoryId} onValueChange={setBatchCategoryId} disabled={batchRunning}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select Category" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Categories</SelectItem>
+                  {categories.map(c => (
+                    <SelectItem key={c.id} value={c.id!}>{c.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="flex items-center space-x-2 pt-2">
+              <Checkbox 
+                id="overwrite" 
+                checked={batchOverwrite} 
+                onCheckedChange={(checked) => setBatchOverwrite(!!checked)}
+                disabled={batchRunning}
+              />
+              <label htmlFor="overwrite" className="text-sm font-medium leading-none cursor-pointer">
+                Overwrite existing custom overrides
+              </label>
+            </div>
+
+            {batchRunning && (
+              <div className="space-y-2 pt-4">
+                <Progress value={batchProgress} className="w-full" />
+                <p className="text-xs text-muted-foreground animate-pulse">{batchStatus}</p>
+              </div>
+            )}
+          </div>
+
+          <div className="flex justify-end gap-2 pt-4 border-t">
+            <Button variant="outline" onClick={() => setIsBatchOpen(false)} disabled={batchRunning}>
+              Cancel
+            </Button>
+            <Button onClick={handleStartBatch} disabled={batchRunning}>
+              {batchRunning && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              {batchRunning ? "Generating..." : "Start Batch Generation"}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={isDeleteAllOpen} onOpenChange={(open) => { if (!deleteRunning) setIsDeleteAllOpen(open); }}>
+        <DialogContent className="max-w-md p-6">
+          <DialogHeader>
+            <DialogTitle className="text-destructive flex items-center gap-2">
+              <Trash2 className="h-6 w-6" /> Danger: Delete All Overrides?
+            </DialogTitle>
+            <DialogDescription>
+              Are you absolutely sure you want to delete **ALL** SEO overrides in the current **{activeTab === 'city-category' ? 'City-Category' : 'Area-Category'}** tab? This action cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 py-4">
+            {deleteRunning && (
+              <div className="space-y-2 pt-2">
+                <Progress value={deleteProgress} className="w-full" />
+                <p className="text-xs text-muted-foreground animate-pulse">{deleteStatus}</p>
+              </div>
+            )}
+          </div>
+
+          <div className="flex justify-end gap-2 pt-4 border-t">
+            <Button variant="outline" onClick={() => setIsDeleteAllOpen(false)} disabled={deleteRunning}>
+              Cancel
+            </Button>
+            <Button variant="destructive" onClick={handleDeleteAll} disabled={deleteRunning}>
+              {deleteRunning && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              {deleteRunning ? "Deleting..." : "Yes, Delete All"}
+            </Button>
           </div>
         </DialogContent>
       </Dialog>

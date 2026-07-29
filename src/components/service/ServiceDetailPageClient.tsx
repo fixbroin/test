@@ -15,7 +15,7 @@ import { Badge } from '@/components/ui/badge';
 import { getCartEntries, saveCartEntries, syncCartToFirestore } from '@/lib/cartManager';
 import { getIconComponent } from '@/lib/iconMap';
 import { db } from '@/lib/firebase';
-import { collection, query, where, getDocs, limit, orderBy, Timestamp, doc, onSnapshot, type DocumentSnapshot, getDoc } from 'firebase/firestore';
+import { collection, query, where, getDocs, limit, orderBy, Timestamp, doc, onSnapshot, type DocumentSnapshot, getDoc } from '@/lib/mysqlDb';
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
 import StickyCartContinueButton from '@/components/category/StickyCartContinueButton';
@@ -171,7 +171,7 @@ export default function ServiceDetailPageClient({
     syncQuantity();
 
     const handleStorage = (e: StorageEvent) => {
-      if (e.key === 'fixbroUserCart' || e.key === null) syncQuantity();
+      if (e.key === 'wecanfixUserCart' || e.key === null) syncQuantity();
     };
 
     window.addEventListener('storage', handleStorage);
@@ -405,7 +405,7 @@ export default function ServiceDetailPageClient({
     }
 
     if (typeof window !== 'undefined') {
-      window.dispatchEvent(new StorageEvent('storage', { key: 'fixbroUserCart' }));
+      window.dispatchEvent(new StorageEvent('storage', { key: 'wecanfixUserCart' }));
     }
     
     if (action === 'added' || (action === 'updated' && newQuantity > oldQuantity)) {

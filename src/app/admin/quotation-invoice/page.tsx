@@ -11,11 +11,55 @@ import ManageQuotationsTab from '@/components/admin/quotation-invoice/ManageQuot
 import ManageInvoicesTab from '@/components/admin/quotation-invoice/ManageInvoicesTab';
 import type { FirestoreQuotation, FirestoreInvoice } from '@/types/firestore';
 import PermissionGuard from '@/components/admin/PermissionGuard';
+import { Switch } from '@/components/ui/switch';
+import { db } from '@/lib/firebase';
+import { collection, onSnapshot, addDoc, updateDoc, deleteDoc, doc, orderBy, query, Timestamp, getDocs, setDoc } from '@/lib/mysqlDb';
+import { useToast } from "@/hooks/use-toast";
 
 export default function QuotationInvoicePage() {
   const [activeTab, setActiveTab] = useState("create_quotation");
   const [editingQuotation, setEditingQuotation] = useState<FirestoreQuotation | null>(null);
   const [editingInvoice, setEditingInvoice] = useState<FirestoreInvoice | null>(null);
+  const [allowProviderDelete, setAllowProviderDelete] = useState(true);
+  const [isSavingSettings, setIsSavingSettings] = useState(false);
+  const { toast } = useToast();
+
+  useEffect(() => {
+    const settingsRef = doc(db, "webSettings", "quotationInvoiceSettings");
+    const unsubscribe = onSnapshot(settingsRef, (docSnap) => {
+      if (docSnap.exists()) {
+        const data = docSnap.data();
+        setAllowProviderDelete(data.allowProviderDelete !== false);
+      } else {
+        setAllowProviderDelete(true);
+      }
+    });
+    return () => unsubscribe();
+  }, []);
+
+  const handleToggleProviderDelete = async (checked: boolean) => {
+    setIsSavingSettings(checked);
+    try {
+      await setDoc(doc(db, "webSettings", "quotationInvoiceSettings"), {
+        allowProviderDelete: checked,
+        updatedAt: Timestamp.now()
+      }, { merge: true });
+      toast({
+        title: "Settings Updated",
+        description: `Providers are now ${checked ? "allowed" : "restricted"} from deleting quotations/invoices.`
+      });
+      setAllowProviderDelete(checked);
+    } catch (error) {
+      console.error("Error saving settings:", error);
+      toast({
+        title: "Error",
+        description: "Could not update settings.",
+        variant: "destructive"
+      });
+    } finally {
+      setIsSavingSettings(false);
+    }
+  };
 
   const handleEditQuotation = (quotation: FirestoreQuotation) => {
     setEditingQuotation(quotation);
@@ -61,6 +105,25 @@ export default function QuotationInvoicePage() {
             Create, manage, and track quotations and invoices for your customers.
           </CardDescription>
         </CardHeader>
+      </Card>
+
+      {/* Configuration Controls */}
+      <Card>
+        <CardContent className="py-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+          <div className="space-y-1">
+            <h4 className="font-semibold text-sm text-slate-800">Quotation & Invoice Controls</h4>
+            <p className="text-xs text-muted-foreground">Toggle whether providers are allowed to delete their generated quotations and invoices.</p>
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="text-xs font-medium text-slate-600">Allow Providers to Delete:</span>
+            <Switch 
+              checked={allowProviderDelete} 
+              onCheckedChange={handleToggleProviderDelete} 
+              disabled={isSavingSettings}
+            />
+            <span className="text-xs font-semibold text-slate-800">{allowProviderDelete ? "Enabled" : "Disabled"}</span>
+          </div>
+        </CardContent>
       </Card>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">

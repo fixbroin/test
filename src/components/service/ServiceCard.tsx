@@ -113,7 +113,7 @@ const ServiceCard: React.FC<ServiceCardProps> = ({ service, priority = false }) 
     syncQuantity();
 
     const handleStorage = (e: StorageEvent) => {
-      if (e.key === 'fixbroUserCart' || e.key === null) syncQuantity();
+      if (e.key === 'wecanfixUserCart' || e.key === null) syncQuantity();
     };
 
     window.addEventListener('storage', handleStorage);
@@ -145,7 +145,7 @@ const ServiceCard: React.FC<ServiceCardProps> = ({ service, priority = false }) 
     }
 
     if (typeof window !== 'undefined') {
-      window.dispatchEvent(new StorageEvent('storage', { key: 'fixbroUserCart' }));
+      window.dispatchEvent(new StorageEvent('storage', { key: 'wecanfixUserCart' }));
     }
     
     if (action === 'added' || (action === 'updated' && newQuantity > oldQuantity)) {

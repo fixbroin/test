@@ -16,7 +16,7 @@ const DEFAULT_CENTER = { lat: 12.9716, lng: 77.5946 }; // Bangalore
 const DEFAULT_ZOOM = 10;
 const DETAILED_ZOOM = 14;
 
-const GOOGLE_MAPS_SCRIPT_ID_ZONE = "fixbro-google-maps-script-zone";
+const GOOGLE_MAPS_SCRIPT_ID_ZONE = "wecanfix-google-maps-script-zone";
 
 const ZoneMapSelector: React.FC<ZoneMapSelectorProps> = ({ apiKey, center, radiusKm, onCenterChange }) => {
   const mapRef = useRef<HTMLDivElement>(null);

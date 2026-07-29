@@ -17,12 +17,13 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { updateProfile, sendPasswordResetEmail, deleteUser, updateEmail, sendEmailVerification, RecaptchaVerifier, type ConfirmationResult, type User, linkWithPhoneNumber } from "firebase/auth";
 import { auth, db } from "@/lib/firebase";
-import { doc, getDoc, setDoc, deleteDoc, Timestamp } from "firebase/firestore";
+import { doc, getDoc, setDoc, deleteDoc, Timestamp } from '@/lib/mysqlDb';
 import { useToast } from '@/hooks/use-toast';
 import type { FirestoreUser } from '@/types/firestore';
 import Link from 'next/link';
 import { InputOTP, InputOTPGroup, InputOTPSlot } from "@/components/ui/input-otp";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import { triggerRefresh } from '@/lib/revalidateUtils';
 import ProviderProfileDetails from "@/components/provider/ProviderProfileDetails";
 import { useApplicationConfig } from '@/hooks/useApplicationConfig';
 
@@ -245,43 +246,46 @@ export default function ProfilePage() {
   };
 
   const handleDeleteAccount = async () => {
-  if (!user || !auth.currentUser) return;
+    if (!user || !auth.currentUser) return;
 
-  setIsDeletingAccount(true);
+    setIsDeletingAccount(true);
 
-  try {
-    // 1. Delete Firestore record first while still authenticated
-    await deleteDoc(doc(db, "users", user.uid));
-
-    // 2. Then delete Auth user
-    await deleteUser(auth.currentUser);
-
-    toast({
-      title: "Account Deleted",
-      description: "Your account has been successfully deleted."
-    });
-
-    router.push("/");
-  } catch (error: any) {
-    if (error.code === "auth/requires-recent-login") {
-      toast({
-        title: "Please login again",
-        description: "For security, logout and login again before deleting account.",
-        variant: "destructive"
-      });
-
+    try {
+      const uid = user.uid;
+      await Promise.all([
+        deleteDoc(doc(db, "users", uid)),
+        deleteDoc(doc(db, "providerApplications", uid)),
+      ]);
+      await deleteUser(auth.currentUser);
       await logOut();
-    } else {
+      await triggerRefresh('users');
+
       toast({
-        title: "Delete failed",
-        description: error.message,
-        variant: "destructive"
+        title: "Account Deleted",
+        description: "Your account and all associated data have been permanently deleted."
       });
+
+      router.push("/");
+    } catch (error: any) {
+      if (error.code === "auth/requires-recent-login") {
+        toast({
+          title: "Please login again",
+          description: "For security, logout and login again before deleting account.",
+          variant: "destructive"
+        });
+
+        await logOut();
+      } else {
+        toast({
+          title: "Delete failed",
+          description: error.message,
+          variant: "destructive"
+        });
+      }
+    } finally {
+      setIsDeletingAccount(false);
     }
-  } finally {
-    setIsDeletingAccount(false);
-  }
-};
+  };
 
   if (authIsLoading || isLoadingData || isLoadingAppSettings || !user) {
     return <div className="flex justify-center items-center h-64"><Loader2 className="h-12 w-12 animate-spin text-primary" /></div>;

@@ -1,7 +1,7 @@
 
 'use client';
 
-const CATEGORY_NAME_OVERRIDES_KEY = 'fixbroCategoryNameOverrides';
+const CATEGORY_NAME_OVERRIDES_KEY = 'wecanfixCategoryNameOverrides';
 
 interface CategoryNameOverrides {
   [categoryId: string]: string;

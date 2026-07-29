@@ -27,8 +27,8 @@ export async function generateMetadata(
   const seoSettings = await getGlobalSEOSettings();
   const appBaseUrl = getBaseUrl();
 
-  const title = pageData?.metaTitle || `Contact Us | ${seoSettings.siteName || 'FixBro'}`;
-  const description = pageData?.metaDescription || "Contact FixBro for any queries, support, or feedback regarding our home services in Bangalore.";
+  const title = pageData?.metaTitle || `Contact Us | ${seoSettings.siteName || 'Wecanfix'}`;
+  const description = pageData?.metaDescription || "Contact Wecanfix for any queries, support, or feedback regarding our home services in Bangalore.";
 
   return {
     title: title,
@@ -49,9 +49,14 @@ export default async function ContactUsPage() {
   const pageData = await getContentPageData(PAGE_SLUG);
 
   // Load App Settings for working hours
-  const appConfigSnap = await adminDb.collection("webSettings").doc("applicationConfig").get();
-  const appConfig = appConfigSnap.data() || {};
-  const timeSlotSettings = appConfig.timeSlotSettings || {};
+  let timeSlotSettings: any = {};
+  try {
+    const appConfigSnap = await adminDb.collection("webSettings").doc("applicationConfig").get();
+    const appConfig = appConfigSnap.data() || {};
+    timeSlotSettings = appConfig.timeSlotSettings || {};
+  } catch (dbErr) {
+    console.warn("ContactUsPage: Could not load applicationConfig from DB, using defaults:", dbErr);
+  }
   
   const defaultWeeklyAvailability = {
     monday: { isEnabled: true, startTime: "09:00", endTime: "17:00", intervals: [{ startTime: "09:00", endTime: "17:00" }] },
@@ -69,12 +74,17 @@ export default async function ContactUsPage() {
   };
 
   // Load Leaves (active and upcoming)
-  const todayISO = new Date().toLocaleDateString('en-CA');
-  const leavesSnap = await adminDb.collection("leaves")
-      .where("endDate", ">=", todayISO)
-      .get();
+  let leavesSnap: any = { docs: [] };
+  try {
+    const todayISO = new Date().toLocaleDateString('en-CA');
+    leavesSnap = await adminDb.collection("leaves")
+        .where("endDate", ">=", todayISO)
+        .get();
+  } catch (e) {
+    console.warn("ContactUsPage: Could not load leaves from DB:", e);
+  }
   const leaves = leavesSnap.docs
-      .map(doc => ({ id: doc.id, ...doc.data() }))
+      .map((doc: any) => ({ id: doc.id, ...doc.data() }))
       .sort((a: any, b: any) => a.startDate.localeCompare(b.startDate));
 
   if (!pageData) {
@@ -105,15 +115,15 @@ export default async function ContactUsPage() {
   const contactSchema = {
     "@context": "https://schema.org",
     "@type": "ContactPage",
-    "name": "Contact FixBro",
-    "description": "Contact FixBro for professional home services in Bangalore. Reach us via phone, email, or visit our office.",
+    "name": "Contact Wecanfix",
+    "description": "Contact Wecanfix for professional home services in Bangalore. Reach us via phone, email, or visit our office.",
     "url": `${appBaseUrl}/contact-us`,
     "mainEntity": {
       "@type": "LocalBusiness",
-      "name": "FixBro",
+      "name": "Wecanfix",
       "image": `${appBaseUrl}/android-chrome-512x512.png`,
       "telephone": "+91-7353113455",
-      "email": "support@fixbro.in",
+      "email": "support@wecanfix.in",
       "address": {
         "@type": "PostalAddress",
         "streetAddress": "#44, G S Palya Road, Konappana Agrahara, Electronic City Phase 2",
@@ -180,7 +190,7 @@ export default async function ContactUsPage() {
                       </div>
                       <div>
                         <p className="text-sm font-bold uppercase tracking-widest opacity-60 mb-1">Email Us</p>
-                        <p className="text-xl font-bold">support@fixbro.in</p>
+                        <p className="text-xl font-bold">support@wecanfix.in</p>
                       </div>
                     </div>
 

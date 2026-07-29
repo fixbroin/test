@@ -34,15 +34,15 @@ RewriteRule "(^|/)\." - [F]
 # Uncomment if Apache is handling SSL directly and you want to force HTTPS.
 # ----------------------------------------------------------------------
 # RewriteCond %{HTTPS} !=on
-# RewriteCond %{HTTP_HOST} ^fixbro.in\.com$ [NC]
-# RewriteRule ^/?(.*)$ https://fixbro.in/$1 [R=301,L]
+# RewriteCond %{HTTP_HOST} ^wecanfix.in\.com$ [NC]
+# RewriteRule ^/?(.*)$ https://wecanfix.in/$1 [R=301,L]
 
 # ----------------------------------------------------------------------
 # WWW to non-WWW REDIRECTION (or vice-versa) (Optional)
 # Example: Force non-www
 # ----------------------------------------------------------------------
-# RewriteCond %{HTTP_HOST} ^www\.fixbro.in\.com$ [NC]
-# RewriteRule ^/?(.*)$ https://fixbro.in/$1 [R=301,L]
+# RewriteCond %{HTTP_HOST} ^www\.wecanfix.in\.com$ [NC]
+# RewriteRule ^/?(.*)$ https://wecanfix.in/$1 [R=301,L]
 
 # ----------------------------------------------------------------------
 # BASIC BROWSER CACHING (Optional - Next.js handles its assets well)

@@ -40,15 +40,15 @@ const PwaInstallButton = () => {
 
   // Determine which app we are installing
   const appInfo = {
-    name: "FixBro App",
+    name: "Wecanfix App",
     desc: "Faster booking & real-time updates"
   };
 
   if (pathname.startsWith('/admin')) {
-    appInfo.name = "FixBro Admin";
+    appInfo.name = "Wecanfix Admin";
     appInfo.desc = "Manage orders & providers";
   } else if (pathname.startsWith('/provider')) {
-    appInfo.name = "FixBro Provider";
+    appInfo.name = "Wecanfix Provider";
     appInfo.desc = "Manage your jobs & earnings";
   }
 
@@ -194,7 +194,7 @@ const PwaInstallButton = () => {
                             Install on iPhone
                         </DialogTitle>
                         <DialogDescription className="text-left pt-2">
-                            To install the FixBro app on your iPhone, follow these simple steps:
+                            To install the Wecanfix app on your iPhone, follow these simple steps:
                         </DialogDescription>
                     </DialogHeader>
                     
@@ -235,7 +235,7 @@ const PwaInstallButton = () => {
         
         <div className="ml-3 transition-all duration-500 opacity-0 group-hover:opacity-100 whitespace-nowrap">
           <p className="text-[10px] font-bold uppercase tracking-widest text-primary">Desktop App</p>
-          <p className="text-xs font-bold text-foreground">Install FixBro</p>
+          <p className="text-xs font-bold text-foreground">Install Wecanfix</p>
         </div>
       </div>
 

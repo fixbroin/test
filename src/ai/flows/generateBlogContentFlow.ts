@@ -16,7 +16,7 @@ export type GenerateBlogContentInput = z.infer<typeof GenerateBlogContentInputSc
 
 const GenerateBlogContentOutputSchema = z.object({
   content: z.string().describe(
-  "Complete FixBro SEO blog in HTML format. Minimum 1200-1800 words. Use h2, p, ul, li and br tags. Follow FixBro blog structure with large spacing between sections, homeowner-focused content, service benefits, common problems, service coverage, tips, pricing guidance, FixBro advantages, CTA, and related keywords."),
+  "Complete Wecanfix SEO blog in HTML format. Minimum 1200-1800 words. Use h2, p, ul, li and br tags. Follow Wecanfix blog structure with large spacing between sections, homeowner-focused content, service benefits, common problems, service coverage, tips, pricing guidance, Wecanfix advantages, CTA, and related keywords."),
   excerpt: z.string().describe("A short, catchy summary of the blog post (max 150 characters) to be used on the blog list card."),
   tags: z.string().describe(
   "Comma-separated string of 5-8 highly relevant SEO tags."),
@@ -43,7 +43,7 @@ const prompt = ai.definePrompt({
   output: { schema: GenerateBlogContentOutputSchema },
   prompt: `
 
-You are FixBro's senior SEO content writer and local home services expert.
+You are Wecanfix's senior SEO content writer and local home services expert.
 
 Generate professional blog content based on:
 
@@ -124,7 +124,7 @@ Helpful homeowner advice.
 
 General pricing guidance only.
 
-9. Why Choose FixBro
+9. Why Choose Wecanfix
 
 Include:
 - Skilled professionals

@@ -12,7 +12,7 @@ import * as z from "zod";
 import { Loader2, Save, LayoutGrid, Star, Clock, ListChecks, FileText, Construction, Activity } from "lucide-react"; 
 import { useToast } from '@/hooks/use-toast';
 import { db } from '@/lib/firebase';
-import { doc, getDoc, setDoc, Timestamp } from "firebase/firestore";
+import { doc, getDoc, setDoc, Timestamp } from '@/lib/mysqlDb';
 import type { FeaturesConfiguration } from '@/types/firestore';
 import { triggerRefresh } from '@/lib/revalidateUtils';
 

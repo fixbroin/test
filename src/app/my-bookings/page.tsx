@@ -9,7 +9,7 @@ import { ListOrdered, PackageSearch, ArrowLeft, Loader2, Eye, Trash2, Download, 
 import ProtectedRoute from "@/components/auth/ProtectedRoute";
 import { useAuth } from "@/hooks/useAuth";
 import { db } from "@/lib/firebase";
-import { collection, query, where, onSnapshot, orderBy, doc, updateDoc, Timestamp, getDoc, addDoc, getDocs, limit } from "firebase/firestore"; 
+import { collection, query, where, onSnapshot, orderBy, doc, updateDoc, Timestamp, getDoc, addDoc, getDocs, limit } from '@/lib/mysqlDb'; 
 import type { FirestoreBooking, BookingStatus, GlobalWebSettings, ProviderApplication, FirestoreNotification } from '@/types/firestore'; 
 import { useToast } from "@/hooks/use-toast";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
@@ -350,7 +350,7 @@ export default function MyBookingsPage() {
                 paidAmount: booking.paymentMethod === 'Online' ? booking.totalAmount : 0,
                 cancellationFee: feeAmount,
                 refundableAmount: finalRefundAmount,
-                siteName: globalCompanySettings?.websiteName || "FixBro",
+                siteName: globalCompanySettings?.websiteName || "Wecanfix",
                 smtpHost: appConfig.smtpHost,
                 smtpPort: appConfig.smtpPort,
                 smtpUser: appConfig.smtpUser,
@@ -435,9 +435,9 @@ export default function MyBookingsPage() {
     setIsDownloadingInvoice(booking.id);
     try {
       const companyDetailsForInvoice = {
-        name: globalCompanySettings?.websiteName || "FixBro.in",
+        name: globalCompanySettings?.websiteName || "Wecanfix.in",
         address: globalCompanySettings?.address || "#44 G S Palya Road Konappana Agrahara Electronic City Phase 2 -560100",
-        contactEmail: globalCompanySettings?.contactEmail || "support@fixbro.in",
+        contactEmail: globalCompanySettings?.contactEmail || "support@wecanfix.in",
         contactMobile: globalCompanySettings?.contactMobile || "+91-7353113455",
         logoUrl: globalCompanySettings?.logoUrl || undefined,
         timezone: appConfig?.timezone || "Asia/Kolkata",
@@ -478,7 +478,7 @@ export default function MyBookingsPage() {
           <div className="text-center py-12">
             <PackageSearch className="mx-auto h-16 w-16 text-muted-foreground mb-4" />
             <h2 className="text-2xl font-semibold mb-2">No Bookings Yet</h2>
-            <p className="text-muted-foreground mb-6">You haven't made any bookings with FixBro.</p>
+            <p className="text-muted-foreground mb-6">You haven't made any bookings with Wecanfix.</p>
             <Link href="/categories" passHref>
               <Button>Book a Service</Button>
             </Link>

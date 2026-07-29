@@ -2,7 +2,7 @@
 "use client";
 
 import { storage } from '@/lib/firebase';
-import { ref as storageRef, uploadBytes, getDownloadURL } from "firebase/storage";
+import { ref as storageRef, uploadBytes, getDownloadURL } from '@/lib/mysqlStorage';
 import { nanoid } from 'nanoid';
 import { isWebView, requestFileDownload } from './webview-bridge'; // Import WebView bridge functions
 

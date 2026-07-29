@@ -14,7 +14,7 @@ const cacheUpdatePlugin = {
 // Runtime caching for USER PWA
 const userRuntimeCaching = [
   {
-    urlPattern: /^https:\/\/fixbro\.in\/api\/.*/i,
+    urlPattern: /^https:\/\/wecanfix\.in\/api\/.*/i,
     handler: 'NetworkFirst' as const,
     options: {
       cacheName: 'api-cache',
@@ -51,10 +51,11 @@ const withPWA = withPWAInit({
   reloadOnOnline: true,
   swcMinify: true,
   fallbacks: {
-    document: '/offline',
+    document: '/404',
   },
 
   workboxOptions: {
+    maximumFileSizeToCacheInBytes: 3000000,
     exclude: [
       /googletagmanager\.com/,
       /admin/,
@@ -62,8 +63,13 @@ const withPWA = withPWAInit({
       /chunk-[A-Za-z0-9]+\.js/,
       /\.map$/,
     ],
-    runtimeCaching: userRuntimeCaching,
-    // The top-level 'plugins' key was incorrect and is removed.
+    runtimeCaching: [
+      {
+        urlPattern: /\/_next\/data\/.*/i,
+        handler: 'NetworkOnly' as const,
+      },
+      ...userRuntimeCaching
+    ],
   },
 
   pwas: {
@@ -108,10 +114,10 @@ const nextConfig: NextConfig = {
     unoptimized: false,
     formats: ["image/avif", "image/webp"],
     remotePatterns: [
-      { protocol: 'https', hostname: 'fixbro.in' },
       { protocol: 'https', hostname: 'wecanfix.in' },
-      { protocol: 'https', hostname: '*.fixbro.in' }, // ADD THIS
-      { protocol: 'https', hostname: 'ad.fixbro.in' },
+      { protocol: 'https', hostname: 'wecanfix.in' },
+      { protocol: 'https', hostname: '*.wecanfix.in' }, // ADD THIS
+      { protocol: 'https', hostname: 'ad.wecanfix.in' },
       { protocol: 'https', hostname: 'firebasestorage.googleapis.com' },
       { protocol: 'https', hostname: 'maps.googleapis.com' },
       { protocol: 'https', hostname: 'placehold.co' },
@@ -121,6 +127,10 @@ const nextConfig: NextConfig = {
   },
 
   typescript: { ignoreBuildErrors: true },
+  experimental: {
+    workerThreads: false,
+    cpus: 2
+  }
 };
 
 export default withPWA(nextConfig);

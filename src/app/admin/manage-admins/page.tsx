@@ -11,7 +11,7 @@ import {
   query, 
   Timestamp,
   orderBy
-} from 'firebase/firestore';
+} from '@/lib/mysqlDb';
 import { 
   Card, 
   CardContent, 

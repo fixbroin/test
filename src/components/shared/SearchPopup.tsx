@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Search, Loader2, XCircle, Image as ImageIcon } from 'lucide-react';
 import { db } from '@/lib/firebase';
-import { collection, getDocs, query, where, orderBy, addDoc, serverTimestamp } from "firebase/firestore";
+import { collection, getDocs, query, where, orderBy, addDoc, serverTimestamp } from '@/lib/mysqlDb';
 import type { FirestoreService } from '@/types/firestore';
 import Link from 'next/link';
 import NextImage from 'next/image';

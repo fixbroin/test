@@ -19,15 +19,15 @@ const ProviderApplicationStatusEmailInputSchema = z.object({
   providerEmail: z.string().email().describe("The email of the provider."),
   applicationStatus: z.custom<ProviderApplicationStatus>().describe("The new status of the application (e.g., 'approved', 'rejected', 'needs_update')."),
   adminReviewNotes: z.string().optional().describe("Admin notes, especially if rejected or needs update."),
-  applicationUrl: z.string().url().describe("Direct URL for the provider to view/update their application if needed."),
+  applicationUrl: z.string().describe("Direct URL for the provider to view/update their application if needed."),
   // SMTP Settings
   smtpHost: z.string().optional().describe("SMTP host for sending emails."),
   smtpPort: z.string().optional().describe("SMTP port (e.g., '587', '465')."),
   smtpUser: z.string().optional().describe("SMTP username."),
   smtpPass: z.string().optional().describe("SMTP password."),
-  senderEmail: z.string().email().optional().describe("The email address to send from."),
+  senderEmail: z.string().optional().describe("The email address to send from."),
   siteName: z.string().optional(),
-  logoUrl: z.string().url().optional(),
+  logoUrl: z.string().optional(),
 });
 
 export type ProviderApplicationStatusEmailInput = z.infer<typeof ProviderApplicationStatusEmailInputSchema>;
@@ -42,7 +42,10 @@ export async function sendProviderApplicationStatusEmail(input: ProviderApplicat
 }
 
 const createHtmlTemplate = (title: string, bodyContent: string, siteName: string, logoUrl?: string) => {
-    const finalLogoUrl = logoUrl || `${getBaseUrl()}/default-image.png`;
+    let finalLogoUrl = logoUrl || `${getBaseUrl()}/default-image.png`;
+    if (finalLogoUrl.startsWith('/')) {
+        finalLogoUrl = getBaseUrl() + finalLogoUrl;
+    }
     return `
 <!DOCTYPE html>
 <html lang="en">
@@ -115,7 +118,7 @@ const providerApplicationStatusEmailFlow = ai.defineFlow(
       const {
         smtpHost, smtpPort, smtpUser, smtpPass, senderEmail,
         providerName, providerEmail, applicationStatus, adminReviewNotes, applicationUrl,
-        siteName = "FixBro", logoUrl,
+        siteName = "Wecanfix", logoUrl,
       } = details;
       
       const canAttemptRealEmail = smtpHost && smtpPort && smtpUser && smtpPass && senderEmail;

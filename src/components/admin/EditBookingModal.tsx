@@ -15,9 +15,9 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { Separator } from "@/components/ui/separator";
 import AppImage from '@/components/ui/AppImage';
 import { Loader2, Save, User, Mail, Phone, MapPin, Edit, Clock, Globe, CalendarDays, Check, ChevronsUpDown, Trash2, PlusCircle, Search, Tag } from 'lucide-react';
-import type { FirestoreBooking, BookingStatus, FirestoreNotification, FirestoreService, FirestorePromoCode, BookingServiceItem } from '@/types/firestore';
+import type { FirestoreBooking, BookingStatus, FirestoreNotification, FirestoreService, FirestorePromoCode, BookingServiceItem, FirestoreCategory } from '@/types/firestore';
 import { db } from '@/lib/firebase';
-import { doc, getDoc, updateDoc, Timestamp, addDoc, collection, query, where, getDocs } from "firebase/firestore";
+import { doc, getDoc, updateDoc, Timestamp, addDoc, collection, query, where, getDocs } from '@/lib/mysqlDb';
 import { useToast } from "@/hooks/use-toast";
 import { triggerPushNotification } from '@/lib/fcmUtils';
 import RescheduleBookingDialog from '@/components/shared/RescheduleBookingDialog';
@@ -87,6 +87,7 @@ export default function EditBookingModal({ bookingId, isOpen, onOpenChange, onSu
   const [allCatalogServices, setAllCatalogServices] = useState<FirestoreService[]>([]);
   const [isAddServiceDialogOpen, setIsAddServiceDialogOpen] = useState(false);
   const [serviceSearchQuery, setServiceSearchQuery] = useState("");
+  const [allCategories, setAllCategories] = useState<FirestoreCategory[]>([]);
   const [availablePromos, setAvailablePromos] = useState<FirestorePromoCode[]>([]);
 
   const form = useForm<BookingEditFormData>({
@@ -185,7 +186,16 @@ export default function EditBookingModal({ bookingId, isOpen, onOpenChange, onSu
         console.error("Error fetching promos:", err);
       }
     };
+    const fetchCategoriesCatalog = async () => {
+      try {
+        const snap = await getDocs(collection(db, "adminCategories"));
+        setAllCategories(snap.docs.map(d => ({ ...d.data(), id: d.id } as FirestoreCategory)));
+      } catch (err) {
+        console.error("Error fetching categories:", err);
+      }
+    };
     fetchServicesCatalog();
+    fetchCategoriesCatalog();
     fetchPromos();
   }, [isOpen]);
   
@@ -282,15 +292,30 @@ export default function EditBookingModal({ bookingId, isOpen, onOpenChange, onSu
       taxTotal += (price - base);
     });
 
-    if (appConfig?.enableMinimumBookingPolicy && itemTotal < (appConfig.minimumBookingAmount || 0)) {
-      visitingCharge = appConfig.visitingChargeAmount || 0;
-      if (appConfig.enableTaxOnVisitingCharge) {
-        const vcBase = getBasePriceForInvoice(visitingCharge, !!appConfig.isVisitingChargeTaxInclusive, appConfig.visitingChargeTaxPercent || 0);
-        taxTotal += vcBase * ((appConfig.visitingChargeTaxPercent || 0) / 100);
+    // Resolve Category ID of the booking from the services
+    let resolvedCategoryId = "";
+    if (services.length > 0) {
+      const firstItem = services[0];
+      const matchedCatalogService = allCatalogServices.find(s => s.id === firstItem.serviceId);
+      if (matchedCatalogService) {
+        resolvedCategoryId = matchedCatalogService.parentCategoryId || "";
+      }
+    }
+    const selectedCategory = allCategories.find(c => c.id === resolvedCategoryId);
+    const vcAmount = (selectedCategory && typeof selectedCategory.visitingChargeAmount === 'number') ? selectedCategory.visitingChargeAmount : appConfig?.visitingChargeAmount;
+    const minBooking = (selectedCategory && typeof selectedCategory.minimumBookingAmount === 'number') ? selectedCategory.minimumBookingAmount : appConfig?.minimumBookingAmount;
+
+    if (appConfig?.enableMinimumBookingPolicy && typeof minBooking === 'number' && typeof vcAmount === 'number') {
+      if (itemTotal < minBooking) {
+        visitingCharge = vcAmount;
+        if (appConfig.enableTaxOnVisitingCharge) {
+          const vcBase = getBasePriceForInvoice(visitingCharge, !!appConfig.isVisitingChargeTaxInclusive, appConfig.visitingChargeTaxPercent || 0);
+          taxTotal += vcBase * ((appConfig.visitingChargeTaxPercent || 0) / 100);
+        }
       }
     }
 
-    if (appConfig?.platformFees) {
+    if (visitingCharge === 0 && appConfig?.platformFees) {
       appConfig.platformFees.forEach(fee => {
         if (fee.isActive) {
           const base = fee.type === 'percentage' ? (itemTotal * (fee.value / 100)) : fee.value;
@@ -358,6 +383,7 @@ export default function EditBookingModal({ bookingId, isOpen, onOpenChange, onSu
         discountAmount: summary.discountAmount,
         totalAmount: summary.grandTotal,
         status: data.status as BookingStatus,
+        isReviewedByCustomer: (data.status === 'Completed' && booking.status !== 'Completed') ? false : booking.isReviewedByCustomer,
         latitude: data.latitude === null ? undefined : data.latitude,
         longitude: data.longitude === null ? undefined : data.longitude,
         updatedAt: Timestamp.now(),

@@ -11,7 +11,7 @@ import { Target, Globe, FileText, Type, Pilcrow, BarChart, Save, Loader2, Settin
 import { useToast } from '@/hooks/use-toast';
 import PermissionGuard from '@/components/admin/PermissionGuard';
 import { db } from '@/lib/firebase';
-import { doc, getDoc, setDoc, Timestamp } from "firebase/firestore";
+import { doc, getDoc, setDoc, Timestamp } from '@/lib/mysqlDb';
 import type { FirestoreSEOSettings, StructuredDataSocialProfiles } from '@/types/firestore';
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm, Controller } from "react-hook-form";
@@ -62,7 +62,7 @@ const seoSettingsSchema = z.object({
   structuredDataPostalCode: z.string().optional(),
   structuredDataCountry: z.string().optional(),
   structuredDataTelephone: z.string().optional(),
-  structuredDataImage: z.string().url("Must be a valid URL").optional().or(z.literal('')),
+  structuredDataImage: z.string().refine((val) => !val || val === '' || val.startsWith('/') || val.startsWith('http://') || val.startsWith('https://') || val.startsWith('uploads/'), { message: "Must be a valid URL or relative path if provided." }).optional().or(z.literal('')),
   socialProfileUrls: z.object({
     facebook: z.string().url("Invalid URL").optional().or(z.literal('')),
     twitter: z.string().url("Invalid URL").optional().or(z.literal('')),
@@ -302,16 +302,16 @@ export default function SEOSettingsPage() {
               <Card>
                 <CardHeader><CardTitle>Global Defaults & Homepage SEO</CardTitle></CardHeader>
                 <CardContent className="space-y-6">
-                  {renderSEOField("siteName", "Site Name (for OG & Structured Data)", "e.g., FixBro Services", undefined, false, Settings2)}
-                  {renderSEOField("defaultMetaTitleSuffix", "Default Meta Title Suffix", "e.g., | FixBro", "Appended to most page titles.")}
+                  {renderSEOField("siteName", "Site Name (for OG & Structured Data)", "e.g., Wecanfix Services", undefined, false, Settings2)}
+                  {renderSEOField("defaultMetaTitleSuffix", "Default Meta Title Suffix", "e.g., | Wecanfix", "Appended to most page titles.")}
                   {renderSEOField("defaultMetaDescription", "Default Meta Description", "e.g., Quality home services at your doorstep.", "Fallback description if a specific one isn't set.", true)}
                   {renderSEOField("defaultMetaKeywords", "Default Meta Keywords (comma-separated)", "e.g., home repair, plumbing, electrician")}
                   <hr className="my-6"/>
                   <h4 className="text-md font-semibold">Homepage Specific SEO:</h4>
                   {renderSEOField("homepageH1", "Homepage H1 Title", "e.g., Reliable Home Services", undefined, false, Type)}
-                  {renderSEOField("homepageMetaTitle", "Homepage Meta Title", "e.g., FixBro - Trusted Home Services", undefined, false, Type)}
+                  {renderSEOField("homepageMetaTitle", "Homepage Meta Title", "e.g., Wecanfix - Trusted Home Services", undefined, false, Type)}
                   {renderSEOField("homepageMetaDescription", "Homepage Meta Description", "e.g., Book expert home services online.", undefined, true, FileText)}
-                  {renderSEOField("homepageMetaKeywords", "Homepage Meta Keywords (comma-separated)", "e.g., fixbro, home services, repair", undefined, false, Target)}
+                  {renderSEOField("homepageMetaKeywords", "Homepage Meta Keywords (comma-separated)", "e.g., wecanfix, home services, repair", undefined, false, Target)}
                 </CardContent>
               </Card>
             </TabsContent>
@@ -324,7 +324,7 @@ export default function SEOSettingsPage() {
                     <h4 className="text-md font-semibold mb-3">Default Category Pages (e.g., /category/slug):</h4>
                     <div className="space-y-4">
                       {renderSEOField("categoryPageH1Pattern", "H1 Title Pattern", "e.g., {{categoryName}} Services", undefined, false, Pilcrow)}
-                      {renderSEOField("categoryPageTitlePattern", "Meta Title Pattern", "e.g., {{categoryName}} | FixBro", undefined, false, Type)}
+                      {renderSEOField("categoryPageTitlePattern", "Meta Title Pattern", "e.g., {{categoryName}} | Wecanfix", undefined, false, Type)}
                       {renderSEOField("categoryPageDescriptionPattern", "Meta Description Pattern", "e.g., Best {{categoryName}} services.", undefined, true, FileText)}
                       {renderSEOField("categoryPageKeywordsPattern", "Meta Keywords Pattern", "e.g., {{categoryName}}, book {{categoryName}}", undefined, false, Target)}
                     </div>
@@ -334,7 +334,7 @@ export default function SEOSettingsPage() {
                     <h4 className="text-md font-semibold mb-3 flex items-center"><Map className="mr-2 h-5 w-5 text-muted-foreground"/>City-Specific Category Pages (e.g., /city/category):</h4>
                     <div className="space-y-4 mt-3">
                       {renderSEOField("cityCategoryPageH1Pattern", "H1 Title Pattern", "e.g., {{categoryName}} in {{cityName}}", undefined, false, Pilcrow)}
-                      {renderSEOField("cityCategoryPageTitlePattern", "Meta Title Pattern", "e.g., {{categoryName}} Services in {{cityName}} | FixBro", undefined, false, Type)}
+                      {renderSEOField("cityCategoryPageTitlePattern", "Meta Title Pattern", "e.g., {{categoryName}} Services in {{cityName}} | Wecanfix", undefined, false, Type)}
                       {renderSEOField("cityCategoryPageDescriptionPattern", "Meta Description Pattern", "e.g., Find {{categoryName}} experts in {{cityName}}.", undefined, true, FileText)}
                       {renderSEOField("cityCategoryPageKeywordsPattern", "Meta Keywords Pattern", "e.g., {{categoryName}} {{cityName}}, {{categoryName}} services", undefined, false, Target)}
                     </div>
@@ -344,7 +344,7 @@ export default function SEOSettingsPage() {
                     <h4 className="text-md font-semibold mb-3 flex items-center"><Layers className="mr-2 h-5 w-5 text-muted-foreground"/>Area-Specific Category Pages (e.g., /city/area/category):</h4>
                     <div className="space-y-4 mt-3">
                       {renderSEOField("areaCategoryPageH1Pattern", "H1 Title Pattern", "e.g., {{categoryName}} in {{areaName}}, {{cityName}}", undefined, false, Pilcrow)}
-                      {renderSEOField("areaCategoryPageTitlePattern", "Meta Title Pattern", "e.g., {{categoryName}} - {{areaName}}, {{cityName}} | FixBro", undefined, false, Type)}
+                      {renderSEOField("areaCategoryPageTitlePattern", "Meta Title Pattern", "e.g., {{categoryName}} - {{areaName}}, {{cityName}} | Wecanfix", undefined, false, Type)}
                       {renderSEOField("areaCategoryPageDescriptionPattern", "Meta Description Pattern", "e.g., Best {{categoryName}} in {{areaName}}, {{cityName}}.", undefined, true, FileText)}
                       {renderSEOField("areaCategoryPageKeywordsPattern", "Meta Keywords Pattern", "e.g., {{categoryName}} {{areaName}}, {{areaName}} {{cityName}} services", undefined, false, Target)}
                     </div>
@@ -397,7 +397,7 @@ export default function SEOSettingsPage() {
                 <CardHeader><CardTitle>Structured Data Defaults (LocalBusiness)</CardTitle><CardDescription>Helps search engines understand your business.</CardDescription></CardHeader>
                 <CardContent className="space-y-6">
                   {renderSEOField("structuredDataType", "Schema Type", "e.g., LocalBusiness, Organization")}
-                  {renderSEOField("structuredDataName", "Business Name", "e.g., FixBro")}
+                  {renderSEOField("structuredDataName", "Business Name", "e.g., Wecanfix")}
                   {renderSEOField("structuredDataStreetAddress", "Street Address", "e.g., 123 Main St")}
                   {renderSEOField("structuredDataLocality", "City / Locality", "e.g., Bangalore")}
                   {renderSEOField("structuredDataRegion", "State / Region", "e.g., KA")}

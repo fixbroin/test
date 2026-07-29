@@ -14,14 +14,14 @@ import { Loader2, Image as ImageIcon, Trash2, Wand2, Edit2, Lock, Search, Tags, 
 import NextImage from 'next/image';
 import { useToast } from "@/hooks/use-toast";
 import { storage, db } from '@/lib/firebase';
-import { ref as storageRef, uploadBytesResumable, getDownloadURL, deleteObject } from "firebase/storage";
+import { ref as storageRef, uploadBytesResumable, getDownloadURL, deleteObject } from '@/lib/mysqlStorage';
 import { Progress } from "@/components/ui/progress";
 import { generateBlogContent } from "@/ai/flows/generateBlogContentFlow";
 
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from "@/components/ui/dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
-import { collection, query, where, getDocs, limit } from "firebase/firestore";
+import { collection, query, where, getDocs, limit } from '@/lib/mysqlDb';
 import { compressImage } from "@/lib/imageCompressor";
 
 const generateSlug = (title: string) => {
@@ -36,6 +36,12 @@ const generateRandomHexString = (length: number) => {
 const OTHER_CATEGORY_VALUE = "__OTHER__";
 const NO_CATEGORY_VALUE = "__NO_CATEGORY__";
 
+const isValidUrlOrRelativePath = (val?: string) => {
+  if (!val || val.trim() === '') return true;
+  const s = val.trim();
+  return s.startsWith('/') || s.startsWith('http://') || s.startsWith('https://') || s.startsWith('uploads/') || s.startsWith('data:') || s.startsWith('blob:');
+};
+
 const blogFormSchema = z.object({
   title: z.string().min(3, "Title must be at least 3 characters long."),
   slug: z.string().min(3, "Slug must be at least 3 characters.").regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/, "Invalid slug format."),
@@ -43,7 +49,7 @@ const blogFormSchema = z.object({
   excerpt: z.string().max(300).optional(),
   tags: z.string().optional(), // Will be converted to array on submit
   readingTime: z.string().max(20).optional(),
-  coverImageUrl: z.string().url("A valid image URL is required.").optional().or(z.literal('')),
+  coverImageUrl: z.string().refine(isValidUrlOrRelativePath, { message: "Must be a valid URL or relative path if provided." }).optional().or(z.literal('')),
   imageHint: z.string().max(50).optional(),
   isPublished: z.boolean().default(false),
   categoryId: z.string().optional(),

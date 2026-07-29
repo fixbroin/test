@@ -1,9 +1,9 @@
 {
-  "name": "FixBro Admin",
-  "short_name": "FixBro Admin",
+  "name": "Wecanfix Admin",
+  "short_name": "Wecanfix Admin",
   "id": "/admin",
   "scope": "/admin",
-  "description": "Admin Panel for FixBro Services",
+  "description": "Admin Panel for Wecanfix Services",
   "start_url": "/admin",
   "display": "standalone",
   "orientation": "portrait",

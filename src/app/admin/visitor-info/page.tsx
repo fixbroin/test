@@ -15,7 +15,7 @@ import { db } from '@/lib/firebase';
 import { 
   collection, query, orderBy, Timestamp, limit, startAfter, 
   getDocs, writeBatch, type DocumentSnapshot 
-} from "firebase/firestore";
+} from '@/lib/mysqlDb';
 import { useToast } from "@/hooks/use-toast";
 import { formatDistanceToNow, format } from 'date-fns';
 import { Alert, AlertDescription } from "@/components/ui/alert";

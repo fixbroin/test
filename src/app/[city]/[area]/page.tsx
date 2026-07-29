@@ -79,7 +79,7 @@ export async function generateMetadata(
   const appBaseUrl = getBaseUrl();
   const placeholderData = { areaName: areaData.name, cityName: areaData.parentCityData?.name };
 
-  const title = replacePlaceholders(areaData.seo_title || areaData.metaTitle || seoSettings.areaPageTitlePattern, placeholderData) || `${areaData.name}, ${areaData.parentCityData?.name} | FixBro`;
+  const title = replacePlaceholders(areaData.seo_title || areaData.metaTitle || seoSettings.areaPageTitlePattern, placeholderData) || `${areaData.name}, ${areaData.parentCityData?.name} | Wecanfix`;
   const description = replacePlaceholders(areaData.seo_description || areaData.metaDescription || seoSettings.areaPageDescriptionPattern, placeholderData) || `Trusted home services in ${areaData.name}, ${areaData.parentCityData?.name}.`;
   const keywords = replacePlaceholders(areaData.seo_keywords || areaData.metaKeywords || seoSettings.areaPageKeywordsPattern, placeholderData).split(',').map(k => k.trim()).filter(k => k);
 
@@ -107,32 +107,9 @@ export async function generateMetadata(
   };
 }
 
-// export async function generateStaticParams() {
-//   try {
-//     const citiesSnapshot = await adminDb.collection('cities').where('isActive', '==', true).get();
-//     const paramsArray: { city: string; area: string }[] = [];
-// 
-//     for (const cityDoc of citiesSnapshot.docs) {
-//       const cityData = cityDoc.data() as FirestoreCity;
-//       if (!cityData.slug || cityData.slug.includes('.') || RESERVED_SLUGS.includes(cityData.slug)) continue; 
-//       const areasQuery = adminDb
-//         .collection('areas')
-//         .where('cityId', '==', cityDoc.id)
-//         .where('isActive', '==', true);
-//       const areasSnapshot = await areasQuery.get();
-//       areasSnapshot.docs.forEach(areaDoc => {
-//         const areaData = areaDoc.data() as FirestoreArea;
-//         if (areaData.slug && !areaData.slug.includes('.')) { 
-//           paramsArray.push({ city: cityData.slug!, area: areaData.slug });
-//         }
-//       });
-//     }
-//     return paramsArray;
-//   } catch (error) {
-//     console.error("Error generating static params for area pages:", error);
-//     return [];
-//   }
-// }
+export async function generateStaticParams() {
+  return [];
+}
 
 export default async function AreaHomePage({ params }: AreaPageProps) {
   const { city: citySlug, area: areaSlug } = await params;

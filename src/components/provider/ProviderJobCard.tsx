@@ -87,7 +87,7 @@ const ProviderJobCard: React.FC<ProviderJobCardProps> = ({
     e.stopPropagation();
     const sanitizedPhone = mobileNumber.replace(/\D/g, '');
     const internationalPhone = sanitizedPhone.startsWith('91') ? sanitizedPhone : `91${sanitizedPhone}`;
-    const message = encodeURIComponent(`Hi ${job.customerName}, I'm your FixBro provider for booking #${job.bookingId}.`);
+    const message = encodeURIComponent(`Hi ${job.customerName}, I'm your Wecanfix provider for booking #${job.bookingId}.`);
     window.open(`https://wa.me/${internationalPhone}?text=${message}`, '_blank');
   };
 

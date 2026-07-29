@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from 'react';
-import { doc, onSnapshot, getDoc } from "firebase/firestore";
+import { doc, onSnapshot, getDoc } from '@/lib/mysqlDb';
 import { db } from '@/lib/firebase';
 import type { AppSettings } from '@/types/firestore';
 import { defaultAppSettings } from '@/config/appDefaults';
@@ -51,39 +51,22 @@ export function useApplicationConfig(): UseApplicationConfigReturn {
   useEffect(() => {
     const configDocRef = doc(db, APP_CONFIG_COLLECTION, APP_CONFIG_DOC_ID);
 
-    const fetchConfig = async () => {
-      try {
-        // Smart Cache Logic:
-        // Check global cache version (deduplicated client-side read)
-        const remoteVersions = await getRemoteCacheVersions();
-        const remoteVersion = remoteVersions.global || 0;
-        
-        const localVersion = parseInt(localStorage.getItem(`${CACHE_KEY}-version`) || "0");
-        const cached = getCache<AppSettings>(CACHE_KEY, true);
-        
-        if (cached && remoteVersion <= localVersion) {
-            setConfig(cached);
-            setIsLoading(false);
-            return;
-        }
-
-        const res = await fetch('/api/application-config');
-        if (res.ok) {
-          const data = await res.json();
-          const processed = processData(data);
-          setConfig(processed);
-          setCache(CACHE_KEY, processed, true);
-          localStorage.setItem(`${CACHE_KEY}-version`, remoteVersion.toString());
-        }
-      } catch (err) {
-        console.error("Error fetching config:", err);
-      } finally {
-        setIsLoading(false);
+    const unsubscribe = onSnapshot(configDocRef, (docSnap) => {
+      if (docSnap.exists()) {
+        const processed = processData(docSnap.data());
+        setConfig(processed);
+        setCache(CACHE_KEY, processed);
       }
-    };
+      setIsLoading(false);
+    }, (err: any) => {
+      if (err?.name !== 'AbortError' && !err?.message?.includes('Failed to fetch')) {
+        console.error("Error subscribing to app config:", err);
+      }
+      setIsLoading(false);
+    });
 
-    fetchConfig();
-  }, [processData, isAdmin]);
+    return () => unsubscribe();
+  }, [processData]);
 
   return { config, isLoading, error };
 }

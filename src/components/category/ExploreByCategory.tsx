@@ -4,13 +4,14 @@
 
 import { useState, useEffect } from 'react';
 import { db } from '@/lib/firebase';
-import { collection, getDocs, query, where, orderBy, limit } from 'firebase/firestore';
+import { collection, getDocs, query, where, orderBy, limit } from '@/lib/mysqlDb';
 import type { FirestoreCity, FirestoreArea, FirestoreCategory } from '@/types/firestore';
 import { Loader2, MapPin, Layers } from 'lucide-react';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import Link from 'next/link';
 import { useLoading } from '@/contexts/LoadingContext';
 import { useRouter } from 'next/navigation';
+import { Button } from '@/components/ui/button';
 
 interface ExploreByCategoryProps {
   currentCategorySlug?: string;
@@ -23,6 +24,7 @@ export default function ExploreByCategory({ currentCategorySlug, currentCitySlug
   const [allCategories, setAllCategories] = useState<FirestoreCategory[]>([]);
   const [citiesWithAreas, setCitiesWithAreas] = useState<Array<FirestoreCity & { areas: FirestoreArea[] }>>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [areasLimit, setAreasLimit] = useState(30);
   const { showLoading } = useLoading();
   const router = useRouter();
 
@@ -105,6 +107,7 @@ export default function ExploreByCategory({ currentCategorySlug, currentCitySlug
                 <ul className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-x-4 gap-y-2 pl-2">
                   {currentCityData!.areas
                     .filter(area => area.slug !== areaSlug) // Filter out the current area
+                    .slice(0, areasLimit)
                     .map((area) => (
                     <li key={area.id}>
                       <Link href={`/${currentCityData!.slug}/${area.slug}/${currentCategorySlug}`} onClick={(e) => handleNav(e, `/${currentCityData!.slug}/${area.slug}/${currentCategorySlug}`)} className="flex items-center text-sm text-muted-foreground hover:text-primary transition-colors py-1">
@@ -113,6 +116,25 @@ export default function ExploreByCategory({ currentCategorySlug, currentCitySlug
                     </li>
                   ))}
                 </ul>
+
+                {currentCityData!.areas.filter(area => area.slug !== areaSlug).length > areasLimit && (
+                  <div className="mt-4 flex justify-center gap-2 pt-2 border-t">
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      onClick={() => setAreasLimit(prev => prev + 50)}
+                    >
+                      Load More Localities (+50)
+                    </Button>
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      onClick={() => setAreasLimit(currentCityData!.areas.length)}
+                    >
+                      Load All ({currentCityData!.areas.filter(area => area.slug !== areaSlug).length})
+                    </Button>
+                  </div>
+                )}
               </AccordionContent>
             </AccordionItem>
           )}

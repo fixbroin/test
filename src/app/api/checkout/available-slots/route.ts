@@ -5,6 +5,9 @@ import { AppSettings, FirestoreService, FirestoreSubCategory, TimeSlotCategoryLi
 import { defaultAppSettings } from '@/config/appDefaults';
 import { getZonedDate, formatZonedDateToISO, convertWallClockToUTC } from '@/lib/utils';
 
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
+
 interface CartEntry {
   serviceId: string;
   quantity: number;
@@ -20,10 +23,10 @@ const DEFAULT_HOURS_WHEN_LIMIT_ENABLED = defaultAppSettings.limitLateBookingHour
 const BUSY_MAP_CACHE = new Map<string, Map<string, Record<string, number>>>();
 const MAX_CACHE_SIZE = 100;
 
-// Config caching to prevent fetching settings on every click
+// Config caching to prevent fetching settings on every click (2s TTL for instant admin reflection)
 let CACHED_APP_CONFIG: AppSettings | null = null;
 let CACHED_APP_CONFIG_TIME = 0;
-const CACHE_TTL_MS = 15 * 60 * 1000; // 15 minutes
+const CACHE_TTL_MS = 2000; // 2 seconds for real-time updates
 
 // --- Helper Functions ---
 
@@ -433,7 +436,9 @@ export async function POST(req: NextRequest) {
                 .get()
         ]);
 
-        const existingBookings = bookingsSnap.docs.map(doc => doc.data() as FirestoreBooking);
+        const existingBookings = bookingsSnap.docs
+            .map(doc => doc.data() as FirestoreBooking)
+            .filter(b => b.status !== "Cancelled" && b.status !== "Completed");
         const leavesData = leavesSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as LeaveRequest));
 
         // Collect all unique service IDs from cart AND active bookings in target range
@@ -461,7 +466,7 @@ export async function POST(req: NextRequest) {
 
         // Collect unique subcategory IDs from the resolved services
         const subCategoryIds = new Set<string>();
-        Object.values(servicesData).forEach(service => {
+        (Object.values(servicesData) as FirestoreService[]).forEach(service => {
             if (service.subCategoryId) subCategoryIds.add(service.subCategoryId);
         });
         const subCategoryIdsArray = Array.from(subCategoryIds);
@@ -477,7 +482,7 @@ export async function POST(req: NextRequest) {
 
         // Collect category IDs from resolved subcategories
         const categoryIds = new Set<string>();
-        Object.values(subCatsData).forEach(subCat => {
+        (Object.values(subCatsData) as FirestoreSubCategory[]).forEach(subCat => {
             if (subCat.parentId) categoryIds.add(subCat.parentId);
         });
         const categoryIdsArray = Array.from(categoryIds);

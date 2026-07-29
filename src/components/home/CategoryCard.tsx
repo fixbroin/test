@@ -39,7 +39,7 @@ const CategoryCard: React.FC<CategoryCardProps> = ({ category, priority = false,
 
   useEffect(() => {
     if (isMounted && category) {
-      setDisplayName(getOverriddenCategoryName(category.id, category.name));
+      setDisplayName(category.name);
     }
   }, [isMounted, category]);
   

@@ -8,7 +8,7 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { PlusCircle, CheckCircle, Loader2, AlertTriangle, MapPin, Edit3, Check } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { db } from '@/lib/firebase';
-import { doc, onSnapshot, updateDoc, arrayUnion, collection, query, where, getDocs, Timestamp, arrayRemove } from 'firebase/firestore';
+import { doc, onSnapshot, updateDoc, arrayUnion, collection, query, where, getDocs, Timestamp, arrayRemove } from '@/lib/mysqlDb';
 import type { Address, FirestoreUser, ServiceZone } from '@/types/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { nanoid } from 'nanoid';
@@ -55,7 +55,7 @@ export default function AddressSelection({ onSelect, initialAddressId }: Address
   const [providerZones, setProviderZones] = useState<ServiceZone[]>([]);
   const [isLoadingZones, setIsLoadingZones] = useState(true);
 
-  const currentCategoryId = typeof window !== 'undefined' ? localStorage.getItem('fixbroActiveCheckoutCategory') : null;
+  const currentCategoryId = typeof window !== 'undefined' ? localStorage.getItem('wecanfixActiveCheckoutCategory') : null;
 
   const applicableServiceZones = useMemo(() => {
     const adminZones = allServiceZones.filter(zone => {
@@ -107,7 +107,7 @@ export default function AddressSelection({ onSelect, initialAddressId }: Address
     if (!user) {
       if (!isLoadingAuth) {
         setIsLoadingAddresses(false);
-        const savedGuestAddressRaw = localStorage.getItem('fixbroCustomerAddress');
+        const savedGuestAddressRaw = localStorage.getItem('wecanfixCustomerAddress');
         if (savedGuestAddressRaw) {
           try {
             const savedGuestAddress: Address = JSON.parse(savedGuestAddressRaw);
@@ -277,7 +277,7 @@ export default function AddressSelection({ onSelect, initialAddressId }: Address
         }
       } else {
         const newAddress: Address = { ...data, id: editingAddress?.id || 'guest_address', isDefault: true };
-        localStorage.setItem('fixbroCustomerAddress', JSON.stringify(newAddress));
+        localStorage.setItem('wecanfixCustomerAddress', JSON.stringify(newAddress));
         setSavedAddresses([newAddress]);
         setSelectedAddressId(newAddress.id);
         toast({ title: "Success", description: "Address saved." });

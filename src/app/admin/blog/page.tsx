@@ -11,12 +11,13 @@ import { PlusCircle, Edit, Trash2, Loader2, FileText, CheckCircle, XCircle, Pack
 import type { FirestoreBlogPost, FirestoreCategory } from '@/types/firestore';
 import BlogForm from '@/components/admin/BlogForm';
 import { db, storage } from '@/lib/firebase';
-import { collection, onSnapshot, addDoc, updateDoc, deleteDoc, doc, orderBy, query, Timestamp, getDocs } from "firebase/firestore";
-import { ref as storageRef, deleteObject } from "firebase/storage";
+import { collection, onSnapshot, addDoc, updateDoc, deleteDoc, doc, orderBy, query, Timestamp, getDocs } from '@/lib/mysqlDb';
+import { ref as storageRef, deleteObject } from '@/lib/mysqlStorage';
 import { useToast } from "@/hooks/use-toast";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Badge } from '@/components/ui/badge';
 import Link from 'next/link';
+import { getTimestampMillis } from '@/lib/utils';
 import { useAuth } from '@/hooks/useAuth';
 import { hasActionPermission } from '@/config/rbac';
 import { triggerRefresh } from '@/lib/revalidateUtils';
@@ -52,7 +53,14 @@ export default function AdminBlogPage() {
     
     const qPosts = query(postsCollectionRef, orderBy("createdAt", "desc"));
     const unsubscribePosts = onSnapshot(qPosts, (snapshot) => {
-      setPosts(snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id } as FirestoreBlogPost)));
+      const fetchedPosts = snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id } as FirestoreBlogPost));
+      // Explicitly sort by createdAt descending using JSON timestamp helper
+      fetchedPosts.sort((a, b) => {
+        const aTime = getTimestampMillis(a.createdAt);
+        const bTime = getTimestampMillis(b.createdAt);
+        return bTime - aTime;
+      });
+      setPosts(fetchedPosts);
       if (isLoading) setIsLoading(false);
     }, (error) => {
       console.error("Error fetching blog posts: ", error);

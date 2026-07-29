@@ -8,7 +8,7 @@ import { Cookie } from 'lucide-react';
 import { useGlobalSettings } from '@/hooks/useGlobalSettings';
 import { cn } from '@/lib/utils';
 
-const COOKIE_CONSENT_KEY = 'fixbro_cookie_consent_accepted';
+const COOKIE_CONSENT_KEY = 'wecanfix_cookie_consent_accepted';
 
 export default function CookieConsentBanner() {
   const { settings: globalSettings, isLoading: isLoadingSettings } = useGlobalSettings();

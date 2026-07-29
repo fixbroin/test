@@ -74,7 +74,7 @@ export async function generateMetadata(
   const areaData = await getAreaData(citySlug, areaSlug);
   const seoSettings = await getGlobalSEOSettings();
   const webSettings = await getGlobalWebSettings();
-  const siteName = resolvedParent.openGraph?.siteName || seoSettings.siteName || "FixBro";
+  const siteName = resolvedParent.openGraph?.siteName || seoSettings.siteName || "Wecanfix";
   const defaultSuffix = seoSettings.defaultMetaTitleSuffix || ` - ${siteName}`;
   const appBaseUrl = getBaseUrl(); 
 

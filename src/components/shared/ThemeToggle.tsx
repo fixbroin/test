@@ -5,7 +5,7 @@ import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Moon, Sun } from 'lucide-react';
 
-const THEME_STORAGE_KEY = 'fixbro-theme';
+const THEME_STORAGE_KEY = 'wecanfix-theme';
 
 export default function ThemeToggle() {
   const [theme, setTheme] = useState<'light' | 'dark' | null>(null); // Start with null to indicate loading

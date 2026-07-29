@@ -11,7 +11,7 @@ import { Input } from "@/components/ui/input";
 import { PlusCircle, Edit, Trash2, Loader2, Languages, PackageSearch } from "lucide-react";
 import type { LanguageOption } from '@/types/firestore';
 import { db } from '@/lib/firebase';
-import { doc, getDoc, setDoc, Timestamp } from "firebase/firestore";
+import { doc, getDoc, setDoc, Timestamp } from '@/lib/mysqlDb';
 import { useToast } from "@/hooks/use-toast";
 import { triggerRefresh } from '@/lib/revalidateUtils';
 import { zodResolver } from "@hookform/resolvers/zod";
