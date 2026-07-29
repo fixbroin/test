@@ -3,7 +3,7 @@
 
 import { useState, useEffect } from 'react';
 import { db } from '@/lib/firebase';
-import { collection, query, where, onSnapshot, limit } from "firebase/firestore";
+import { collection, query, where, onSnapshot, limit } from '@/lib/mysqlDb';
 import type { ChatSession } from '@/types/firestore';
 
 interface UseTotalAdminUnreadChatCountReturn {

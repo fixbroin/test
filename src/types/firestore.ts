@@ -1,6 +1,6 @@
 
 import type { Icon as LucideIconType } from 'lucide-react';
-import { Timestamp } from 'firebase/firestore';
+import { Timestamp } from '@/lib/mysqlDb';
 
 export { Timestamp };
 
@@ -37,6 +37,9 @@ export interface FirestoreCategory {
   metaDescription?: string; // Legacy/Alternative SEO meta description
   metaKeywords?: string; // Legacy/Alternative SEO meta keywords
   createdAt?: Timestamp;
+  visitingChargeAmount?: number;
+  minimumBookingAmount?: number;
+  minimumBookingPolicyDescription?: string;
 }
 
 export interface FirestoreSubCategory {
@@ -534,6 +537,7 @@ export interface PlatformFeeSetting {
   value: number; // The percentage (e.g., 10 for 10%) or fixed amount (e.g., 50 for ₹50)
   feeTaxRatePercent: number; // Tax rate APPLIED TO THIS FEE's value (e.g., 18 for 18% tax on the fee amount). 0 if no tax.
   isActive: boolean;
+  description?: string;
 }
 
 export type ProviderFeeType = 'fixed' | 'percentage';
@@ -612,8 +616,10 @@ export interface AppSettings {
   freeCancellationMinutes?: number;
   cancellationFeeType?: 'fixed' | 'percentage';
   cancellationFeeValue?: number;
-  
   chatNotificationSoundUrl?: string; // New: default sound for chat notifications
+  currencyCode?: string;
+  currencySymbol?: string;
+  currencyDecimalPoints?: number;
   isChatEnabled?: boolean; // Added for compatibility with appDefaults.ts
   isProviderRegistrationEnabled?: boolean; // For toggling registration
   isCancelledChequeCompulsory?: boolean; // For toggling cheque compulsory status
@@ -769,6 +775,9 @@ export interface FirestoreCity {
   metaDescription?: string;
   metaKeywords?: string;
   h1_title?: string;
+  latitude?: number;
+  longitude?: number;
+  nearbyCities?: Array<{ id: string, name: string, slug: string }>;
   createdAt?: Timestamp;
   updatedAt?: Timestamp;
 }
@@ -790,6 +799,9 @@ export interface FirestoreArea {
   metaDescription?: string;
   metaKeywords?: string;
   h1_title?: string;
+  latitude?: number;
+  longitude?: number;
+  nearbyAreas?: Array<{ id: string, name: string, slug: string }>;
   createdAt?: Timestamp;
   updatedAt?: Timestamp;
 }
@@ -1159,6 +1171,7 @@ export interface FirestoreQuotation {
   taxAmount?: number; // Calculated: subtotal * (taxPercent / 100)
   totalAmount: number; // Calculated: subtotal + taxAmount
   status: QuotationStatus;
+  pdfUrl?: string;
   createdAt: Timestamp;
   updatedAt?: Timestamp;
 }
@@ -1199,6 +1212,7 @@ export interface FirestoreInvoice {
   paymentMode?: InvoicePaymentMode | null; // Allow null
   paymentNotes?: string; // e.g., transaction ID if paid
   additionalNotes?: string; // General notes for the invoice
+  pdfUrl?: string;
   createdAt: Timestamp;
   updatedAt?: Timestamp;
 }
@@ -1209,6 +1223,7 @@ export interface CompanyDetailsForPdf {
   contactEmail: string;
   contactMobile: string;
   logoUrl?: string;
+  currencySymbol?: string;
 }
 
 // --- Homepage Features Configuration ---

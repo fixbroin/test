@@ -16,7 +16,7 @@ import { useEffect, useRef, useState, useMemo } from "react";
 import NextImage from 'next/image';
 import { useToast } from "@/hooks/use-toast";
 import { storage } from '@/lib/firebase';
-import { ref as storageRefStandard, uploadBytesResumable, getDownloadURL, deleteObject } from "firebase/storage";
+import { ref as storageRefStandard, uploadBytesResumable, getDownloadURL, deleteObject } from '@/lib/mysqlStorage';
 import { Progress } from "@/components/ui/progress";
 import { compressImage } from "@/lib/imageCompressor";
 import { nanoid } from 'nanoid';

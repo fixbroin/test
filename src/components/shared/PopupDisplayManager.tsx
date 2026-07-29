@@ -8,7 +8,7 @@ import { Input } from '@/components/ui/input';
 import AppImage from '@/components/ui/AppImage';
 import { XIcon, Mail, Loader2, User, Phone,CheckCircle } from 'lucide-react'; 
 import { db } from '@/lib/firebase';
-import { collection, query, where, orderBy, getDocs, addDoc, Timestamp, limit } from 'firebase/firestore'; 
+import { collection, query, where, orderBy, getDocs, addDoc, Timestamp, limit } from '@/lib/mysqlDb'; 
 import type { FirestorePopup, PopupDisplayFrequency, InquirySource, InquiryStatus, FirestorePopupInquiry, FirestoreNotification } from '@/types/firestore'; 
 import { usePathname, useRouter } from 'next/navigation';
 import { useToast } from '@/hooks/use-toast';

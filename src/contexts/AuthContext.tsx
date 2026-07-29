@@ -17,7 +17,7 @@ import {
 } from 'firebase/auth';
 import { auth, db } from '@/lib/firebase';
 import { initializeFCM, onForegroundMessage } from '@/lib/fcmUtils';
-import { doc, setDoc, Timestamp, getDoc, onSnapshot, collection, query, where, getDocs, limit, runTransaction, or } from "firebase/firestore";
+import { doc, setDoc, Timestamp, getDoc, onSnapshot, collection, query, where, getDocs, limit, runTransaction, or } from '@/lib/mysqlDb';
 import { useRouter } from 'next/navigation';
 import { useToast } from '@/hooks/use-toast';
 import type { FirestoreUser, MarketingAutomationSettings, ReferralSettings, Referral, FirestoreNotification, ProviderApplicationStatus } from '@/types/firestore';
@@ -420,7 +420,7 @@ export const AuthProvider: React.FC<PropsWithChildren> = ({ children }) => {
         
                 const referralDocRef = doc(collection(db, "referrals"));
                 const newReferral: Omit<Referral, 'id'> = {
-                    referrerId: referrerId,
+                    referrerId: referrerId || "",
                     referredUserId: user.uid,
                     referredUserEmail: newUsersEmail || "N/A",
                     status: 'pending',
@@ -433,7 +433,7 @@ export const AuthProvider: React.FC<PropsWithChildren> = ({ children }) => {
                 transaction.set(referralDocRef, newReferral);
         
                 const referrerNotification: Omit<FirestoreNotification, 'id'> = {
-                    userId: referrerId,
+                    userId: referrerId || "",
                     title: "New Referral Signup!",
                     message: `${details.fullName} has signed up using your link. You'll get your bonus when they complete their first booking.`,
                     type: 'success',

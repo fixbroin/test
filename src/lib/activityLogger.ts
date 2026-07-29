@@ -1,6 +1,6 @@
 
 import { db } from '@/lib/firebase';
-import { collection, Timestamp, doc, setDoc, getDoc } from 'firebase/firestore'; 
+import { collection, Timestamp, doc, setDoc, getDoc } from '@/lib/mysqlDb'; 
 import type { UserActivity, UserActivityEventType, UserActivityEventData, FeaturesConfiguration } from '@/types/firestore';
 
 // Helper function to remove undefined properties from an object recursively

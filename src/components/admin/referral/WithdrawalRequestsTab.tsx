@@ -7,7 +7,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Loader2, PackageSearch, Check, X, MoreHorizontal, Eye, Trash2, AlertTriangle } from "lucide-react";
 import { Button } from '@/components/ui/button';
 import { db } from '@/lib/firebase';
-import { collection, query, orderBy, onSnapshot, doc, updateDoc, Timestamp, runTransaction, getDoc, addDoc, where, deleteDoc } from "firebase/firestore";
+import { collection, query, orderBy, onSnapshot, doc, updateDoc, Timestamp, runTransaction, getDoc, addDoc, where, deleteDoc } from '@/lib/mysqlDb';
 import type { WithdrawalRequest, WithdrawalStatus, FirestoreNotification } from '@/types/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { Badge } from '@/components/ui/badge';

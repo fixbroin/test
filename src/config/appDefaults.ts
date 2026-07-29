@@ -79,6 +79,10 @@ export const defaultAppSettings: AppSettings = {
 
   timezone: 'Asia/Kolkata', // Default timezone
 
+  currencyCode: 'INR',
+  currencySymbol: '₹',
+  currencyDecimalPoints: 2,
+
   // UI/UX
   loaderType: 'logo-pulse',
 

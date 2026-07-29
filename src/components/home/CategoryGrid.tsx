@@ -5,9 +5,10 @@ import { useState, useEffect } from 'react';
 import CategoryCard from './CategoryCard';
 import type { FirestoreCategory } from '@/types/firestore';
 import { db } from '@/lib/firebase';
-import { collection, getDocs, orderBy, query } from 'firebase/firestore';
+import { collection, getDocs, orderBy, query } from '@/lib/mysqlDb';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Card } from '@/components/ui/card';
+import { getCache, setCache } from '@/lib/client-cache';
 
 const CategoryGrid = () => {
   const [categories, setCategories] = useState<FirestoreCategory[]>([]);
@@ -15,8 +16,16 @@ const CategoryGrid = () => {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    const cachedCats = getCache<FirestoreCategory[]>('category_grid', true);
+    if (cachedCats && cachedCats.length > 0) {
+      setCategories(cachedCats);
+      setIsLoading(false);
+    }
+
     const fetchCategories = async () => {
-      setIsLoading(true);
+      if (!cachedCats || cachedCats.length === 0) {
+        setIsLoading(true);
+      }
       setError(null);
       try {
         const categoriesCollectionRef = collection(db, "adminCategories");
@@ -24,6 +33,7 @@ const CategoryGrid = () => {
         const data = await getDocs(q);
         const fetchedCategories = data.docs.map((doc) => ({ ...doc.data(), id: doc.id } as FirestoreCategory));
         setCategories(fetchedCategories);
+        setCache('category_grid', fetchedCategories, true);
       } catch (err) {
         console.error("Error fetching categories for grid: ", err);
         setError("Failed to load categories.");

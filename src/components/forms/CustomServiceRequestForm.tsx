@@ -29,8 +29,8 @@ import { CalendarIcon, Loader2, Send, UploadCloud, XIcon, Check } from "lucide-r
 import type { FirestoreCategory, CustomServiceRequest, FirestoreNotification } from "@/types/firestore";
 import { db, storage } from "@/lib/firebase";
 import { triggerPushNotification } from "@/lib/fcmUtils";
-import { collection, addDoc, Timestamp, query, where, getDocs, limit } from "firebase/firestore";
-import { ref as storageRef, uploadBytesResumable, getDownloadURL } from "firebase/storage";
+import { collection, addDoc, Timestamp, query, where, getDocs, limit } from '@/lib/mysqlDb';
+import { ref as storageRef, uploadBytesResumable, getDownloadURL } from '@/lib/mysqlStorage';
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import Image from "next/image";
@@ -299,6 +299,7 @@ export default function CustomServiceRequestForm({
               senderEmail: appConfig.senderEmail,
               siteName: globalSettings?.websiteName,
               logoUrl: globalSettings?.logoUrl,
+              currencySymbol: appConfig.currencySymbol || "₹",
           };
           try { 
               const emailResult = await sendNewCustomServiceRequestEmail(emailInput);

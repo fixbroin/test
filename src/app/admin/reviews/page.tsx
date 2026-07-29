@@ -13,7 +13,7 @@ import type { FirestoreReview, ReviewStatus, FirestoreService, FirestoreSubCateg
 import ReviewForm, { type ReviewFormData } from '@/components/admin/ReviewForm';
 import BulkReviewGeneratorDialog from '@/components/admin/BulkReviewGeneratorDialog';
 import { db } from '@/lib/firebase';
-import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc, orderBy, query, Timestamp, onSnapshot, limit, startAfter, type DocumentSnapshot } from "firebase/firestore";
+import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc, orderBy, query, Timestamp, onSnapshot, limit, startAfter, type DocumentSnapshot } from '@/lib/mysqlDb';
 import { useToast } from "@/hooks/use-toast";
 import { Badge } from "@/components/ui/badge";
 import PermissionGuard from '@/components/admin/PermissionGuard';
@@ -33,9 +33,7 @@ const formatReviewTimestamp = (timestamp?: unknown): string => {
 
 export default function AdminReviewsPage() {
   const [reviews, setReviews] = useState<FirestoreReview[]>([]);
-  const [lastDoc, setLastDoc] = useState<DocumentSnapshot | null>(null);
-  const [isLoadingMore, setIsLoadingMore] = useState(false);
-  const [hasMore, setHasMore] = useState(true);
+  const [displayLimit, setDisplayLimit] = useState(50);
   
   const [services, setServices] = useState<Pick<FirestoreService, 'id' | 'name' | 'subCategoryId'>[]>([]);
   const [subCategories, setSubCategories] = useState<Pick<FirestoreSubCategory, 'id' | 'name' | 'parentId'>[]>([]);
@@ -78,14 +76,13 @@ export default function AdminReviewsPage() {
   };
 
   useEffect(() => {
+    setDisplayLimit(50);
     const reviewsCollectionRef = collection(db, "adminReviews");
-    const qReviews = query(reviewsCollectionRef, orderBy("createdAt", "desc"), limit(20));
+    const qReviews = query(reviewsCollectionRef, orderBy("createdAt", "desc"));
     
     const unsubscribe = onSnapshot(qReviews, (querySnapshot) => {
         const fetchedReviews = querySnapshot.docs.map((doc) => ({ ...doc.data(), id: doc.id } as FirestoreReview));
         setReviews(fetchedReviews);
-        setLastDoc(querySnapshot.docs[querySnapshot.docs.length - 1] || null);
-        setHasMore(querySnapshot.docs.length === 20);
         setIsLoading(false);
     }, (error) => {
         console.error("Error fetching reviews: ", error);
@@ -111,36 +108,6 @@ export default function AdminReviewsPage() {
   const handleOpenBulkGenerate = async () => {
     await fetchPrerequisites();
     setIsBulkGenerateOpen(true);
-  };
-
-  const loadMoreReviews = async () => {
-    if (!lastDoc || isLoadingMore) return;
-    setIsLoadingMore(true);
-    try {
-        const q = query(
-            collection(db, "adminReviews"), 
-            orderBy("createdAt", "desc"), 
-            startAfter(lastDoc), 
-            limit(20)
-        );
-        const snapshot = await getDocs(q);
-        const newReviews = snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id } as FirestoreReview));
-        
-        setReviews(prev => {
-            // Filter out any duplicates that might have been added by the listener
-            const existingIds = new Set(prev.map(r => r.id));
-            const uniqueNew = newReviews.filter(r => !existingIds.has(r.id));
-            return [...prev, ...uniqueNew];
-        });
-        
-        setLastDoc(snapshot.docs[snapshot.docs.length - 1] || null);
-        setHasMore(snapshot.docs.length === 20);
-    } catch (error) {
-        console.error("Error loading more reviews:", error);
-        toast({ title: "Error", description: "Could not load more reviews.", variant: "destructive" });
-    } finally {
-        setIsLoadingMore(false);
-    }
   };
 
   const filteredReviews = useMemo(() => {
@@ -320,7 +287,7 @@ export default function AdminReviewsPage() {
                     </TableCell>
                   </TableRow>
                 ) : (
-                  filteredReviews.map((review) => (
+                  filteredReviews.slice(0, displayLimit).map((review) => (
                     <TableRow key={review.id}>
                       <TableCell className="font-medium text-xs max-w-[150px] truncate" title={review.serviceName}>{review.serviceName}</TableCell>
                       <TableCell className="text-xs">{review.userName}</TableCell>
@@ -395,11 +362,19 @@ export default function AdminReviewsPage() {
             </Table>
           )}
 
-          {hasMore && reviews.length >= 20 && (
-            <div className="flex justify-center mt-6">
-                <Button variant="outline" size="sm" onClick={loadMoreReviews} disabled={isLoadingMore} className="min-w-[150px]">
-                    {isLoadingMore ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : "Load More Reviews"}
+          {filteredReviews.length > displayLimit && (
+            <div className="p-6 text-center border-t border-muted/40 flex flex-col sm:flex-row justify-between items-center gap-4 text-sm text-muted-foreground">
+              <div>
+                Showing first {Math.min(displayLimit, filteredReviews.length)} of {filteredReviews.length} reviews.
+              </div>
+              <div className="flex gap-2">
+                <Button variant="outline" size="sm" onClick={() => setDisplayLimit((prev: number) => prev + 50)}>
+                  Load More (+50)
                 </Button>
+                <Button variant="outline" size="sm" onClick={() => setDisplayLimit(filteredReviews.length)}>
+                  Load All ({filteredReviews.length})
+                </Button>
+              </div>
             </div>
           )}
         </CardContent>

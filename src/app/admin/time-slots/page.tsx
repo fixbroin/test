@@ -10,7 +10,7 @@ import { PlusCircle, Edit, Trash2, Loader2, ListChecks, XCircle } from "lucide-r
 import type { FirestoreCategory, TimeSlotCategoryLimit } from '@/types/firestore';
 import TimeSlotCategoryLimitForm from '@/components/admin/TimeSlotCategoryLimitForm';
 import { db } from '@/lib/firebase';
-import { collection, getDocs, doc, deleteDoc, query, orderBy, onSnapshot } from "firebase/firestore";
+import { collection, getDocs, doc, deleteDoc, query, orderBy, onSnapshot } from '@/lib/mysqlDb';
 import { useToast } from "@/hooks/use-toast";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import PermissionGuard from '@/components/admin/PermissionGuard';

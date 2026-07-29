@@ -10,7 +10,7 @@ import { PlusCircle, Edit, Trash2, Loader2, PlaySquare } from "lucide-react";
 import type { FirestoreSlideshow, FirestoreCategory, FirestoreSubCategory, FirestoreService } from '@/types/firestore';
 import SlideshowForm from '@/components/admin/SlideshowForm';
 import { db } from '@/lib/firebase';
-import { collection, getDocs, doc, deleteDoc, query, orderBy, onSnapshot, updateDoc, addDoc, Timestamp } from "firebase/firestore";
+import { collection, getDocs, doc, deleteDoc, query, orderBy, onSnapshot, updateDoc, addDoc, Timestamp } from '@/lib/mysqlDb';
 import { useToast } from "@/hooks/use-toast";
 import { triggerRefresh } from '@/lib/revalidateUtils';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";

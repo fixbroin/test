@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { db } from '@/lib/firebase';
-import { doc, getDoc } from 'firebase/firestore';
+import { doc, getDoc } from '@/lib/mysqlDb';
 import type { FirestoreSEOSettings } from '@/types/firestore';
 import { defaultSeoValues } from '@/lib/seoUtils';
 import { getCache, setCache, getRemoteCacheVersions } from '@/lib/client-cache';
@@ -52,7 +52,7 @@ export function useGlobalSEOSettings() {
             hasLoadedRef.current = true;
             return;
         }
-        const res = await fetch('/api/global-seo');
+        const res = await fetch('/api/global-seo', { cache: 'no-store' });
         if (res.ok) {
           const data = await res.json();
           const finalSeo = { ...defaultSeoValues, ...data } as FirestoreSEOSettings;

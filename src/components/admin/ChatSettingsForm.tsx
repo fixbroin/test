@@ -13,9 +13,9 @@ import { Card, CardContent, CardHeader, CardTitle, CardFooter, CardDescription }
 import { Loader2, Save, Volume2, Trash2, UploadCloud, MessageSquare, Bot, Music, Globe } from "lucide-react";
 import { useToast } from '@/hooks/use-toast';
 import { db, storage } from '@/lib/firebase';
-import { doc, setDoc, Timestamp } from "firebase/firestore";
+import { doc, setDoc, Timestamp } from '@/lib/mysqlDb';
 import { triggerRefresh } from '@/lib/revalidateUtils';
-import { ref as storageRef, uploadBytesResumable, getDownloadURL, deleteObject } from "firebase/storage";
+import { ref as storageRef, uploadBytesResumable, getDownloadURL, deleteObject } from '@/lib/mysqlStorage';
 import type { GlobalWebSettings } from '@/types/firestore';
 import { useGlobalSettings } from '@/hooks/useGlobalSettings';
 import { Progress } from '@/components/ui/progress';

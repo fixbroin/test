@@ -72,10 +72,16 @@ export const getHomepageData = cache(async (): Promise<HomepageData> => {
                     .where('isActive', '==', true)
                     .get();
                 
-                const allAreas = allAreasSnapshot.docs.map(doc => ({
-                    ...serializeFirestoreData<Omit<FirestoreArea, 'id'>>(doc.data() as any),
-                    id: doc.id
-                } as FirestoreArea));
+                const allAreas = allAreasSnapshot.docs.map(doc => {
+                    const data = doc.data();
+                    return {
+                        id: doc.id,
+                        name: data.name,
+                        slug: data.slug,
+                        cityId: data.cityId,
+                        isActive: data.isActive
+                    } as FirestoreArea;
+                });
                 allAreas.sort((a, b) => a.name.localeCompare(b.name));
 
                 // Group areas by cityId
@@ -209,7 +215,7 @@ export const getHomepageData = cache(async (): Promise<HomepageData> => {
             }
         },
         ['homepage-data'],
-        { revalidate: false,
+        { revalidate: 1,
  tags: ['global', 'cities', 'categories', 'services', 'global-cache'] }
     )();
 });
@@ -220,8 +226,9 @@ export interface FullCategoryData {
     seoSettings: FirestoreSEOSettings;
     cityCategorySeo?: CityCategorySeoSetting | null;
     areaCategorySeo?: AreaCategorySeoSetting | null;
-    availableAreas?: Array<{ id: string, name: string, slug: string }>;
+    availableAreas?: Array<{ id: string, name: string, slug: string, latitude?: number | string, longitude?: number | string }>;
     availableCities?: Array<{ id: string, name: string, slug: string }>;
+    areaData?: FirestoreArea | null;
 }
 
 export const getCategoryFullData = cache(async (categorySlug: string, citySlug?: string, areaSlug?: string): Promise<FullCategoryData | null> => {
@@ -255,7 +262,7 @@ export const getCategoryFullData = cache(async (categorySlug: string, citySlug?:
                 const subCategories = subCategoriesSnapshot.docs.map(doc => ({ 
                     id: doc.id, 
                     ...serializeFirestoreData<Omit<FirestoreSubCategory, 'id'>>(doc.data() as any) 
-                } as FirestoreSubCategory));
+                } as FirestoreSubCategory)).sort((a, b) => (Number(a.order) || 0) - (Number(b.order) || 0));
 
                 const subCategoriesWithServices = await Promise.all(subCategories.map(async (subCat) => {
                     const servicesSnapshot = await adminDb.collection('adminServices')
@@ -286,6 +293,8 @@ export const getCategoryFullData = cache(async (categorySlug: string, citySlug?:
                     });
                 }
 
+                let areaDataObj: FirestoreArea | null = null;
+
                 if (citySlug) {
                     const citySnapshot = await adminDb.collection('cities').where('slug', '==', citySlug).limit(1).get();
                     if (!citySnapshot.empty) {
@@ -300,7 +309,13 @@ export const getCategoryFullData = cache(async (categorySlug: string, citySlug?:
                         
                         availableAreas = areasSnapshot.docs.map(doc => {
                             const data = doc.data();
-                            return { id: doc.id, name: data.name, slug: data.slug };
+                            return { 
+                                id: doc.id, 
+                                name: data.name, 
+                                slug: data.slug,
+                                latitude: data.latitude,
+                                longitude: data.longitude
+                            };
                         });
 
                         const cityCategorySeoSnapshot = await adminDb.collection('cityCategorySeoSettings')
@@ -315,7 +330,9 @@ export const getCategoryFullData = cache(async (categorySlug: string, citySlug?:
                         if (areaSlug) {
                             const areaSnapshot = await adminDb.collection('areas').where('slug', '==', areaSlug).where('cityId', '==', cityId).limit(1).get();
                             if (!areaSnapshot.empty) {
-                                const areaId = areaSnapshot.docs[0].id;
+                                const areaDoc = areaSnapshot.docs[0];
+                                areaDataObj = { id: areaDoc.id, ...serializeFirestoreData<Omit<FirestoreArea, 'id'>>(areaDoc.data() as any) } as FirestoreArea;
+                                const areaId = areaDoc.id;
                                 const areaCategorySeoSnapshot = await adminDb.collection('areaCategorySeoSettings')
                                     .where('areaId', '==', areaId)
                                     .where('categoryId', '==', category.id)
@@ -336,7 +353,8 @@ export const getCategoryFullData = cache(async (categorySlug: string, citySlug?:
                     cityCategorySeo,
                     areaCategorySeo,
                     availableAreas,
-                    availableCities
+                    availableCities,
+                    areaData: areaDataObj
                 };
             } catch (error) {
                 console.error(`Error in getCategoryFullData for slug ${categorySlug}:`, error);
@@ -344,7 +362,7 @@ export const getCategoryFullData = cache(async (categorySlug: string, citySlug?:
             }
         },
         [`category-data-${categorySlug}-${citySlug || 'no-city'}-${areaSlug || 'no-area'}`],
-        { revalidate: false,
+        { revalidate: 1,
  tags: ['categories', 'services', `category-${categorySlug}`, 'seo-settings', 'global-cache'] }
     )();
 });
@@ -396,7 +414,7 @@ export const getAggregateRating = cache(async (): Promise<{ ratingValue: string,
             }
         },
         ['aggregate-rating'],
-        { revalidate: false,
+        { revalidate: 1,
  tags: ['services', 'global-cache'] }
     )();
 });

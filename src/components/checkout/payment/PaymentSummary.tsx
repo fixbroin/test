@@ -8,10 +8,11 @@ import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '@/componen
 import { Info, Loader2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useLoading } from '@/contexts/LoadingContext';
+import { formatCurrency } from '@/lib/utils';
 import { useApplicationConfig } from '@/hooks/useApplicationConfig';
 import { useGlobalSettings } from '@/hooks/useGlobalSettings';
 import { db, auth } from '@/lib/firebase';
-import { doc, getDoc, collection, query, where, getDocs } from "firebase/firestore";
+import { doc, getDoc, collection, query, where, getDocs } from '@/lib/mysqlDb';
 import type { FirestoreService, AppliedPlatformFeeItem } from '@/types/firestore';
 import { getActiveCheckoutEntries, type CartEntry } from '@/lib/cartManager';
 import TaxBreakdownDisplay from '@/components/shared/TaxBreakdownDisplay';
@@ -79,12 +80,21 @@ export default function PaymentSummary({ paymentMethod, canBook, appliedPromo, o
   const router = useRouter();
   const { showLoading, hideLoading } = useLoading();
   const { config: appConfig, isLoading: isLoadingAppSettings } = useApplicationConfig();
+  const symbol = appConfig?.currencySymbol || '₹';
+  const decimals = appConfig?.currencyDecimalPoints !== undefined ? appConfig.currencyDecimalPoints : 2;
+  const code = appConfig?.currencyCode || 'INR';
   const { settings: globalSettings } = useGlobalSettings();
 
   const [cartEntries, setCartEntries] = useState<CartEntry[]>([]);
   const [serviceDetailsMap, setServiceDetailsMap] = useState<Record<string, FirestoreService>>({});
   const [isLoading, setIsLoading] = useState(true);
   const [isProcessingPayment, setIsProcessingPayment] = useState(false);
+
+  const [categoryOverrides, setCategoryOverrides] = useState<{
+    visitingChargeAmount?: number;
+    minimumBookingAmount?: number;
+    minimumBookingPolicyDescription?: string;
+  } | null>(null);
 
   const [subTotal, setSubTotal] = useState(0); 
   const [visitingCharge, setVisitingCharge] = useState(0); 
@@ -95,9 +105,44 @@ export default function PaymentSummary({ paymentMethod, canBook, appliedPromo, o
   const [calculatedPlatformFees, setCalculatedPlatformFees] = useState<AppliedPlatformFeeItem[]>([]);
   const [discountAmount, setDiscountAmount] = useState(0);
   const [isTaxBreakdownOpen, setIsTaxBreakdownOpen] = useState(false);
+  const [isVisitingChargeInfoOpen, setIsVisitingChargeInfoOpen] = useState(false);
+  const [isPlatformFeeInfoOpen, setIsPlatformFeeInfoOpen] = useState(false);
   const [taxBreakdownItems, setTaxBreakdownItems] = useState<any[]>([]);
   const [visitingChargeBreakdown, setVisitingChargeBreakdown] = useState<any>(null);
   const [sumOfDisplayedItemPrices, setSumOfDisplayedItemPrices] = useState(0);
+
+  const dynamicVisitingChargePolicy = useMemo(() => {
+    const vcAmount = (categoryOverrides && typeof categoryOverrides.visitingChargeAmount === 'number') ? categoryOverrides.visitingChargeAmount : appConfig.visitingChargeAmount;
+    const minBooking = (categoryOverrides && typeof categoryOverrides.minimumBookingAmount === 'number') ? categoryOverrides.minimumBookingAmount : appConfig.minimumBookingAmount;
+    const policyDesc = (categoryOverrides && categoryOverrides.minimumBookingPolicyDescription) ? categoryOverrides.minimumBookingPolicyDescription : appConfig.minimumBookingPolicyDescription;
+
+    if (!policyDesc || typeof minBooking !== 'number' || typeof vcAmount !== 'number') {
+      return `A visiting charge of ${formatCurrency(vcAmount || 0, symbol, decimals, code)} will be applied if your booking total is below ${formatCurrency(minBooking || 0, symbol, decimals, code)}.`;
+    }
+    return policyDesc
+      .replace(/{MINIMUM_BOOKING_AMOUNT}/g, formatCurrency(minBooking, symbol, decimals, code))
+      .replace(/{VISITING_CHARGE}/g, formatCurrency(vcAmount, symbol, decimals, code))
+      .replace("{MINIMUM_BOOKING_AMOUNT}", formatCurrency(minBooking, symbol, decimals, code))
+      .replace("{VISITING_CHARGE}", formatCurrency(vcAmount, symbol, decimals, code));
+  }, [appConfig, categoryOverrides, symbol, decimals, code]);
+
+  const dynamicPlatformFeeTitle = useMemo(() => {
+    if (!appConfig?.platformFees) return "Fee Details";
+    const activeNames = appConfig.platformFees.filter(fee => fee.isActive).map(fee => fee.name);
+    return activeNames.length > 0 ? activeNames.join(" & ") : "Fee Details";
+  }, [appConfig]);
+
+  const dynamicPlatformFeeDescription = useMemo(() => {
+    if (!appConfig?.platformFees || appConfig.platformFees.length === 0) return "";
+    return appConfig.platformFees
+      .filter(fee => fee.isActive)
+      .map(fee => {
+        if (fee.description) return fee.description;
+        const rateText = fee.type === 'percentage' ? `${fee.value}% of items total` : `${formatCurrency(fee.value, symbol, decimals, code)} flat fee`;
+        return `${fee.name} is a ${rateText} applied to your booking to support secure payments, background checks, and digital infrastructure maintenance.`;
+      })
+      .join("\n\n");
+  }, [appConfig, symbol, decimals, code]);
 
   const loadData = useCallback(async () => {
     setIsLoading(true);
@@ -117,6 +162,21 @@ export default function PaymentSummary({ paymentMethod, canBook, appliedPromo, o
       const resolved = (await Promise.all(detailsPromises)).filter(Boolean) as FirestoreService[];
       const map = resolved.reduce((acc, s) => ({ ...acc, [s.id]: s }), {});
       setServiceDetailsMap(map);
+
+      let customCategoryData = null;
+      const activeCatId = localStorage.getItem('fixbroActiveCheckoutCategory');
+      if (activeCatId) {
+        const catSnap = await getDoc(doc(db, "adminCategories", activeCatId));
+        if (catSnap.exists()) {
+          const cd = catSnap.data();
+          customCategoryData = {
+            visitingChargeAmount: cd.visitingChargeAmount,
+            minimumBookingAmount: cd.minimumBookingAmount,
+            minimumBookingPolicyDescription: cd.minimumBookingPolicyDescription
+          };
+        }
+      }
+      setCategoryOverrides(customCategoryData);
     } catch (error) {
       console.error("Error loading payment data", error);
     } finally {
@@ -179,13 +239,21 @@ export default function PaymentSummary({ paymentMethod, canBook, appliedPromo, o
     let displayedVC = 0;
     let currentPolicy: string | null = null;
 
-    if (appConfig.enableMinimumBookingPolicy && netAmount < (appConfig.minimumBookingAmount || 0)) {
-      displayedVC = appConfig.visitingChargeAmount || 0;
-      baseVC = getBasePrice(displayedVC, appConfig.isVisitingChargeTaxInclusive, appConfig.visitingChargeTaxPercent);
-      if (appConfig.minimumBookingPolicyDescription) {
-        currentPolicy = appConfig.minimumBookingPolicyDescription
-          .replace(/{MINIMUM_BOOKING_AMOUNT}/g, (appConfig.minimumBookingAmount || 0).toString())
-          .replace(/{VISITING_CHARGE}/g, displayedVC.toString());
+    const vcAmount = (categoryOverrides && typeof categoryOverrides.visitingChargeAmount === 'number') ? categoryOverrides.visitingChargeAmount : appConfig.visitingChargeAmount;
+    const minBooking = (categoryOverrides && typeof categoryOverrides.minimumBookingAmount === 'number') ? categoryOverrides.minimumBookingAmount : appConfig.minimumBookingAmount;
+    const policyDesc = (categoryOverrides && categoryOverrides.minimumBookingPolicyDescription) ? categoryOverrides.minimumBookingPolicyDescription : appConfig.minimumBookingPolicyDescription;
+
+    if (appConfig.enableMinimumBookingPolicy && typeof minBooking === 'number' && typeof vcAmount === 'number') {
+      if (netAmount < minBooking) {
+        displayedVC = vcAmount;
+        baseVC = getBasePrice(displayedVC, appConfig.isVisitingChargeTaxInclusive, appConfig.visitingChargeTaxPercent);
+        if (policyDesc) {
+          currentPolicy = policyDesc
+            .replace(/{MINIMUM_BOOKING_AMOUNT}/g, minBooking.toString())
+            .replace(/{VISITING_CHARGE}/g, displayedVC.toString())
+            .replace("{MINIMUM_BOOKING_AMOUNT}", minBooking.toString())
+            .replace("{VISITING_CHARGE}", displayedVC.toString());
+        }
       }
     }
     setVisitingCharge(baseVC);
@@ -195,22 +263,25 @@ export default function PaymentSummary({ paymentMethod, canBook, appliedPromo, o
     let platformFeeTax = 0;
     const newPlatformFees: AppliedPlatformFeeItem[] = [];
 
-    (appConfig.platformFees || []).forEach(fee => {
-      if (fee.isActive) {
-        const feeAmount = fee.type === 'percentage' ? (currentSumOfDisplayed * fee.value) / 100 : fee.value;
-        const feeTax = feeAmount * (fee.feeTaxRatePercent / 100);
-        newPlatformFees.push({
-          name: fee.name,
-          type: fee.type,
-          valueApplied: fee.value,
-          calculatedFeeAmount: feeAmount,
-          taxRatePercentOnFee: fee.feeTaxRatePercent,
-          taxAmountOnFee: feeTax
-        });
-        platformFeeBase += feeAmount;
-        platformFeeTax += feeTax;
-      }
-    });
+    // Only apply platform fees if visiting charge is NOT applied (i.e. baseVC is 0)
+    if (baseVC === 0) {
+      (appConfig.platformFees || []).forEach(fee => {
+        if (fee.isActive) {
+          const feeAmount = fee.type === 'percentage' ? (currentSumOfDisplayed * fee.value) / 100 : fee.value;
+          const feeTax = feeAmount * (fee.feeTaxRatePercent / 100);
+          newPlatformFees.push({
+            name: fee.name,
+            type: fee.type,
+            valueApplied: fee.value,
+            calculatedFeeAmount: feeAmount,
+            taxRatePercentOnFee: fee.feeTaxRatePercent,
+            taxAmountOnFee: feeTax
+          });
+          platformFeeBase += feeAmount;
+          platformFeeTax += feeTax;
+        }
+      });
+    }
     setCalculatedPlatformFees(newPlatformFees);
 
     const itemTaxTotal = newBreakdown.reduce((sum, item) => sum + item.taxAmount, 0);
@@ -326,38 +397,44 @@ export default function PaymentSummary({ paymentMethod, canBook, appliedPromo, o
         <div className="space-y-2 text-sm">
           <div className="flex justify-between">
             <span className="text-muted-foreground">Items Total</span>
-            <span>₹{sumOfDisplayedItemPrices.toLocaleString()}</span>
+            <span>{formatCurrency(sumOfDisplayedItemPrices, symbol, decimals, code)}</span>
           </div>
           {discountAmount > 0 && (
             <div className="flex justify-between text-green-600 font-medium">
               <span>Discount {appliedPromo ? `(${appliedPromo.code})` : ''}</span>
-              <span>-₹{discountAmount.toLocaleString()}</span>
+              <span>-{formatCurrency(discountAmount, symbol, decimals, code)}</span>
             </div>
           )}
           {visitingCharge > 0 && (
-            <div className="flex justify-between">
-              <span className="text-muted-foreground">Visiting Charge</span>
-              <span>₹{(appConfig.visitingChargeAmount || 0).toLocaleString()}</span>
+            <div className="flex justify-between items-center">
+              <div className="flex items-center gap-1 text-muted-foreground">
+                <span>Visiting Charge</span>
+                <Info className="h-3 w-3 cursor-pointer hover:text-primary transition-colors" onClick={() => setIsVisitingChargeInfoOpen(true)} />
+              </div>
+              <span>{formatCurrency((((categoryOverrides && typeof categoryOverrides.visitingChargeAmount === 'number') ? categoryOverrides.visitingChargeAmount : appConfig.visitingChargeAmount) || 0), symbol, decimals, code)}</span>
             </div>
           )}
           {calculatedPlatformFees.map(fee => (
-            <div key={fee.name} className="flex justify-between">
-              <span className="text-muted-foreground">{fee.name}</span>
-              <span>₹{(fee.calculatedFeeAmount + fee.taxAmountOnFee).toLocaleString()}</span>
+            <div key={fee.name} className="flex justify-between items-center">
+              <div className="flex items-center gap-1 text-muted-foreground">
+                <span>{fee.name}</span>
+                <Info className="h-3 w-3 cursor-pointer hover:text-primary transition-colors" onClick={() => setIsPlatformFeeInfoOpen(true)} />
+              </div>
+              <span>{formatCurrency(fee.calculatedFeeAmount + fee.taxAmountOnFee, symbol, decimals, code)}</span>
             </div>
           ))}
           {taxAmount > 0 && (
             <div className="flex justify-between items-center">
               <div className="flex items-center gap-1 text-muted-foreground">
                 Tax
-                <Info className="h-3 w-3 cursor-pointer" onClick={() => setIsTaxBreakdownOpen(true)} />
+                <Info className="h-3 w-3 cursor-pointer hover:text-primary transition-colors" onClick={() => setIsTaxBreakdownOpen(true)} />
               </div>
-              <span>₹{taxAmount.toLocaleString()}</span>
+              <span>{formatCurrency(taxAmount, symbol, decimals, code)}</span>
             </div>
           )}
           <div className="flex justify-between text-lg font-bold border-t pt-2 mt-2">
             <span>Total Amount</span>
-            <span className="text-primary">₹{totalAmountDue.toLocaleString()}</span>
+            <span className="text-primary">{formatCurrency(totalAmountDue, symbol, decimals, code)}</span>
           </div>
         </div>
 
@@ -380,7 +457,7 @@ export default function PaymentSummary({ paymentMethod, canBook, appliedPromo, o
       </CardFooter>
 
       <Dialog open={isTaxBreakdownOpen} onOpenChange={setIsTaxBreakdownOpen}>
-        <DialogContent>
+        <DialogContent className="w-[90vw] sm:max-w-2xl md:max-w-3xl max-h-[85vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Tax Breakdown</DialogTitle>
             <DialogDescription>
@@ -397,6 +474,28 @@ export default function PaymentSummary({ paymentMethod, canBook, appliedPromo, o
             grandTotal={totalAmountDue}
             defaultTaxRatePercent={appConfig.visitingChargeTaxPercent || 0}
           />
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={isVisitingChargeInfoOpen} onOpenChange={setIsVisitingChargeInfoOpen}>
+        <DialogContent className="max-w-[90vw] sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Visiting Charge Details</DialogTitle>
+            <DialogDescription className="pt-2 text-sm leading-relaxed text-foreground whitespace-pre-line">
+              {dynamicVisitingChargePolicy}
+            </DialogDescription>
+          </DialogHeader>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={isPlatformFeeInfoOpen} onOpenChange={setIsPlatformFeeInfoOpen}>
+        <DialogContent className="max-w-[90vw] sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>{dynamicPlatformFeeTitle} Details</DialogTitle>
+            <DialogDescription className="pt-2 text-sm leading-relaxed text-foreground whitespace-pre-line">
+              {dynamicPlatformFeeDescription}
+            </DialogDescription>
+          </DialogHeader>
         </DialogContent>
       </Dialog>
     </Card>

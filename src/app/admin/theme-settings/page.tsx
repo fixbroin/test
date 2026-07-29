@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Palette, Save, Loader2, RefreshCw, XCircle, Sun, Moon, Sparkles, CheckCircle2, Layout, Zap, Component, Settings2 } from "lucide-react";
 import { useToast } from '@/hooks/use-toast';
 import { db } from '@/lib/firebase';
-import { doc, getDoc, setDoc, Timestamp } from "firebase/firestore";
+import { doc, getDoc, setDoc, Timestamp } from '@/lib/mysqlDb';
 import { triggerRefresh } from '@/lib/revalidateUtils';
 import type { GlobalWebSettings, ThemeColors, ThemePalette, LoaderType } from '@/types/firestore';
 import { hexToHslString, hslStringToHex, DEFAULT_LIGHT_THEME_COLORS_HSL, DEFAULT_DARK_THEME_COLORS_HSL, CORE_THEME_PALETTE_KEYS } from '@/lib/colorUtils';

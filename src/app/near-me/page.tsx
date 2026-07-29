@@ -2,7 +2,7 @@ import React from 'react';
 import { adminDb } from '@/lib/firebaseAdmin';
 import type { FirestoreCategory } from '@/types/firestore';
 import { getBaseUrl } from '@/lib/config';
-import Link from 'next/link';
+import Link from '@/components/shared/TransitionLink';
 import { Badge } from '@/components/ui/badge';
 import { MapPin, ArrowRight, Star } from 'lucide-react';
 import AppImage from '@/components/ui/AppImage';

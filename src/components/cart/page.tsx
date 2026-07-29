@@ -13,7 +13,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import type { FirestoreService, UserCart, PriceVariant } from '@/types/firestore';
 import { getCartEntries, saveCartEntries, syncCartToFirestore, type CartEntry } from '@/lib/cartManager';
 import { db } from '@/lib/firebase'; 
-import { doc, getDoc, onSnapshot } from "firebase/firestore";
+import { doc, getDoc, onSnapshot } from '@/lib/mysqlDb';
 import { useToast } from '@/hooks/use-toast';
 import { useLoading } from '@/contexts/LoadingContext';
 import { useRouter, usePathname } from 'next/navigation';
@@ -521,7 +521,7 @@ function CartPageContent() {
                                     <Info className="h-3.5 w-3.5 text-muted-foreground hover:text-primary"/>
                                 </Button>
                             </DialogTrigger>
-                            <DialogContent className="w-[90vw] sm:max-w-md max-h-[80vh] overflow-y-auto">
+                            <DialogContent className="w-[90vw] sm:max-w-2xl md:max-w-3xl max-h-[85vh] overflow-y-auto">
                                 <DialogHeader>
                                     <DialogTitle>Tax Breakdown</DialogTitle>
                                 </DialogHeader>

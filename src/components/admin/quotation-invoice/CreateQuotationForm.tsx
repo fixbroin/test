@@ -17,7 +17,7 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDes
 import { Loader2, FileText, UserPlus, PlusCircle, Trash2, CalendarIcon, Save, Send, Download, Search, UserCircle as UserIcon, XCircle, Check, ChevronsUpDown } from "lucide-react";
 import type { FirestoreUser, QuotationItem, FirestoreQuotation, QuotationStatus, CompanyDetailsForPdf } from '@/types/firestore';
 import { db } from '@/lib/firebase';
-import { collection, getDocs, addDoc, Timestamp, query, orderBy, doc, setDoc, updateDoc, getDoc } from "firebase/firestore";
+import { collection, getDocs, addDoc, Timestamp, query, orderBy, doc, setDoc, updateDoc, getDoc } from '@/lib/mysqlDb';
 import { useToast } from "@/hooks/use-toast";
 import { nanoid } from 'nanoid';
 import { cn } from '@/lib/utils';
@@ -265,9 +265,9 @@ export default function CreateQuotationForm({ initialData, onSaveSuccess }: Crea
       const storagePath = `quotations_pdf/${currentInitialData.id}_${savedQuotation.quotationNumber}.pdf`;
       const downloadUrl = await uploadPdfToStorage(pdfBlob, storagePath);
       
-      await updateDoc(doc(db, "quotations", currentInitialData.id), { status: 'Sent', updatedAt: Timestamp.now() });
+      await updateDoc(doc(db, "quotations", currentInitialData.id), { status: 'Sent', pdfUrl: downloadUrl, updatedAt: Timestamp.now() });
       form.setValue('status', 'Sent'); 
-      if (onSaveSuccess) onSaveSuccess({ ...savedQuotation, status: 'Sent', updatedAt: Timestamp.now() });
+      if (onSaveSuccess) onSaveSuccess({ ...savedQuotation, status: 'Sent', pdfUrl: downloadUrl, updatedAt: Timestamp.now() });
 
       toast({
         duration: 10000,

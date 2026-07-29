@@ -11,7 +11,7 @@ import { Target, Globe, FileText, Type, Pilcrow, BarChart, Save, Loader2, Settin
 import { useToast } from '@/hooks/use-toast';
 import PermissionGuard from '@/components/admin/PermissionGuard';
 import { db } from '@/lib/firebase';
-import { doc, getDoc, setDoc, Timestamp } from "firebase/firestore";
+import { doc, getDoc, setDoc, Timestamp } from '@/lib/mysqlDb';
 import type { FirestoreSEOSettings, StructuredDataSocialProfiles } from '@/types/firestore';
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm, Controller } from "react-hook-form";
@@ -62,7 +62,7 @@ const seoSettingsSchema = z.object({
   structuredDataPostalCode: z.string().optional(),
   structuredDataCountry: z.string().optional(),
   structuredDataTelephone: z.string().optional(),
-  structuredDataImage: z.string().url("Must be a valid URL").optional().or(z.literal('')),
+  structuredDataImage: z.string().refine((val) => !val || val === '' || val.startsWith('/') || val.startsWith('http://') || val.startsWith('https://') || val.startsWith('uploads/'), { message: "Must be a valid URL or relative path if provided." }).optional().or(z.literal('')),
   socialProfileUrls: z.object({
     facebook: z.string().url("Invalid URL").optional().or(z.literal('')),
     twitter: z.string().url("Invalid URL").optional().or(z.literal('')),

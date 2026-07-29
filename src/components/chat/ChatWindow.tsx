@@ -8,7 +8,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Send, UserCircle, MessageSquareText, XIcon, Loader2, Check, CheckCheck, Bot } from 'lucide-react';
 import type { ChatMessage, ChatSession, FirestoreNotification } from '@/types/firestore';
-import { Timestamp, doc, collection, query, where, orderBy, onSnapshot, addDoc, updateDoc, setDoc, serverTimestamp, getDoc, getDocs, limit } from "firebase/firestore";
+import { Timestamp, doc, collection, query, where, orderBy, onSnapshot, addDoc, updateDoc, setDoc, serverTimestamp, getDoc, getDocs, limit } from '@/lib/mysqlDb';
 import { db } from '@/lib/firebase';
 import { useAuth } from '@/hooks/useAuth';
 import { useGlobalSettings } from '@/hooks/useGlobalSettings';
@@ -184,6 +184,13 @@ export default function ChatWindow({ onClose }: ChatWindowProps) {
     const tempNewMessage = newMessage;
     setNewMessage('');
     
+    // Instantly append to local messages array for 0ms response
+    const optimisticMessage: ChatMessage = {
+      id: `temp_${Date.now()}`,
+      ...messageData
+    };
+    setMessages(prev => [...prev, optimisticMessage]);
+
     try {
       const sessionDocRef = doc(db, 'chats', chatSessionId);
       const sessionSnap = await getDoc(sessionDocRef);

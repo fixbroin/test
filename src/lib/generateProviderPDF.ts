@@ -4,7 +4,7 @@ import jsPDF from 'jspdf';
 import 'jspdf-autotable';
 import type { UserOptions } from 'jspdf-autotable';
 import type { ProviderApplication, KycDocument, BankDetails, CompanyDetailsForPdf } from '@/types/firestore';
-import { Timestamp } from 'firebase/firestore';
+import { Timestamp } from '@/lib/mysqlDb';
 
 declare module 'jspdf' {
   interface jsPDF {

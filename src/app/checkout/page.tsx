@@ -99,10 +99,10 @@ export default function CheckoutPage() {
     }
 
     // Auto-flow logic
-    if (!hasDate) {
-      setIsScheduleModalOpen(true);
-    } else if (!hasAddress) {
+    if (!hasAddress) {
       setIsAddressModalOpen(true);
+    } else if (!hasDate) {
+      setIsScheduleModalOpen(true);
     }
   }, [router]);
 
@@ -168,10 +168,17 @@ export default function CheckoutPage() {
       !user ? getGuestId() : null
     );
 
-    // Scroll to payment section
-    setTimeout(() => {
-      paymentSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-    }, 500);
+    // Auto-flow logic: if no schedule date, open schedule modal
+    if (!scheduledDate) {
+      setTimeout(() => {
+        setIsScheduleModalOpen(true);
+      }, 300); // Small delay for smooth transition
+    } else {
+      // Scroll to payment section
+      setTimeout(() => {
+        paymentSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }, 500);
+    }
   };
 
   const handlePaymentMethodSelect = (method: string) => {
@@ -190,11 +197,9 @@ export default function CheckoutPage() {
     );
 
     // Scroll to book button in order summary
-    if (window.innerWidth < 1024) {
-      setTimeout(() => {
-        orderSummaryRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      }, 300);
-    }
+    setTimeout(() => {
+      orderSummaryRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }, 300);
   };
 
   const formatDate = (date: Date | null) => {
@@ -219,40 +224,6 @@ export default function CheckoutPage() {
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
         <div className="lg:col-span-8 space-y-6">
-          {/* Schedule Section */}
-          <div ref={scheduleSectionRef}>
-            <Card className="overflow-hidden border-none shadow-md">
-              <CardHeader className="bg-muted/30 py-4 flex flex-row items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <CalendarDays className="h-5 w-5 text-primary" />
-                  <CardTitle className="text-lg">Schedule</CardTitle>
-                </div>
-                <Button variant="ghost" size="sm" onClick={() => setIsScheduleModalOpen(true)} className="text-primary font-bold">
-                  {scheduledDate ? "Change" : "Select"}
-                </Button>
-              </CardHeader>
-              <CardContent className="py-4">
-                {scheduledDate ? (
-                  <div className="flex items-center gap-4">
-                    <div className="bg-primary/10 p-3 rounded-full">
-                      <Clock className="h-6 w-6 text-primary" />
-                    </div>
-                    <div>
-                      <p className="font-bold">{formatDate(scheduledDate)}</p>
-                      <p className="text-sm text-muted-foreground">{scheduledSlot}</p>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="flex flex-col items-center py-4 text-center cursor-pointer" onClick={() => setIsScheduleModalOpen(true)}>
-                    <AlertTriangle className="h-8 w-8 text-amber-500 mb-2" />
-                    <p className="font-medium">No schedule selected</p>
-                    <p className="text-sm text-muted-foreground">Click to pick a date and time</p>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          </div>
-
           {/* Address Section */}
           <div ref={addressSectionRef}>
             <Card className="overflow-hidden border-none shadow-md">
@@ -261,7 +232,7 @@ export default function CheckoutPage() {
                   <MapPin className="h-5 w-5 text-primary" />
                   <CardTitle className="text-lg">Address</CardTitle>
                 </div>
-                <Button variant="ghost" size="sm" onClick={() => setIsAddressModalOpen(true)} className="text-primary font-bold">
+                <Button variant="outline" size="sm" onClick={() => setIsAddressModalOpen(true)} className="text-primary border-primary/20 hover:border-primary/40 hover:bg-primary/5 hover:text-primary font-bold h-8 px-3 rounded-md">
                   {selectedAddress ? "Change" : "Select"}
                 </Button>
               </CardHeader>
@@ -287,12 +258,39 @@ export default function CheckoutPage() {
             </Card>
           </div>
 
-          {/* Promo Code Section */}
-          <PromoCodeCard 
-            sumOfItemPrices={sumOfItemPrices} 
-            appliedPromo={appliedPromo} 
-            onApply={setAppliedPromo} 
-          />
+          {/* Schedule Section */}
+          <div ref={scheduleSectionRef}>
+            <Card className="overflow-hidden border-none shadow-md">
+              <CardHeader className="bg-muted/30 py-4 flex flex-row items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <CalendarDays className="h-5 w-5 text-primary" />
+                  <CardTitle className="text-lg">Schedule</CardTitle>
+                </div>
+                <Button variant="outline" size="sm" onClick={() => setIsScheduleModalOpen(true)} className="text-primary border-primary/20 hover:border-primary/40 hover:bg-primary/5 hover:text-primary font-bold h-8 px-3 rounded-md">
+                  {scheduledDate ? "Change" : "Select"}
+                </Button>
+              </CardHeader>
+              <CardContent className="py-4">
+                {scheduledDate ? (
+                  <div className="flex items-center gap-4">
+                    <div className="bg-primary/10 p-3 rounded-full">
+                      <Clock className="h-6 w-6 text-primary" />
+                    </div>
+                    <div>
+                      <p className="font-bold">{formatDate(scheduledDate)}</p>
+                      <p className="text-sm text-muted-foreground">{scheduledSlot}</p>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="flex flex-col items-center py-4 text-center cursor-pointer" onClick={() => setIsScheduleModalOpen(true)}>
+                    <AlertTriangle className="h-8 w-8 text-amber-500 mb-2" />
+                    <p className="font-medium">No schedule selected</p>
+                    <p className="text-sm text-muted-foreground">Click to pick a date and time</p>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </div>
 
           {/* Payment Section */}
           <div ref={paymentSectionRef}>
@@ -311,11 +309,29 @@ export default function CheckoutPage() {
               </CardContent>
             </Card>
           </div>
+
+          {/* Promo Code Section (Mobile Only) */}
+          <div className="lg:hidden">
+            <PromoCodeCard 
+              sumOfItemPrices={sumOfItemPrices} 
+              appliedPromo={appliedPromo} 
+              onApply={setAppliedPromo} 
+            />
+          </div>
         </div>
 
         {/* Order Summary Column */}
         <div className="lg:col-span-4" ref={orderSummaryRef}>
-          <div className="sticky top-6">
+          <div className="sticky top-6 space-y-6">
+            {/* Promo Code Section (Desktop Only) */}
+            <div className="hidden lg:block">
+              <PromoCodeCard 
+                sumOfItemPrices={sumOfItemPrices} 
+                appliedPromo={appliedPromo} 
+                onApply={setAppliedPromo} 
+              />
+            </div>
+
             <PaymentSummary 
               paymentMethod={paymentMethod}
               canBook={!!scheduledDate && !!scheduledSlot && !!selectedAddress && !!paymentMethod}

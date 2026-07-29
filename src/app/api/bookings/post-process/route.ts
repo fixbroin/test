@@ -1,7 +1,7 @@
 // src/app/api/bookings/post-process/route.ts
 import { NextResponse } from 'next/server';
 import { adminDb } from '@/lib/firebaseAdmin';
-import { Timestamp } from 'firebase-admin/firestore';
+import { Timestamp } from '@/lib/mysqlDbAdmin';
 import { incrementSystemStats } from '@/lib/systemStatsUtils';
 import { sendBookingConfirmationEmail } from '@/ai/flows/sendBookingEmailFlow';
 import { sendProviderBookingAssignmentEmail } from '@/ai/flows/sendProviderBookingAssignmentFlow';
@@ -454,6 +454,7 @@ export async function POST(request: Request) {
                 contactEmail: appConfig?.companyEmail || 'support@fixbro.in',
                 contactMobile: appConfig?.companyPhone || '+91-7353113455',
                 timezone: appConfig?.timezone || 'Asia/Kolkata',
+                currencySymbol: appConfig?.currencySymbol || "₹",
             };
             const pdfDataUri = await generateInvoicePdf(booking, companyDetails);
             if (pdfDataUri && pdfDataUri.includes(',')) {
@@ -492,6 +493,7 @@ export async function POST(request: Request) {
         status: booking.status,
         siteName: seoSettings?.websiteName || "FixBro",
         logoUrl: seoSettings?.logoUrl,
+        currencySymbol: appConfig.currencySymbol || "Rs.",
         smtpHost: appConfig.smtpHost,
         smtpPort: appConfig.smtpPort,
         smtpUser: appConfig.smtpUser,

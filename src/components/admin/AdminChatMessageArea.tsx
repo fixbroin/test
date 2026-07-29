@@ -11,7 +11,7 @@ import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { Send, UserCircle, MessageSquareText, Loader2, Trash2 as TrashIcon, Bot, Info, ShieldCheck } from 'lucide-react';
 import type { FirestoreUser, ChatMessage, ChatSession, FirestoreNotification } from '@/types/firestore';
-import { Timestamp, doc, collection, query, where, orderBy, onSnapshot, addDoc, updateDoc, setDoc, serverTimestamp, getDoc, getDocs, limit, writeBatch } from "firebase/firestore";
+import { Timestamp, doc, collection, query, where, orderBy, onSnapshot, addDoc, updateDoc, setDoc, serverTimestamp, getDoc, getDocs, limit, writeBatch } from '@/lib/mysqlDb';
 import { db } from '@/lib/firebase';
 import { useAuth } from '@/hooks/useAuth';
 import { ADMIN_EMAIL } from '@/contexts/AuthContext';
@@ -193,6 +193,14 @@ export default function AdminChatMessageArea({ selectedUser }: AdminChatMessageA
 
     const tempNewMessage = newMessage;
     setNewMessage('');
+
+    // Instantly append to local messages array for 0ms response
+    const optimisticMessage: ChatMessage = {
+      id: `temp_${Date.now()}`,
+      ...messageData
+    };
+    setMessages(prev => [...prev, optimisticMessage]);
+
     try {
       const messagesRef = collection(db, 'chats', currentChatSessionId, 'messages');
       await addDoc(messagesRef, messageData);

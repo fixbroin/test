@@ -7,7 +7,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Loader2, PackageSearch } from "lucide-react";
 import type { Referral, FirestoreUser, FirestoreBooking } from '@/types/firestore'; 
 import { db } from '@/lib/firebase';
-import { collection, query, orderBy, onSnapshot, where, getDocs, doc, getDoc, collectionGroup, limit } from "firebase/firestore";
+import { collection, query, orderBy, onSnapshot, where, getDocs, doc, getDoc, collectionGroup, limit } from '@/lib/mysqlDb';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
 import { getTimestampMillis } from '@/lib/utils';

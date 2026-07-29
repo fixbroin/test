@@ -6,7 +6,7 @@ import { getCategorySearchTerm, generateBreadcrumbSchema } from '@/lib/seoAdvanc
 import { Metadata, ResolvingMetadata } from 'next';
 import NearMeLocationDetector from '@/components/category/NearMeLocationDetector';
 import { Badge } from '@/components/ui/badge';
-import Link from 'next/link';
+import Link from '@/components/shared/TransitionLink';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import JsonLdScript from '@/components/shared/JsonLdScript';
 import { MapPin, ShieldCheck, Clock, CheckCircle2 } from 'lucide-react';
@@ -56,7 +56,13 @@ const getNearMePageData = cache(async (slug: string) => {
           .orderBy('name', 'asc')
           .get();
         
-        const areas = areasSnap.docs.map(doc => ({ id: doc.id, name: doc.data().name, slug: doc.data().slug } as FirestoreArea));
+        const areas = areasSnap.docs.map(doc => ({ 
+          id: doc.id, 
+          name: doc.data().name, 
+          slug: doc.data().slug,
+          latitude: doc.data().latitude,
+          longitude: doc.data().longitude
+        } as FirestoreArea));
 
         return { category, city, areas };
       } catch (error) {

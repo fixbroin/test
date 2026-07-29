@@ -49,11 +49,13 @@ export const PERMISSION_MODULES = [
   { id: 'newsletter_popups', label: 'Newsletter Popups', paths: ['/admin/newsletter-popups'] },
   { id: 'promo_codes', label: 'Promo Codes', paths: ['/admin/promo-codes'] },
   { id: 'theme_settings', label: 'Theme Settings', paths: ['/admin/theme-settings'] },
+  { id: 'image_gallery', label: 'Image Gallery', paths: ['/admin/image-gallery'] },
   { id: 'settings', label: 'App Settings', paths: ['/admin/settings'] },
   { id: 'login_settings', label: 'Login Settings', paths: ['/admin/login-settings'] },
   { id: 'web_settings', label: 'Web Settings', paths: ['/admin/web-settings'] },
   { id: 'cookie_settings', label: 'Cookie Settings', paths: ['/admin/cookie-settings'] },
   { id: 'database_tools', label: 'Database Tools', paths: ['/admin/database-tools'] },
+  { id: 'system_logs', label: 'System Logs', paths: ['/admin/system-logs'] },
 ];
 
 export const DEFAULT_PERMISSIONS: AdminPermissions = PERMISSION_MODULES.reduce((acc, m) => {

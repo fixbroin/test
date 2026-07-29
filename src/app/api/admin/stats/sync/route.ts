@@ -1,7 +1,7 @@
 // src/app/api/admin/stats/sync/route.ts
 import { NextResponse } from 'next/server';
 import { adminAuth, adminDb } from '@/lib/firebaseAdmin';
-import { Timestamp } from 'firebase-admin/firestore';
+import { Timestamp } from '@/lib/mysqlDbAdmin';
 import { revalidateTag } from 'next/cache';
 
 export async function POST(request: Request) {

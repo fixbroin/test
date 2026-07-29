@@ -1,7 +1,7 @@
 import ServiceDetailPageClient from '@/components/service/ServiceDetailPageClient';
 import { adminDb } from '@/lib/firebaseAdmin';
 import type { FirestoreService, ClientServiceData, FirestoreCategory, FirestoreSubCategory } from '@/types/firestore';
-import { Timestamp } from 'firebase-admin/firestore';
+import { Timestamp } from '@/lib/mysqlDbAdmin';
 import JsonLdScript from '@/components/shared/JsonLdScript';
 import { getBaseUrl } from '@/lib/config';
 import type { Metadata, ResolvingMetadata } from 'next';
@@ -15,21 +15,9 @@ import { generateBreadcrumbSchema } from '@/lib/seoAdvancedUtils';
 
 export const revalidate = false; // Persistent Cache (Smart Revalidation Only)
 
-// export async function generateStaticParams() {
-//   try {
-//     const servicesSnapshot = await adminDb
-//       .collection('adminServices')
-//       .where('isActive', '==', true)
-//       .get();
-//     
-//     return servicesSnapshot.docs.map(doc => ({
-//       slug: (doc.data() as FirestoreService).slug,
-//     })).filter(p => p.slug);
-//   } catch (error) {
-//     console.error("Error generating static params for service detail pages:", error);
-//     return [];
-//   }
-// }
+export async function generateStaticParams() {
+  return [];
+}
 
 /**
  * Server-side helper to safely get milliseconds from various timestamp formats.

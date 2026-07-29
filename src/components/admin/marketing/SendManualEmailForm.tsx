@@ -15,7 +15,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Loader2, Send, Users, UserSearch, Copy, Tag, Layers, Search, Tags, CheckCircle } from "lucide-react";
 import { useToast } from '@/hooks/use-toast';
 import { db } from '@/lib/firebase';
-import { collection, query, orderBy, getDocs, where, limit } from "firebase/firestore";
+import { collection, query, orderBy, getDocs, where, limit } from '@/lib/mysqlDb';
 import type { FirestoreUser, FirestoreService, FirestoreCategory } from '@/types/firestore';
 import { useGlobalSettings } from '@/hooks/useGlobalSettings';
 import { sendBulkMarketingEmail } from '@/ai/flows/sendBulkMarketingEmailFlow';

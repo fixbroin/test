@@ -16,7 +16,7 @@ import { useToast } from '@/hooks/use-toast';
 import PermissionGuard from '@/components/admin/PermissionGuard';
 
 import { db } from '@/lib/firebase';
-import { doc, setDoc, Timestamp } from 'firebase/firestore';
+import { doc, setDoc, Timestamp } from '@/lib/mysqlDb';
 import type { AppSettings, LoginMethod } from '@/types/firestore';
 import { triggerRefresh } from '@/lib/revalidateUtils';
 
@@ -67,7 +67,6 @@ export default function LoginSettingsPage() {
   const handleSaveSettings = async (data: LoginSettingsFormData) => {
     setIsSaving(true);
     try {
-      const settingsDocRef = doc(db, "webSettings", "applicationConfig");
       const settingsToUpdate: Partial<AppSettings> = {
         enableEmailPasswordLogin: data.enableEmailPasswordLogin,
         enableOtpLogin: data.enableOtpLogin,
@@ -76,7 +75,14 @@ export default function LoginSettingsPage() {
         defaultOtpCountryCode: data.defaultOtpCountryCode,
         updatedAt: Timestamp.now(),
       };
-      await setDoc(settingsDocRef, settingsToUpdate, { merge: true });
+      await Promise.all([
+        setDoc(doc(db, "webSettings", "applicationConfig"), settingsToUpdate, { merge: true }),
+        setDoc(doc(db, "appConfiguration", "applicationConfig"), settingsToUpdate, { merge: true }),
+      ]);
+      if (typeof window !== 'undefined') {
+        localStorage.removeItem("app-config");
+        localStorage.removeItem("app-config-version");
+      }
       await triggerRefresh('app-settings');
       await triggerRefresh('global-cache');
       toast({ title: "Success", description: "Login settings saved successfully." });

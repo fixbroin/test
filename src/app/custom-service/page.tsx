@@ -11,7 +11,7 @@ import CustomServiceRequestForm from '@/components/forms/CustomServiceRequestFor
 import ProtectedRoute from '@/components/auth/ProtectedRoute';
 import { useAuth } from '@/hooks/useAuth';
 import { db } from '@/lib/firebase';
-import { collection, query, where, onSnapshot, orderBy, getDocs, Timestamp } from 'firebase/firestore';
+import { collection, query, where, onSnapshot, orderBy, getDocs, Timestamp } from '@/lib/mysqlDb';
 import type { FirestoreCategory, CustomServiceRequest } from '@/types/firestore';
 import { useToast } from "@/hooks/use-toast";
 import Breadcrumbs from '@/components/shared/Breadcrumbs';

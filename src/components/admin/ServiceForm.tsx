@@ -19,8 +19,8 @@ import { cn } from "@/lib/utils";
 import NextImage from 'next/image';
 import { useToast } from "@/hooks/use-toast";
 import { storage, db } from '@/lib/firebase';
-import { ref as storageRef, uploadBytesResumable, getDownloadURL, deleteObject } from "firebase/storage";
-import { collection, query, where, getDocs, limit } from "firebase/firestore";
+import { ref as storageRef, uploadBytesResumable, getDownloadURL, deleteObject } from '@/lib/mysqlStorage';
+import { collection, query, where, getDocs, limit } from '@/lib/mysqlDb';
 import { Progress } from "@/components/ui/progress";
 import { Separator } from "@/components/ui/separator";
 import { compressImage } from "@/lib/imageCompressor";
@@ -61,7 +61,10 @@ const serviceFormSchema = z.object({
   shortDescription: z.string().max(300, {message: "Short description max 300 chars."}).optional().nullable(),
   fullDescription: z.string().optional().nullable(),
   serviceHighlights: z.array(z.object({ value: z.string().min(5, "Highlight must be at least 5 characters.").max(150, "Highlight too long.") })).optional(),
-  imageUrl: z.string().url({ message: "Must be a valid URL if provided." }).optional().or(z.literal('')),
+  imageUrl: z.string().refine(
+    (val) => !val || val === "" || val.startsWith('/') || val.startsWith('http://') || val.startsWith('https://') || val.startsWith('uploads/'),
+    { message: "Must be a valid URL or path if provided." }
+  ).optional().or(z.literal('')),
   imageHint: z.string().max(50, { message: "Image hint should be max 50 characters."}).optional().or(z.literal('')),
   rating: z.coerce.number().min(0).max(5).default(0),
   reviewCount: z.coerce.number().min(0).default(0),
@@ -105,9 +108,9 @@ interface ServiceFormProps {
   isSubmitting?: boolean;
 }
 
-const isFirebaseStorageUrl = (url: string): boolean => {
+const isFirebaseStorageUrl = (url: string | null | undefined): boolean => {
   if (!url) return false;
-  return typeof url === 'string' && url.includes("firebasestorage.googleapis.com");
+  return typeof url === 'string' && url.trim().length > 0;
 };
 
 const generateRandomHexString = (length: number) => {
@@ -491,7 +494,7 @@ export default function ServiceForm({ onSubmit: onSubmitProp, initialData, onCan
       if (selectedFile) {
         setStatusMessage("Uploading image...");
         setUploadProgress(0);
-        if (originalImageUrlFromInitialData && isFirebaseStorageUrl(originalImageUrlFromInitialData)) {
+        if (originalImageUrlFromInitialData) {
           try { await deleteObject(storageRef(storage, originalImageUrlFromInitialData)); }
           catch (error) { console.warn("Error deleting old image: ", error); }
         }
@@ -516,10 +519,10 @@ export default function ServiceForm({ onSubmit: onSubmitProp, initialData, onCan
           );
         });
         setUploadProgress(100); setStatusMessage("Image uploaded. Saving...");
-      } else if (!formData.imageUrl && originalImageUrlFromInitialData && isFirebaseStorageUrl(originalImageUrlFromInitialData)) {
+      } else if (!formData.imageUrl && originalImageUrlFromInitialData) {
         setStatusMessage("Removing image...");
         try { await deleteObject(storageRef(storage, originalImageUrlFromInitialData)); finalImageUrl = ""; setStatusMessage("Image removed. Saving..."); }
-        catch (error: unknown) { throw new Error(`Failed to delete image: ${error instanceof Error ? error.message : 'Unknown error'}. Not saved.`); }
+        catch (error: unknown) { console.error("Error deleting image: ", error); }
       } else { setStatusMessage(initialData ? "Saving changes..." : "Creating service..."); }
       
       const payload: Omit<FirestoreService, 'id' | 'createdAt' | 'updatedAt'> & { id?: string } = {

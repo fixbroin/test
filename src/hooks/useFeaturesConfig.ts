@@ -2,7 +2,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { doc, getDoc } from "firebase/firestore";
+import { doc, getDoc, onSnapshot } from '@/lib/mysqlDb';
 import { db } from '@/lib/firebase';
 import type { FeaturesConfiguration, MarketingAutomationSettings } from '@/types/firestore';
 import { getCache, setCache, getRemoteCacheVersions } from '@/lib/client-cache';
@@ -52,54 +52,26 @@ export function useFeaturesConfig(): UseFeaturesAndAutomationConfigReturn {
   const hasLoadedRef = useRef(false);
 
   useEffect(() => {
-    // If it's a bot, skip fetching to save reads
     if (isBot()) {
       setIsLoading(false);
       return;
     }
 
-    // Skip if already loaded in this session
-    if (hasLoadedRef.current) return;
-
-    const fetchConfigs = async () => {
-      try {
-        // Smart Cache Logic: Check global cache version (deduplicated client-side read)
-        const remoteVersions = await getRemoteCacheVersions();
-        const remoteVersion = remoteVersions.global || 0;
-        
-        const localVersion = parseInt(localStorage.getItem(`${CACHE_KEY}-version`) || "0");
-        const cached = getCache<{features: FeaturesConfiguration, marketing: MarketingAutomationSettings | null}>(CACHE_KEY, true);
-        
-        if (cached && remoteVersion <= localVersion) {
-            setFeaturesConfig(cached.features);
-            setMarketingConfig(cached.marketing);
-            setIsLoading(false);
-            hasLoadedRef.current = true;
-            return;
-        }
-
-        const res = await fetch('/api/features-config');
-        if (res.ok) {
-          const data = await res.json();
-          const finalFeatures = data.features || defaultFeaturesConfig;
-          const finalMarketing = data.marketing || null;
-
-          setFeaturesConfig(finalFeatures);
-          setMarketingConfig(finalMarketing);
-          
-          const dataToCache = { features: finalFeatures, marketing: finalMarketing };
-          setCache(CACHE_KEY, dataToCache, true);
-          localStorage.setItem(`${CACHE_KEY}-version`, remoteVersion.toString());
-        }
-      } catch (error) {
-        console.error("Error fetching configurations in useFeaturesConfig:", error);
-      } finally {
-        setIsLoading(false);
-        hasLoadedRef.current = true;
+    const docRef = doc(db, FEATURES_CONFIG_COLLECTION, FEATURES_CONFIG_DOC_ID);
+    const unsubscribe = onSnapshot(docRef, (docSnap) => {
+      if (docSnap.exists()) {
+        setFeaturesConfig({ ...defaultFeaturesConfig, ...docSnap.data() });
       }
-    };
-    
-    fetchConfigs();
+      setIsLoading(false);
+      hasLoadedRef.current = true;
+    }, (err: any) => {
+      if (err?.name !== 'AbortError' && !err?.message?.includes('Failed to fetch')) {
+        console.error("Error subscribing to features config:", err);
+      }
+      setIsLoading(false);
+    });
+
+    return () => unsubscribe();
   }, []);
 
   return { featuresConfig, marketingConfig, isLoading };

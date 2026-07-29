@@ -8,7 +8,7 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { PlusCircle, CheckCircle, Loader2, AlertTriangle, MapPin, Edit3, Check } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { db } from '@/lib/firebase';
-import { doc, onSnapshot, updateDoc, arrayUnion, collection, query, where, getDocs, Timestamp, arrayRemove } from 'firebase/firestore';
+import { doc, onSnapshot, updateDoc, arrayUnion, collection, query, where, getDocs, Timestamp, arrayRemove } from '@/lib/mysqlDb';
 import type { Address, FirestoreUser, ServiceZone } from '@/types/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { nanoid } from 'nanoid';

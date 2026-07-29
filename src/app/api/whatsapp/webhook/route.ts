@@ -1,7 +1,7 @@
 
 import { type NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/firebase';
-import { doc, getDoc } from 'firebase/firestore';
+import { doc, getDoc } from '@/lib/mysqlDb';
 import type { MarketingSettings } from '@/types/firestore';
 
 const getWhatsAppVerifyToken = async (): Promise<string | undefined> => {

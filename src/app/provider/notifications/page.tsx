@@ -8,7 +8,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { BellRing, BellOff, ArrowLeft, CheckCircle2, Info, AlertTriangle, Tag, Loader2, Trash2 as TrashIcon } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { db } from "@/lib/firebase";
-import { collection, query, where, onSnapshot, orderBy, doc, updateDoc, writeBatch, Timestamp, getDocs, limit } from "firebase/firestore";
+import { collection, query, where, onSnapshot, orderBy, doc, updateDoc, writeBatch, Timestamp, getDocs, limit } from '@/lib/mysqlDb';
 import type { FirestoreNotification } from "@/types/firestore";
 import { useToast } from "@/hooks/use-toast";
 import { formatDistanceToNow } from 'date-fns';

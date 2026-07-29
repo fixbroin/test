@@ -1,7 +1,7 @@
 
 import { NextResponse } from 'next/server';
 import { adminAuth, adminDb } from '@/lib/firebaseAdmin';
-import { Timestamp, FieldValue } from 'firebase-admin/firestore';
+import { Timestamp, FieldValue } from '@/lib/mysqlDbAdmin';
 import { SUPER_ADMIN_PERMISSIONS } from '@/config/rbac';
 
 export async function POST(request: Request) {

@@ -6,11 +6,12 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { 
   Loader2, Activity, UserCircle, Home, ShoppingCart, FileText, UserPlus, 
   Tag, Zap, CalendarCheck2, LogOut, Trash2 as TrashIcon, AlertTriangle, 
-  Clock, RefreshCcw, ChevronRight, ExternalLink, ShieldCheck, User
+  Clock, RefreshCcw, ChevronRight, ExternalLink, ShieldCheck, User, Map as MapIcon, PackageSearch
 } from "lucide-react";
 import type { UserActivity, FirestoreUser } from '@/types/firestore';
 import { db } from '@/lib/firebase';
-import { collection, query, orderBy, Timestamp, limit, getDocs, writeBatch, where, documentId, startAfter, getDoc, doc, type DocumentSnapshot } from "firebase/firestore";
+import { collection, query, orderBy, Timestamp, limit, getDocs, writeBatch, where, documentId, startAfter, getDoc, doc, type DocumentSnapshot, deleteDoc, onSnapshot } from '@/lib/mysqlDb';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import PermissionGuard from '@/components/admin/PermissionGuard';
 import { formatDistanceToNow } from 'date-fns';
@@ -28,7 +29,7 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import { cn, formatDateInTimezone, formatTimeInTimezone } from '@/lib/utils';
+import { cn, formatDateInTimezone, formatTimeInTimezone, formatCurrency } from '@/lib/utils';
 import { useApplicationConfig } from '@/hooks/useApplicationConfig';
 import { motion, AnimatePresence } from 'framer-motion';
 import { getArchivedActivities } from '@/lib/adminDashboardUtils';
@@ -75,16 +76,53 @@ const formatTimestamp = (timestamp?: any): string => {
   return formatDistanceToNow(new Date(millis), { addSuffix: true });
 };
 
-import { onSnapshot } from "firebase/firestore";
-
 export default function AdminActivityFeedPage() {
   const { config: appConfig } = useApplicationConfig();
+  const symbol = appConfig?.currencySymbol || '₹';
+  const decimals = appConfig?.currencyDecimalPoints !== undefined ? appConfig.currencyDecimalPoints : 2;
+  const code = appConfig?.currencyCode || 'INR';
   const [cachedActivities, setCachedActivities] = useState<UserActivity[]>([]);
   const [liveActivities, setLiveActivities] = useState<UserActivity[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isClearing, setIsClearing] = useState(false);
   const [userNames, setUserNames] = useState<Record<string, string>>({});
   const { toast } = useToast();
+
+  const [outOfZoneRequests, setOutOfZoneRequests] = useState<UserActivity[]>([]);
+  const [isLoadingRequests, setIsLoadingRequests] = useState(true);
+  const [isDeletingRequest, setIsDeletingRequest] = useState<string | null>(null);
+
+  useEffect(() => {
+    setIsLoadingRequests(true);
+    const q = query(
+      collection(db, "outOfZoneRequests"),
+      orderBy("timestamp", "desc"),
+      limit(150)
+    );
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const items = snapshot.docs
+        .map(doc => ({ id: doc.id, ...doc.data() } as UserActivity));
+      setOutOfZoneRequests(items);
+      setIsLoadingRequests(false);
+    }, (error) => {
+      console.error("Error loading out-of-coverage requests:", error);
+      setIsLoadingRequests(false);
+    });
+    return () => unsubscribe();
+  }, []);
+
+  const handleDeleteRequest = async (id: string) => {
+    setIsDeletingRequest(id);
+    try {
+      await deleteDoc(doc(db, "outOfZoneRequests", id));
+      toast({ title: "Success", description: "Request record deleted successfully." });
+    } catch (error) {
+      console.error("Error deleting request:", error);
+      toast({ title: "Error", description: "Could not delete request record.", variant: "destructive" });
+    } finally {
+      setIsDeletingRequest(null);
+    }
+  };
 
   const formatActivityTimestamp = useCallback((timestamp?: any): string => {
     const millis = getTimestampMillis(timestamp);
@@ -294,7 +332,7 @@ export default function AdminActivityFeedPage() {
       case 'newBooking':
         return (
           <div className="flex items-center gap-2">
-            <span className="text-xs font-bold text-teal-600">₹{data.totalAmount?.toFixed(2)}</span>
+            <span className="text-xs font-bold text-teal-600">{formatCurrency(data.totalAmount || 0, symbol, decimals, code)}</span>
             <Link href={`/admin/bookings/edit/${data.bookingDocId || '#'}`} className="text-xs font-bold text-blue-600 hover:underline flex items-center">
               {data.bookingId} <ChevronRight className="h-3 w-3 ml-0.5" />
             </Link>
@@ -314,7 +352,26 @@ export default function AdminActivityFeedPage() {
       case 'userLogout':
         return <span className="text-xs text-muted-foreground italic">Logout ({data.logoutMethod})</span>;
       case 'checkoutStep':
-        return <span className="text-xs font-bold text-purple-600 uppercase tracking-tighter">{data.checkoutStepName}</span>;
+        return (
+          <div className="flex flex-col gap-0.5">
+            <span className="text-xs font-bold text-purple-600 uppercase tracking-tighter">{data.checkoutStepName || 'Checkout'}</span>
+            {data.checkoutStepName === 'time_slot_selected' && (data.scheduledDate || data.scheduledSlot) && (
+              <span className="text-[11px] text-muted-foreground font-medium">
+                Date: <strong className="text-foreground">{data.scheduledDate}</strong> | Slot: <strong className="text-foreground">{data.scheduledSlot}</strong>
+              </span>
+            )}
+            {data.checkoutStepName === 'address_selected' && data.fullName && (
+              <span className="text-[11px] text-muted-foreground font-medium">
+                Name: <strong className="text-foreground">{data.fullName}</strong> ({data.city || 'N/A'})
+              </span>
+            )}
+            {data.checkoutStepName === 'payment_method_selected' && data.paymentMethod && (
+              <span className="text-[11px] text-muted-foreground font-medium">
+                Method: <strong className="text-foreground">{data.paymentMethod}</strong>
+              </span>
+            )}
+          </div>
+        );
       default:
         return <code className="text-[10px] bg-muted/50 p-1 px-2 rounded font-mono text-muted-foreground break-all">{JSON.stringify(data)}</code>;
     }
@@ -444,75 +501,241 @@ export default function AdminActivityFeedPage() {
         </div>
       </header>
 
-      <Card className="border-none shadow-2xl rounded-[2.5rem] overflow-hidden bg-card">
-        <CardContent className="p-0">
-          {isLoading && activities.length === 0 ? (
-            <div className="flex flex-col justify-center items-center h-[400px] space-y-4">
-              <Loader2 className="h-12 w-12 animate-spin text-primary/40" />
-              <p className="text-xs font-bold text-muted-foreground uppercase tracking-widest animate-pulse">Syncing Cache...</p>
-            </div>
-          ) : activities.length === 0 ? (
-            <div className="text-center py-32 bg-muted/5">
-              <Activity className="h-16 w-16 mx-auto text-muted-foreground/20 mb-6" />
-              <p className="text-xl font-bold tracking-tight">No Events Detected</p>
-              <p className="text-muted-foreground text-sm mt-1">Activities will appear here after the next sync.</p>
-            </div>
-          ) : (
-            <>
-              <div className="hidden md:block overflow-x-auto">
-                <Table>
-                  <TableHeader className="bg-muted/30">
-                    <TableRow className="hover:bg-transparent border-none">
-                      <TableHead className="w-[180px] pl-8 py-5 text-[10px] font-black uppercase tracking-widest">Type</TableHead>
-                      <TableHead className="text-[10px] font-black uppercase tracking-widest">Interaction</TableHead>
-                      <TableHead className="text-[10px] font-black uppercase tracking-widest">User Identity</TableHead>
-                      <TableHead className="text-right pr-8 text-[10px] font-black uppercase tracking-widest">Timestamp</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
+      <Tabs defaultValue="live-feed" className="w-full">
+        <TabsList className="bg-muted p-1 rounded-xl mb-6 flex w-fit gap-1">
+          <TabsTrigger value="live-feed" className="font-bold text-xs uppercase px-5 py-2 rounded-lg data-[state=active]:bg-background data-[state=active]:shadow-sm">
+            Live Feed
+          </TabsTrigger>
+          <TabsTrigger value="out-of-coverage" className="font-bold text-xs uppercase px-5 py-2 rounded-lg flex items-center gap-1.5 data-[state=active]:bg-background data-[state=active]:shadow-sm">
+            <AlertTriangle className="h-3.5 w-3.5 text-amber-500" />
+            Out-of-Coverage Requests ({outOfZoneRequests.length})
+          </TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="live-feed">
+          <Card className="border-none shadow-2xl rounded-[2.5rem] overflow-hidden bg-card">
+            <CardContent className="p-0">
+              {isLoading && activities.length === 0 ? (
+                <div className="flex flex-col justify-center items-center h-[400px] space-y-4">
+                  <Loader2 className="h-12 w-12 animate-spin text-primary/40" />
+                  <p className="text-xs font-bold text-muted-foreground uppercase tracking-widest animate-pulse">Syncing Cache...</p>
+                </div>
+              ) : activities.length === 0 ? (
+                <div className="text-center py-32 bg-muted/5">
+                  <Activity className="h-16 w-16 mx-auto text-muted-foreground/20 mb-6" />
+                  <p className="text-xl font-bold tracking-tight">No Events Detected</p>
+                  <p className="text-muted-foreground text-sm mt-1">Activities will appear here after the next sync.</p>
+                </div>
+              ) : (
+                <>
+                  <div className="hidden md:block overflow-x-auto">
+                    <Table>
+                      <TableHeader className="bg-muted/30">
+                        <TableRow className="hover:bg-transparent border-none">
+                          <TableHead className="w-[180px] pl-8 py-5 text-[10px] font-black uppercase tracking-widest">Type</TableHead>
+                          <TableHead className="text-[10px] font-black uppercase tracking-widest">Interaction</TableHead>
+                          <TableHead className="text-[10px] font-black uppercase tracking-widest">User Identity</TableHead>
+                          <TableHead className="text-right pr-8 text-[10px] font-black uppercase tracking-widest">Timestamp</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        <AnimatePresence initial={false}>
+                          {displayActivities.map((activity, idx) => (
+                            <motion.tr
+                              key={activity.id}
+                              initial={{ opacity: 0, y: -10 }}
+                              animate={{ opacity: 1, y: 0 }}
+                              exit={{ opacity: 0, scale: 0.95 }}
+                              transition={{ duration: 0.3, delay: idx < 10 ? idx * 0.05 : 0 }}
+                              className="group border-b border-muted/40 transition-all hover:bg-primary/[0.02]"
+                            >
+                              <TableCell className="pl-8 py-4">
+                                <EventBadge eventType={activity.eventType} />
+                              </TableCell>
+                              <TableCell className="font-medium text-slate-700 dark:text-slate-300">
+                                {renderEventData(activity)}
+                              </TableCell>
+                              <TableCell>
+                                {renderUserCell(activity)}
+                              </TableCell>
+                              <TableCell className="text-right pr-8">
+                                <div className="flex flex-col items-end gap-0.5">
+                                  <span className="text-[11px] font-black text-slate-900 dark:text-slate-100 uppercase tracking-tighter">
+                                    {formatActivityTimestamp(activity.timestamp)}
+                                  </span>
+                                </div>
+                              </TableCell>
+                            </motion.tr>
+                          ))}
+                        </AnimatePresence>
+                      </TableBody>
+                    </Table>
+                  </div>
+
+                  {/* Mobile View: Cards */}
+                  <div className="md:hidden">
                     <AnimatePresence initial={false}>
-                      {displayActivities.map((activity, idx) => (
-                        <motion.tr
-                          key={activity.id}
-                          initial={{ opacity: 0, y: -10 }}
-                          animate={{ opacity: 1, y: 0 }}
-                          exit={{ opacity: 0, scale: 0.95 }}
-                          transition={{ duration: 0.3, delay: idx < 10 ? idx * 0.05 : 0 }}
-                          className="group border-b border-muted/40 transition-all hover:bg-primary/[0.02]"
-                        >
-                          <TableCell className="pl-8 py-4">
-                            <EventBadge eventType={activity.eventType} />
-                          </TableCell>
-                          <TableCell className="font-medium text-slate-700 dark:text-slate-300">
-                            {renderEventData(activity)}
-                          </TableCell>
-                          <TableCell>
-                            {renderUserCell(activity)}
-                          </TableCell>
-                          <TableCell className="text-right pr-8">
-                            <div className="flex flex-col items-end gap-0.5">
-                              <span className="text-[11px] font-black text-slate-900 dark:text-slate-100 uppercase tracking-tighter">
-                                {formatActivityTimestamp(activity.timestamp)}
-                              </span>
+                      {displayActivities.map((activity, idx) => renderMobileCard(activity, idx))}
+                    </AnimatePresence>
+                  </div>
+                </>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="out-of-coverage">
+          <Card className="border-none shadow-2xl rounded-[2.5rem] overflow-hidden bg-card">
+            <CardHeader className="p-8 pb-4">
+              <CardTitle className="text-2xl flex items-center"><AlertTriangle className="mr-2 h-6 w-6 text-amber-500" />Out-of-Coverage Requests</CardTitle>
+              <CardDescription>Locations outside active service zones where users tried to request bookings.</CardDescription>
+            </CardHeader>
+            <CardContent className="p-0">
+              {isLoadingRequests ? (
+                <div className="flex flex-col justify-center items-center h-[300px] space-y-4">
+                  <Loader2 className="h-12 w-12 animate-spin text-primary/40" />
+                  <p className="text-xs font-bold text-muted-foreground uppercase tracking-widest animate-pulse">Loading Requests...</p>
+                </div>
+              ) : outOfZoneRequests.length === 0 ? (
+                <div className="text-center py-20 bg-muted/5">
+                  <PackageSearch className="mx-auto h-12 w-12 mb-3 text-muted-foreground/30" />
+                  <p className="font-bold text-lg">No requests captured</p>
+                  <p className="text-muted-foreground text-sm">No out-of-coverage requests recorded yet.</p>
+                </div>
+              ) : (
+                <>
+                  {/* Desktop Table View */}
+                  <div className="hidden md:block overflow-x-auto">
+                    <Table>
+                      <TableHeader className="bg-muted/30">
+                        <TableRow className="hover:bg-transparent border-none">
+                          <TableHead className="pl-8 py-5 text-[10px] font-black uppercase tracking-widest">User Name</TableHead>
+                          <TableHead className="text-[10px] font-black uppercase tracking-widest">Address Details</TableHead>
+                          <TableHead className="text-[10px] font-black uppercase tracking-widest">Coordinates</TableHead>
+                          <TableHead className="text-[10px] font-black uppercase tracking-widest">Timestamp</TableHead>
+                          <TableHead className="text-right pr-8 text-[10px] font-black uppercase tracking-widest">Actions</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        <AnimatePresence initial={false}>
+                          {outOfZoneRequests.map((request) => (
+                            <TableRow key={request.id} className="group border-b border-muted/40 transition-all hover:bg-primary/[0.02]">
+                              <TableCell className="pl-8 py-4 font-bold text-foreground">{request.userDisplayName || 'Guest User'}</TableCell>
+                              <TableCell className="text-xs font-medium">
+                                {request.eventData?.addressLine1 || request.eventData?.city || 'N/A'}
+                                {request.eventData?.pincode ? ` - ${request.eventData.pincode}` : ''}
+                              </TableCell>
+                              <TableCell className="text-xs text-muted-foreground font-mono">
+                                {request.eventData?.latitude?.toFixed(5) || 'N/A'}, {request.eventData?.longitude?.toFixed(5) || 'N/A'}
+                              </TableCell>
+                              <TableCell className="text-xs text-muted-foreground font-semibold">
+                                {formatActivityTimestamp(request.timestamp)}
+                              </TableCell>
+                              <TableCell className="pr-8 text-right">
+                                <div className="flex justify-end gap-2">
+                                  {request.eventData?.latitude && request.eventData?.longitude ? (
+                                    <Button 
+                                      variant="ghost" 
+                                      size="icon" 
+                                      className="h-9 w-9 rounded-xl hover:bg-primary hover:text-primary-foreground transition-all duration-300 shadow-sm border border-primary/10"
+                                      onClick={() => window.open(`https://www.google.com/maps/search/?api=1&query=${request.eventData.latitude},${request.eventData.longitude}`, '_blank')}
+                                      title="Open Map"
+                                    >
+                                      <MapIcon className="h-4 w-4" />
+                                    </Button>
+                                  ) : null}
+                                  <PermissionGuard moduleId="activity_feed" action="delete">
+                                    <Button 
+                                      variant="ghost" 
+                                      size="icon"
+                                      className="h-9 w-9 rounded-xl hover:bg-destructive hover:text-destructive-foreground transition-all duration-300 shadow-sm border border-destructive/10"
+                                      disabled={!request.id || isDeletingRequest === request.id} 
+                                      onClick={() => request.id && handleDeleteRequest(request.id)}
+                                      title="Delete"
+                                    >
+                                      {isDeletingRequest === request.id ? (
+                                        <Loader2 className="h-4 w-4 animate-spin" />
+                                      ) : (
+                                        <TrashIcon className="h-4 w-4" />
+                                      )}
+                                    </Button>
+                                  </PermissionGuard>
+                                </div>
+                              </TableCell>
+                            </TableRow>
+                          ))}
+                        </AnimatePresence>
+                      </TableBody>
+                    </Table>
+                  </div>
+
+                  {/* Mobile Card View */}
+                  <div className="block md:hidden">
+                    <AnimatePresence initial={false}>
+                      {outOfZoneRequests.map((request) => (
+                        <div key={request.id} className="p-5 border-b last:border-none bg-card hover:bg-muted/30 transition-colors">
+                          <div className="flex justify-between items-start mb-4">
+                            <div className="space-y-1">
+                              <p className="font-bold text-base text-foreground leading-none">
+                                {request.userDisplayName || 'Guest User'}
+                              </p>
+                              <p className="text-[10px] font-black text-muted-foreground uppercase tracking-tighter mt-1">
+                                {formatActivityTimestamp(request.timestamp)}
+                              </p>
                             </div>
-                          </TableCell>
-                        </motion.tr>
+                            <div className="flex gap-2">
+                              {request.eventData?.latitude && request.eventData?.longitude ? (
+                                <Button 
+                                  variant="outline" 
+                                  size="icon" 
+                                  className="h-8 w-8"
+                                  onClick={() => window.open(`https://www.google.com/maps/search/?api=1&query=${request.eventData.latitude},${request.eventData.longitude}`, '_blank')}
+                                >
+                                  <MapIcon className="h-4 w-4 text-primary" />
+                                </Button>
+                              ) : null}
+                              <PermissionGuard moduleId="activity_feed" action="delete">
+                                <Button 
+                                  variant="destructive" 
+                                  size="icon" 
+                                  className="h-8 w-8"
+                                  disabled={!request.id || isDeletingRequest === request.id} 
+                                  onClick={() => request.id && handleDeleteRequest(request.id)}
+                                >
+                                  {isDeletingRequest === request.id ? (
+                                    <Loader2 className="h-4 w-4 animate-spin" />
+                                  ) : (
+                                    <TrashIcon className="h-4 w-4" />
+                                  )}
+                                </Button>
+                              </PermissionGuard>
+                            </div>
+                          </div>
+                          <div className="space-y-2">
+                            <div className="p-3 rounded-2xl bg-primary/[0.03] border border-primary/5 text-xs">
+                              <p className="font-semibold text-muted-foreground text-[10px] uppercase tracking-wider mb-1">Address Details</p>
+                              <p className="font-bold text-foreground">
+                                {request.eventData?.addressLine1 || request.eventData?.city || 'N/A'}
+                                {request.eventData?.pincode ? ` - ${request.eventData.pincode}` : ''}
+                              </p>
+                            </div>
+                            <div className="p-3 rounded-2xl bg-muted/20 border border-dashed border-muted-foreground/20 text-xs">
+                              <p className="font-semibold text-muted-foreground text-[10px] uppercase tracking-wider mb-1">Coordinates</p>
+                              <p className="font-mono text-foreground">
+                                {request.eventData?.latitude?.toFixed(5) || 'N/A'}, {request.eventData?.longitude?.toFixed(5) || 'N/A'}
+                              </p>
+                            </div>
+                          </div>
+                        </div>
                       ))}
                     </AnimatePresence>
-                  </TableBody>
-                </Table>
-              </div>
-
-              {/* Mobile View: Cards */}
-              <div className="md:hidden">
-                <AnimatePresence initial={false}>
-                  {displayActivities.map((activity, idx) => renderMobileCard(activity, idx))}
-                </AnimatePresence>
-              </div>
-            </>
-          )}
-        </CardContent>
-      </Card>
+                  </div>
+                </>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }

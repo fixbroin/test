@@ -11,9 +11,9 @@ import { Label } from "@/components/ui/label";
 import { Settings2, Save, Loader2, AlertTriangle, Building, Image as ImageIcon, FileText, ExternalLink, Trash2, Facebook, Instagram, Linkedin, Youtube, TwitterIcon, Heading1, Heading2, Bold, List, Link as LinkIcon, Type, ImagePlus, Copy, Check, Pilcrow, LayoutDashboard, Plus, Trash, Search, Tags, CheckCircle } from "lucide-react";
 import { useToast } from '@/hooks/use-toast';
 import { db, storage } from '@/lib/firebase';
-import { doc, getDoc, setDoc, Timestamp, collection, query, orderBy, onSnapshot } from "firebase/firestore";
+import { doc, getDoc, setDoc, Timestamp, collection, query, orderBy, onSnapshot } from '@/lib/mysqlDb';
 import { triggerRefresh } from '@/lib/revalidateUtils';
-import { ref as storageRefStandard, uploadBytesResumable, getDownloadURL, deleteObject } from "firebase/storage";
+import { ref as storageRefStandard, uploadBytesResumable, getDownloadURL, deleteObject } from '@/lib/mysqlStorage';
 import type { GlobalWebSettings, ContentPage } from '@/types/firestore';
 import NextImage from 'next/image';
 import { Progress } from '@/components/ui/progress';
@@ -36,7 +36,7 @@ const WEB_SETTINGS_COLLECTION = "webSettings";
 const CONTENT_PAGES_COLLECTION = "contentPages";
 
 const generateRandomHexString = (length: number) => Array.from({ length }, () => Math.floor(Math.random() * 16).toString(16)).join('');
-const isFirebaseStorageUrl = (url: string | null | undefined): boolean => !!url && typeof url === 'string' && url.includes("firebasestorage.googleapis.com");
+const isFirebaseStorageUrl = (url: string | null | undefined): boolean => !!url && typeof url === 'string' && url.trim().length > 0;
 const isValidImageSrc = (url: string | null | undefined): url is string => {
     if (!url || url.trim() === '') return false;
     return url.startsWith('blob:') || url.startsWith('data:') || url.startsWith('http:') || url.startsWith('https:') || url.startsWith('/');
@@ -196,6 +196,11 @@ export default function WebSettingsPage() {
     }
   });
 
+  // Media Storage Configuration
+  const [storageDriver, setStorageDriver] = useState<'local' | 'remote'>('local');
+  const [remoteUploadUrl, setRemoteUploadUrl] = useState<string>('');
+  const [remoteSecretKey, setRemoteSecretKey] = useState<string>('');
+
   const loadGlobalSettings = useCallback(async () => {
     setIsLoading(true);
     try {
@@ -241,6 +246,18 @@ export default function WebSettingsPage() {
         socialMediaForm.reset({ facebook: "", instagram: "", twitter: "", linkedin: "", youtube: "" });
         setLogoPreview(null); setFaviconPreview(null); setWebsiteIconPreview(null);
         setOriginalGlobalSettings({});
+      }
+
+      try {
+        const storageSnap = await getDoc(doc(db, "webSettings", "storageConfiguration"));
+        if (storageSnap.exists()) {
+          const sData = storageSnap.data() as any;
+          if (sData.driver) setStorageDriver(sData.driver);
+          if (sData.remoteUploadUrl) setRemoteUploadUrl(sData.remoteUploadUrl);
+          if (sData.remoteSecretKey) setRemoteSecretKey(sData.remoteSecretKey);
+        }
+      } catch (sErr) {
+        console.warn("Error loading storage config:", sErr);
       }
     } catch (error) {
       console.error("Error loading global settings:", error);
@@ -623,6 +640,24 @@ export default function WebSettingsPage() {
     }
   };
 
+  const handleSaveStorageConfig = async () => {
+    setIsSaving(true);
+    try {
+      await setDoc(doc(db, "webSettings", "storageConfiguration"), {
+        driver: storageDriver,
+        remoteUploadUrl: remoteUploadUrl.trim(),
+        remoteSecretKey: remoteSecretKey.trim(),
+        updatedAt: Timestamp.now(),
+      }, { merge: true });
+      await triggerRefresh('web-settings');
+      toast({ title: "Storage Settings Saved", description: `Media upload driver set to ${storageDriver === 'remote' ? 'Remote Shared Hosting' : 'Local VPS'}.` });
+    } catch (err: any) {
+      toast({ title: "Save Failed", description: err.message || "Failed to update storage settings.", variant: "destructive" });
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
   // Helper for inserting HTML tags into textarea
   const insertHtmlTag = (tag: string, endTag?: string) => {
     const textarea = textareaRef.current;
@@ -829,6 +864,12 @@ export default function WebSettingsPage() {
               className="relative h-12 rounded-none border-b-2 border-transparent bg-transparent px-4 pb-3 pt-2 font-semibold text-muted-foreground shadow-none transition-none data-[state=active]:border-primary data-[state=active]:text-primary data-[state=active]:shadow-none whitespace-nowrap"
             >
               <FileText className="mr-2 h-4 w-4" />Content Pages
+            </TabsTrigger>
+            <TabsTrigger 
+              value="storage"
+              className="relative h-12 rounded-none border-b-2 border-transparent bg-transparent px-4 pb-3 pt-2 font-semibold text-muted-foreground shadow-none transition-none data-[state=active]:border-primary data-[state=active]:text-primary data-[state=active]:shadow-none whitespace-nowrap"
+            >
+              <ImagePlus className="mr-2 h-4 w-4" />Media Storage
             </TabsTrigger>
           </TabsList>
         </div>
@@ -1313,6 +1354,97 @@ export default function WebSettingsPage() {
                 </div>
               </div>
             </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="storage" className="mt-0 focus-visible:outline-none">
+          <Card className="border shadow-md rounded-2xl">
+            <CardHeader>
+              <CardTitle className="text-xl flex items-center">
+                <ImagePlus className="mr-2 h-5 w-5 text-primary" /> Media Storage Provider Settings
+              </CardTitle>
+              <CardDescription>
+                Choose where website images, service covers, banners, and uploads are stored (Local VPS vs. Remote Shared Hosting Subdomain).
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div 
+                  onClick={() => setStorageDriver('local')}
+                  className={cn(
+                    "p-5 rounded-2xl border-2 cursor-pointer transition-all duration-200 flex flex-col justify-between",
+                    storageDriver === 'local' ? "border-primary bg-primary/5 shadow-md" : "border-border/60 hover:border-primary/40 bg-card"
+                  )}
+                >
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="flex items-center gap-2 font-bold text-base text-foreground">
+                      <Building className="h-5 w-5 text-primary" /> Local VPS Storage
+                    </div>
+                    <Badge variant={storageDriver === 'local' ? "default" : "outline"}>{storageDriver === 'local' ? "Active" : "Select"}</Badge>
+                  </div>
+                  <p className="text-xs text-muted-foreground leading-relaxed">
+                    Uploads files directly to your VPS server SSD disk (<code className="bg-muted px-1 py-0.5 rounded text-[11px]">/public/uploads/</code>). Fast and direct, ideal when running on VPS.
+                  </p>
+                </div>
+
+                <div 
+                  onClick={() => setStorageDriver('remote')}
+                  className={cn(
+                    "p-5 rounded-2xl border-2 cursor-pointer transition-all duration-200 flex flex-col justify-between",
+                    storageDriver === 'remote' ? "border-primary bg-primary/5 shadow-md" : "border-border/60 hover:border-primary/40 bg-card"
+                  )}
+                >
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="flex items-center gap-2 font-bold text-base text-foreground">
+                      <ExternalLink className="h-5 w-5 text-primary" /> Remote Shared Hosting Server
+                    </div>
+                    <Badge variant={storageDriver === 'remote' ? "default" : "outline"}>{storageDriver === 'remote' ? "Active" : "Select"}</Badge>
+                  </div>
+                  <p className="text-xs text-muted-foreground leading-relaxed">
+                    Uploads files to your Shared Hosting subdomain (<code className="bg-muted px-1 py-0.5 rounded text-[11px]">media.fixbro.in</code>). Saves VPS disk space and bandwidth!
+                  </p>
+                </div>
+              </div>
+
+              {storageDriver === 'remote' && (
+                <div className="space-y-4 p-5 rounded-2xl border border-primary/20 bg-primary/[0.02]">
+                  <h4 className="font-bold text-sm text-foreground flex items-center gap-2">
+                    <Settings2 className="h-4 w-4 text-primary" /> Remote Shared Hosting Upload Configuration
+                  </h4>
+                  
+                  <div className="space-y-2">
+                    <Label className="text-xs font-semibold">Remote Upload Script URL</Label>
+                    <Input 
+                      placeholder="e.g. https://media.fixbro.in/upload.php" 
+                      value={remoteUploadUrl}
+                      onChange={(e) => setRemoteUploadUrl(e.target.value)}
+                      className="font-mono text-xs"
+                    />
+                    <p className="text-[11px] text-muted-foreground">The full HTTP/HTTPS endpoint URL of your PHP upload bridge script on Shared Hosting.</p>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label className="text-xs font-semibold">Security Secret Key</Label>
+                    <Input 
+                      type="password"
+                      placeholder="e.g. fixbro_secure_key_123" 
+                      value={remoteSecretKey}
+                      onChange={(e) => setRemoteSecretKey(e.target.value)}
+                      className="font-mono text-xs"
+                    />
+                    <p className="text-[11px] text-muted-foreground">A secret password shared between your VPS and Shared Hosting upload script to block unauthorized uploads.</p>
+                  </div>
+                </div>
+              )}
+            </CardContent>
+            <CardFooter className="flex justify-between items-center bg-muted/20 border-t py-4">
+              <span className="text-xs text-muted-foreground font-medium">Currently using: <strong>{storageDriver === 'remote' ? 'Remote Shared Hosting' : 'Local VPS Storage'}</strong></span>
+              <PermissionGuard moduleId="web_settings" action="write">
+                <Button onClick={handleSaveStorageConfig} disabled={isSaving}>
+                  {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />} Save Storage Settings
+                </Button>
+              </PermissionGuard>
+            </CardFooter>
           </Card>
         </TabsContent>
       </Tabs>

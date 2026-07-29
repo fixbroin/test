@@ -17,13 +17,14 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDes
 import { Loader2, ReceiptText, UserPlus, PlusCircle, Trash2, CalendarIcon, Save, Send, Download, Search, UserCircle as UserIcon, XCircle, Check, ChevronsUpDown } from "lucide-react";
 import type { FirestoreUser, InvoiceItem, FirestoreInvoice, InvoicePaymentStatus, InvoicePaymentMode, CompanyDetailsForPdf } from '@/types/firestore';
 import { db, storage } from '@/lib/firebase';
-import { collection, getDocs, addDoc, Timestamp, query, orderBy, doc, setDoc, updateDoc, getDoc } from "firebase/firestore";
+import { collection, getDocs, addDoc, Timestamp, query, orderBy, doc, setDoc, updateDoc, getDoc } from '@/lib/mysqlDb';
 import { useToast } from "@/hooks/use-toast";
 import { nanoid } from 'nanoid';
 import { cn } from '@/lib/utils';
 import { generateInvoicePdf } from '@/lib/sriinvoiceGenerator';
 import { uploadPdfToStorage, triggerPdfDownload, dataUriToBlob } from '@/lib/pdfUtils';
 import { useGlobalSettings } from '@/hooks/useGlobalSettings';
+import { useApplicationConfig } from '@/hooks/useApplicationConfig';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { getTimestampMillis } from '@/lib/utils';
 
@@ -77,6 +78,7 @@ export default function CreateInvoiceForm({ initialData, onSaveSuccess }: Create
   const { toast } = useToast();
   const router = useRouter();
   const { settings: companySettings, isLoading: isLoadingCompanySettings } = useGlobalSettings();
+  const { config: appConfig } = useApplicationConfig();
   const [isSaving, setIsSaving] = useState(false);
   const [isSending, setIsSending] = useState(false);
   const [isDownloading, setIsDownloading] = useState(false);
@@ -281,6 +283,7 @@ export default function CreateInvoiceForm({ initialData, onSaveSuccess }: Create
         name: companySettings?.websiteName || "FixBro", address: companySettings?.address || "",
         contactEmail: companySettings?.contactEmail || "", contactMobile: companySettings?.contactMobile || "",
         logoUrl: companySettings?.logoUrl || undefined,
+        currencySymbol: appConfig?.currencySymbol || "₹",
       };
 
       const pdfDataUri = await generateInvoicePdf(savedInvoice, companyInfo);
@@ -289,6 +292,7 @@ export default function CreateInvoiceForm({ initialData, onSaveSuccess }: Create
 
       const storagePath = `invoices_pdf/${currentInitialData.id}_${savedInvoice.invoiceNumber}.pdf`;
       const downloadUrl = await uploadPdfToStorage(pdfBlob, storagePath);
+      await updateDoc(doc(db, "invoices", currentInitialData.id), { pdfUrl: downloadUrl, updatedAt: Timestamp.now() });
       
       toast({
         duration: 10000,
@@ -324,6 +328,7 @@ export default function CreateInvoiceForm({ initialData, onSaveSuccess }: Create
         name: companySettings?.websiteName || "FixBro", address: companySettings?.address || "",
         contactEmail: companySettings?.contactEmail || "", contactMobile: companySettings?.contactMobile || "",
         logoUrl: companySettings?.logoUrl || undefined,
+        currencySymbol: appConfig?.currencySymbol || "₹",
       };
 
       const pdfDataUri = await generateInvoicePdf(savedInvoice, companyInfo);

@@ -27,7 +27,7 @@ import { compressImage } from "@/lib/imageCompressor";
 import NextImage from 'next/image';
 import { useToast } from "@/hooks/use-toast";
 import { storage } from '@/lib/firebase';
-import { ref as storageRef, uploadBytesResumable, getDownloadURL, deleteObject } from "firebase/storage";
+import { ref as storageRef, uploadBytesResumable, getDownloadURL, deleteObject } from '@/lib/mysqlStorage';
 import { Progress } from "@/components/ui/progress";
 
 const generateRandomHexString = (length: number) => Array.from({ length }, () => Math.floor(Math.random() * 16).toString(16)).join('');
@@ -36,20 +36,26 @@ const popupTypes: [string, ...string[]] = ["newsletter_signup", "promotional", "
 const displayRuleTypes: [string, ...string[]] = ["on_page_load", "on_exit_intent", "after_x_seconds", "on_scroll_percentage"];
 const displayFrequencies: [string, ...string[]] = ["once_per_session", "once_per_day", "always"];
 
+const isValidUrlOrRelativePath = (val?: string) => {
+  if (!val || val.trim() === '') return true;
+  const s = val.trim();
+  return s.startsWith('/') || s.startsWith('http://') || s.startsWith('https://') || s.startsWith('uploads/') || s.startsWith('data:') || s.startsWith('blob:');
+};
+
 const popupFormSchema = z.object({
   name: z.string().min(2, "Internal Name is required.").max(100, "Name too long."),
   popupType: z.enum(popupTypes, { required_error: "Popup type is required." }),
   title: z.string().max(150, "Title too long.").optional().or(z.literal('')),
   displayText: z.string().max(500, "Display text too long.").optional().or(z.literal('')),
-  imageUrl: z.string().url({ message: "Must be a valid URL if provided." }).optional().or(z.literal('')),
+  imageUrl: z.string().refine(isValidUrlOrRelativePath, { message: "Must be a valid URL or relative path if provided." }).optional().or(z.literal('')),
   imageHint: z.string().max(50, "Image hint max 50 chars.").optional().or(z.literal('')),
-  videoUrl: z.string().url({ message: "Must be a valid URL if provided." }).optional().or(z.literal('')),
+  videoUrl: z.string().refine(isValidUrlOrRelativePath, { message: "Must be a valid URL or relative path if provided." }).optional().or(z.literal('')),
   showEmailInput: z.boolean().default(false),
   showNameInput: z.boolean().default(false),
   showMobileInput: z.boolean().default(false),
   promoCode: z.string().max(50, "Promo code too long.").optional().or(z.literal('')),
   promoCodeConditionFieldsRequired: z.coerce.number().min(0).max(3).optional().default(0),
-  targetUrl: z.string().url({ message: "Must be a valid URL if provided." }).optional().or(z.literal('')),
+  targetUrl: z.string().refine(isValidUrlOrRelativePath, { message: "Must be a valid URL or relative path if provided." }).optional().or(z.literal('')),
   displayRuleType: z.enum(displayRuleTypes).default("on_page_load"),
   displayRuleValue: z.coerce.number().min(0).optional().nullable(),
   displayFrequency: z.enum(displayFrequencies).default("once_per_session"),
@@ -67,7 +73,7 @@ interface PopupFormProps {
   isSubmitting?: boolean;
 }
 
-const isFirebaseStorageUrl = (url: string | null | undefined): boolean => !!url && typeof url === 'string' && url.includes("firebasestorage.googleapis.com");
+const isFirebaseStorageUrl = (url: string | null | undefined): boolean => !!url && typeof url === 'string' && url.trim().length > 0;
 const isValidImageSrc = (url: string | null | undefined): url is string => {
     if (!url || url.trim() === '') return false;
     return url.startsWith('blob:') || url.startsWith('data:') || url.startsWith('http:') || url.startsWith('https:') || url.startsWith('/');

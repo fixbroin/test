@@ -13,7 +13,7 @@ import { useApplicationConfig } from '@/hooks/useApplicationConfig';
 import { useToast } from '@/hooks/use-toast';
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { motion } from 'framer-motion';
-import { cn, formatDateInTimezone, formatTimeInTimezone } from '@/lib/utils';
+import { cn, formatDateInTimezone, formatTimeInTimezone, formatCurrency } from '@/lib/utils';
 import PwaInstallButton from '@/components/shared/PwaInstallButton';
 import DashboardTrendingServiceCard from '@/components/admin/DashboardTrendingServiceCard';
 import { getDashboardData, type DashboardData, clearSearchHotspots } from '@/lib/adminDashboardUtils';
@@ -59,12 +59,16 @@ const StatCard = ({ title, value, icon: Icon, colorClass, subtitle }: { title: s
 );
 
 export default function AdminDashboardPage() {
+  const { user, firestoreUser } = useAuth();
   const { stats: realtimeStats } = useAdminStats();
   const [data, setData] = useState<DashboardData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isSyncing, setIsSyncing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const { config: appConfig } = useApplicationConfig();
+  const symbol = appConfig?.currencySymbol || '₹';
+  const decimals = appConfig?.currencyDecimalPoints !== undefined ? appConfig.currencyDecimalPoints : 2;
+  const code = appConfig?.currencyCode || 'INR';
   const { toast } = useToast();
 
   const handleSyncStats = async () => {
@@ -115,7 +119,6 @@ export default function AdminDashboardPage() {
       });
     }
   };
-const { user, firestoreUser } = useAuth();
   const greeting = useMemo(() => {
     const hour = new Date().getHours();
     if (hour < 12) return "Good Morning";
@@ -210,7 +213,7 @@ const { user, firestoreUser } = useAuth();
         <motion.div variants={itemVariants}>
           <StatCard 
             title="Revenue" 
-            value={`₹${(realtimeStats?.completedRevenue ?? stats.completedRevenue).toLocaleString()}`} 
+            value={formatCurrency(realtimeStats?.completedRevenue ?? stats.completedRevenue, symbol, decimals, code)} 
             icon={DollarSign} 
             colorClass="bg-blue-500/10 text-blue-500" 
             subtitle="Total Completed Sales"
@@ -219,7 +222,7 @@ const { user, firestoreUser } = useAuth();
         <motion.div variants={itemVariants}>
           <StatCard 
             title="Earnings" 
-            value={`₹${(realtimeStats?.earnedCommission ?? stats.earnedCommission).toLocaleString(undefined, {maximumFractionDigits: 0})}`} 
+            value={formatCurrency(realtimeStats?.earnedCommission ?? stats.earnedCommission, symbol, decimals, code)} 
             icon={HandCoins} 
             colorClass="bg-primary/10 text-primary" 
             subtitle="Net Platform Profit"

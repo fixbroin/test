@@ -13,7 +13,7 @@ import CheckoutStepper from '@/components/checkout/CheckoutStepper';
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { getCartEntries, type CartEntry } from '@/lib/cartManager';
 import { db, auth } from '@/lib/firebase';
-import { doc, getDoc, collection, query, where, getDocs, Timestamp } from "firebase/firestore";
+import { doc, getDoc, collection, query, where, getDocs, Timestamp } from '@/lib/mysqlDb';
 import type { FirestoreService, FirestoreUser, FirestorePromoCode, AppSettings, PlatformFeeSetting, AppliedPlatformFeeItem, PriceVariant } from '@/types/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { useRouter, usePathname, useSearchParams } from 'next/navigation';
@@ -102,6 +102,12 @@ export default function PaymentPage() {
   const { settings: globalSettings, isLoading: isLoadingGlobalSettings } = useGlobalSettings();
 
   const [subTotal, setSubTotal] = useState(0); 
+  const [categoryOverrides, setCategoryOverrides] = useState<{
+    visitingChargeAmount?: number;
+    minimumBookingAmount?: number;
+    minimumBookingPolicyDescription?: string;
+  } | null>(null);
+
   const [visitingCharge, setVisitingCharge] = useState(0); 
   const [taxAmount, setTaxAmount] = useState(0); 
   const [totalAmountDue, setTotalAmountDue] = useState(0); 
@@ -188,6 +194,21 @@ export default function PaymentPage() {
       const promoSnap = await getDocs(promoQuery);
       const fetchedPromos = promoSnap.docs.map(docSnap => ({ id: docSnap.id, ...docSnap.data() } as FirestorePromoCode));
       setAllFetchedPromoCodes(fetchedPromos);
+
+      let customCategoryData = null;
+      const activeCatId = localStorage.getItem('fixbroActiveCheckoutCategory');
+      if (activeCatId) {
+        const catSnap = await getDoc(doc(db, "adminCategories", activeCatId));
+        if (catSnap.exists()) {
+          const cd = catSnap.data();
+          customCategoryData = {
+            visitingChargeAmount: cd.visitingChargeAmount,
+            minimumBookingAmount: cd.minimumBookingAmount,
+            minimumBookingPolicyDescription: cd.minimumBookingPolicyDescription
+          };
+        }
+      }
+      setCategoryOverrides(customCategoryData);
     } catch (error) { console.error("[PaymentPage] Error fetching service details or promos:", error); toast({ title: "Error", description: "Could not load page data. Please try refreshing.", variant: "destructive" }); setAllFetchedPromoCodes([]);
     } finally { setIsLoadingCartDetails(false); }
   }, [pathname, currentUser, toast]);
@@ -270,19 +291,28 @@ export default function PaymentPage() {
 
     const subtotalForFeeAndVcCheck = currentSumOfDisplayedPrices - currentDiscountAmount;
     let calculatedBaseVisitingCharge = 0; let displayedVisitingChargeAmount = 0; let currentPolicyMessage: string | null = null;
-    if (appConfig.enableMinimumBookingPolicy && typeof appConfig.minimumBookingAmount === 'number' && typeof appConfig.visitingChargeAmount === 'number') {
-      if (subtotalForFeeAndVcCheck > 0 && subtotalForFeeAndVcCheck < appConfig.minimumBookingAmount) {
-        displayedVisitingChargeAmount = appConfig.visitingChargeAmount;
+
+    const vcAmount = (categoryOverrides && typeof categoryOverrides.visitingChargeAmount === 'number') ? categoryOverrides.visitingChargeAmount : appConfig.visitingChargeAmount;
+    const minBooking = (categoryOverrides && typeof categoryOverrides.minimumBookingAmount === 'number') ? categoryOverrides.minimumBookingAmount : appConfig.minimumBookingAmount;
+    const policyDesc = (categoryOverrides && categoryOverrides.minimumBookingPolicyDescription) ? categoryOverrides.minimumBookingPolicyDescription : appConfig.minimumBookingPolicyDescription;
+
+    if (appConfig.enableMinimumBookingPolicy && typeof minBooking === 'number' && typeof vcAmount === 'number') {
+      if (subtotalForFeeAndVcCheck > 0 && subtotalForFeeAndVcCheck < minBooking) {
+        displayedVisitingChargeAmount = vcAmount;
         calculatedBaseVisitingCharge = getBasePrice(displayedVisitingChargeAmount, appConfig.isVisitingChargeTaxInclusive, appConfig.visitingChargeTaxPercent);
-        if (appConfig.minimumBookingPolicyDescription) {
-            currentPolicyMessage = appConfig.minimumBookingPolicyDescription.replace(/{MINIMUM_BOOKING_AMOUNT}/g, appConfig.minimumBookingAmount.toString()).replace(/{VISITING_CHARGE}/g, (appConfig.visitingChargeAmount || 0).toString());
+        if (policyDesc) {
+          currentPolicyMessage = policyDesc
+            .replace(/{MINIMUM_BOOKING_AMOUNT}/g, minBooking.toString())
+            .replace(/{VISITING_CHARGE}/g, displayedVisitingChargeAmount.toString())
+            .replace("{MINIMUM_BOOKING_AMOUNT}", minBooking.toString())
+            .replace("{VISITING_CHARGE}", displayedVisitingChargeAmount.toString());
         }
       }
     }
     setVisitingCharge(calculatedBaseVisitingCharge); setPolicyMessage(currentPolicyMessage);
 
     let runningTotalForPlatformFeeBase = 0; let runningTotalTaxOnPlatformFees = 0; const newCalculatedPlatformFees: AppliedPlatformFeeItem[] = [];
-    if (appConfig.platformFees && appConfig.platformFees.length > 0) {
+    if (calculatedBaseVisitingCharge === 0 && appConfig.platformFees && appConfig.platformFees.length > 0) {
       appConfig.platformFees.forEach(fee => {
         if (fee.isActive) {
           let feeBaseAmount = 0;
@@ -293,7 +323,7 @@ export default function PaymentPage() {
         }
       });
     }
-    setCalculatedPlatformFees(newCalculatedPlatformFees); setTotalPlatformFeeBaseAmount(totalPlatformFeeBaseAmount); setTotalTaxOnPlatformFees(totalTaxOnPlatformFees);
+    setCalculatedPlatformFees(newCalculatedPlatformFees); setTotalPlatformFeeBaseAmount(runningTotalForPlatformFeeBase); setTotalTaxOnPlatformFees(runningTotalTaxOnPlatformFees);
 
     const totalItemTaxAmount = newBreakdownItems.reduce((sum, item) => sum + item.taxAmount, 0);
     let visitingChargeTaxAmount = 0; let visitingChargeTaxPercentForBreakdown = 0;
@@ -606,7 +636,7 @@ export default function PaymentPage() {
                     <>
                         <div className="flex justify-between"><span className="text-muted-foreground">Items Total (Displayed Prices):</span><span>₹{sumOfDisplayedItemPrices.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span></div>
                         {discountAmount > 0 && (<div className="flex justify-between text-green-600"><span>Discount ({appliedPromoCode?.code || 'Applied'}):</span><span>- ₹{discountAmount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span></div>)}
-                        {visitingCharge > 0 && (<div className="flex justify-between text-primary"><span className="text-primary">Visiting Charge (Displayed):</span><span>+ ₹{(appConfig.visitingChargeAmount || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span></div>)}
+                        {visitingCharge > 0 && (<div className="flex justify-between text-primary"><span className="text-primary">Visiting Charge (Displayed):</span><span>+ ₹{(((categoryOverrides && typeof categoryOverrides.visitingChargeAmount === 'number') ? categoryOverrides.visitingChargeAmount : appConfig.visitingChargeAmount) || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span></div>)}
                         {calculatedPlatformFees.map((fee, index) => ( <div key={index} className="flex justify-between"><span className="text-muted-foreground flex items-center"><HandCoins className="mr-1 h-3.5 w-3.5 text-muted-foreground"/> {fee.name}{fee.taxRatePercentOnFee > 0 && <span className="text-xs ml-1">(incl. tax)</span>}</span><span>+ ₹{(fee.calculatedFeeAmount + fee.taxAmountOnFee).toFixed(2)}</span></div> ))}
                         <div className="flex justify-between items-center">
                             <div className="flex items-center text-muted-foreground">{effectiveTaxRateDisplay}

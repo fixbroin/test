@@ -22,9 +22,10 @@ const UserCancellationEmailInputSchema = z.object({
   smtpPort: z.string().optional().describe("SMTP port (e.g., '587', '465')."),
   smtpUser: z.string().optional().describe("SMTP username."),
   smtpPass: z.string().optional().describe("SMTP password."),
-  senderEmail: z.string().email().optional().describe("The email address to send from."),
+  senderEmail: z.string().optional().describe("The email address to send from."),
   siteName: z.string().optional().default("FixBro"),
-  logoUrl: z.string().url().optional(),
+  logoUrl: z.string().optional(),
+  currencySymbol: z.string().optional().describe("Currency symbol to use in email templates."),
 });
 
 export type UserCancellationEmailInput = z.infer<typeof UserCancellationEmailInputSchema>;
@@ -40,7 +41,10 @@ export async function sendUserCancellationEmail(input: UserCancellationEmailInpu
 }
 
 const createHtmlTemplate = (title: string, bodyContent: string, siteName: string, logoUrl?: string) => {
-    const finalLogoUrl = logoUrl || `${getBaseUrl()}/default-image.png`;
+    let finalLogoUrl = logoUrl || `${getBaseUrl()}/default-image.png`;
+    if (finalLogoUrl.startsWith('/')) {
+        finalLogoUrl = getBaseUrl() + finalLogoUrl;
+    }
     return `
 <!DOCTYPE html>
 <html lang="en">
@@ -109,8 +113,8 @@ const userCancellationEmailFlow = ai.defineFlow(
   },
   async (bookingDetails) => {
     try {
-      const {
-        smtpHost, smtpPort, smtpUser, smtpPass, senderEmail, siteName = "FixBro", logoUrl,
+       const {
+        smtpHost, smtpPort, smtpUser, smtpPass, senderEmail, siteName = "FixBro", logoUrl, currencySymbol = "₹",
         customerName, customerEmail, bookingId,
         paymentMethod, paidAmount, cancellationFee, refundableAmount,
       } = bookingDetails;
@@ -122,9 +126,9 @@ const userCancellationEmailFlow = ai.defineFlow(
           paymentInfoHtml = `
             <div class="summary-box">
               <h3 style="margin-top: 0;">Refund Details</h3>
-              <p>You paid: ₹${paidAmount.toFixed(2)}</p>
-              <p>Cancellation fee: ₹${cancellationFee.toFixed(2)}</p>
-              <p><strong>Refundable amount: ₹${refundableAmount.toFixed(2)}</strong></p>
+              <p>You paid: ${currencySymbol}${paidAmount.toFixed(2)}</p>
+              <p>Cancellation fee: ${currencySymbol}${cancellationFee.toFixed(2)}</p>
+              <p><strong>Refundable amount: ${currencySymbol}${refundableAmount.toFixed(2)}</strong></p>
               <p>Your refund will be processed within 7 working days to your original payment method.</p>
             </div>
           `;
@@ -132,7 +136,7 @@ const userCancellationEmailFlow = ai.defineFlow(
           paymentInfoHtml = `
             <div class="summary-box">
               <h3 style="margin-top: 0;">Pending Balance</h3>
-              <p>Since you chose "${paymentMethod}", you now have a pending balance of <strong>₹${cancellationFee.toFixed(2)}</strong> for the cancellation fee. This balance may be added to your next booking.</p>
+              <p>Since you chose "${paymentMethod}", you now have a pending balance of <strong>${currencySymbol}${cancellationFee.toFixed(2)}</strong> for the cancellation fee. This balance may be added to your next booking.</p>
             </div>
           `;
       }

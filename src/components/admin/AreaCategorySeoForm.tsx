@@ -12,11 +12,12 @@ import { Switch } from "@/components/ui/switch";
 import type { FirestoreCity, FirestoreArea, FirestoreCategory, AreaCategorySeoSetting } from '@/types/firestore';
 import { useEffect, useState, useCallback, useMemo } from "react";
 import { cn } from "@/lib/utils";
-import { Loader2, Wand2, Edit2, Lock, CheckCircle, Search, MapPin, Building, Tags } from "lucide-react";
+import { Loader2, Wand2, Edit2, Lock, CheckCircle, Search, MapPin, Building, Tags, Sparkles } from "lucide-react";
 import { generateAreaCategorySeo } from '@/ai/flows/generateAreaCategorySeoFlow';
+import { generateFreeAreaCategorySeoData, getNearbyAreasSorted } from "@/lib/seoGenerator";
 import { useToast } from "@/hooks/use-toast";
 import { db } from '@/lib/firebase';
-import { collection, query, where, getDocs, limit } from "firebase/firestore";
+import { collection, query, where, getDocs, limit, orderBy } from '@/lib/mysqlDb';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -212,6 +213,59 @@ export default function AreaCategorySeoForm({
     }
   }, [watchedSlug, isSlugEditable, initialData, form, checkSlugUniqueness]);
 
+  const handleGenerateFreeSeo = async () => {
+    const cityId = form.getValues("cityId");
+    const areaId = form.getValues("areaId");
+    const categoryId = form.getValues("categoryId");
+
+    const selectedCityObj = cities.find(c => c.id === cityId);
+    const selectedAreaObj = areas.find(a => a.id === areaId);
+    const selectedCategoryObj = categories.find(c => c.id === categoryId);
+
+    if (!selectedCityObj || !selectedAreaObj || !selectedCategoryObj) {
+      toast({
+        title: "City, Area & Category Required",
+        description: "Please select a city, area, and category first.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      // Query top active services under this category to build unique content strings
+      const servicesRef = collection(db, "services");
+      const snap = await getDocs(query(servicesRef, where("categoryId", "==", categoryId), where("isActive", "==", true), orderBy("order", "asc"), limit(10)));
+      const serviceNames = snap.docs.map(d => d.data().name);
+
+      const fallbackNearby = getNearbyAreasSorted(selectedAreaObj, areas.filter(a => a.cityId === cityId), 10);
+
+      const result = generateFreeAreaCategorySeoData(
+        selectedCityObj.name,
+        selectedAreaObj.name,
+        selectedCategoryObj.name,
+        serviceNames,
+        fallbackNearby
+      );
+
+      form.setValue("h1_title", result.h1_title, { shouldValidate: true, shouldDirty: true });
+      form.setValue("meta_title", result.seo_title, { shouldValidate: true, shouldDirty: true });
+      form.setValue("meta_description", result.seo_description, { shouldValidate: true, shouldDirty: true });
+      form.setValue("meta_keywords", result.seo_keywords, { shouldValidate: true, shouldDirty: true });
+      form.setValue("seo_content", result.seo_content, { shouldValidate: true, shouldDirty: true });
+      form.setValue("faqs", result.faqs, { shouldValidate: true, shouldDirty: true });
+      form.setValue("imageHint", result.imageHint, { shouldValidate: true, shouldDirty: true });
+
+      toast({ 
+        title: "Content Generated (Free)!", 
+        description: "SEO fields and FAQs have been auto-populated using dynamic templates.",
+        className: "bg-green-100 border-green-300 text-green-700" 
+      });
+    } catch (error) {
+      console.error("Error generating free SEO:", error);
+      toast({ title: "Error", description: "Failed to generate free SEO content.", variant: "destructive" });
+    }
+  };
+
   const handleGenerateSeo = async () => {
     const cityId = form.getValues("cityId");
     const areaId = form.getValues("areaId");
@@ -254,6 +308,26 @@ export default function AreaCategorySeoForm({
     }
   };
   
+  const handleCopyLink = () => {
+    const slug = form.getValues("slug");
+    if (!slug) {
+      toast({ title: "Cannot copy", description: "Slug must be set first.", variant: "warning" });
+      return;
+    }
+    const fullUrl = `${window.location.origin}/${slug}`;
+    navigator.clipboard.writeText(fullUrl);
+    toast({ title: "Copied!", description: "Link copied to clipboard." });
+  };
+
+  const handleVisitPage = () => {
+    const slug = form.getValues("slug");
+    if (!slug) {
+      toast({ title: "Cannot visit", description: "Slug must be set first.", variant: "warning" });
+      return;
+    }
+    window.open(`/${slug}`, '_blank');
+  };
+
   const handleSubmit = async (formData: AreaCategorySeoFormData) => {
     await onSubmitProp({ ...formData, id: initialData?.id });
   };
@@ -515,32 +589,65 @@ export default function AreaCategorySeoForm({
         )}/>
         <FormField control={form.control} name="slug" render={({ field }) => (
           <FormItem>
-            <div className="flex items-center justify-between">
-              <FormLabel>Slug Segment {isEditing ? "(Editing might affect SEO)" : "(Auto-generated or custom)"}</FormLabel>
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                onClick={() => setIsSlugEditable(!isSlugEditable)}
-                className="h-8 px-2 text-xs"
-                disabled={effectiveIsSubmitting}
-              >
-                {isSlugEditable ? (
-                  <><Lock className="mr-1 h-3 w-3" /> Lock</>
-                ) : (
-                  <><Edit2 className="mr-1 h-3 w-3" /> Edit Manually</>
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                <FormLabel>Slug Segment {isEditing ? "(Editing might affect SEO)" : "(Auto-generated or custom)"}</FormLabel>
+                <div className="flex flex-wrap items-center gap-1">
+                {watchedSlug && (
+                  <>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={handleCopyLink}
+                      className="h-8 px-2 text-xs text-primary hover:text-primary/80 hover:bg-muted"
+                    >
+                      Copy Link
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={handleVisitPage}
+                      className="h-8 px-2 text-xs text-primary hover:text-primary/80 hover:bg-muted"
+                    >
+                      Open Page
+                    </Button>
+                  </>
                 )}
-              </Button>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setIsSlugEditable(!isSlugEditable)}
+                  className="h-8 px-2 text-xs"
+                  disabled={effectiveIsSubmitting}
+                >
+                  {isSlugEditable ? (
+                    <><Lock className="mr-1 h-3 w-3" /> Lock</>
+                  ) : (
+                    <><Edit2 className="mr-1 h-3 w-3" /> Edit Manually</>
+                  )}
+                </Button>
+              </div>
             </div>
             <FormControl>
-                <Input 
+              <div className="flex items-center rounded-md border border-input bg-background focus-within:ring-2 focus-within:ring-ring focus-within:ring-offset-2">
+                <span className="bg-muted px-3 py-2 text-sm text-muted-foreground border-r font-mono select-none rounded-l-md whitespace-nowrap">
+                  /
+                </span>
+                <input 
+                    type="text"
                     placeholder="e.g., bangalore/whitefield/plumbing" 
                     {...field} 
                     value={field.value || ""} 
                     onChange={(e) => field.onChange(generateSeoSlug(e.target.value.split('/')))} 
                     disabled={effectiveIsSubmitting || !isSlugEditable} 
-                    className={!isSlugEditable ? "bg-muted/50 font-mono text-xs" : "font-mono text-xs"}
+                    className={cn(
+                      "flex h-10 w-full rounded-r-md bg-transparent px-3 py-2 text-sm focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-50 font-mono text-xs",
+                      !isSlugEditable && "bg-muted/30"
+                    )}
                 />
+              </div>
             </FormControl>
             <FormDescription>
                 {isSlugEditable 
@@ -551,12 +658,18 @@ export default function AreaCategorySeoForm({
           </FormItem>
         )}/>
         <div className="space-y-4 pt-4 border-t">
-          <div className="flex justify-between items-center">
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
               <h3 className="text-md font-semibold text-muted-foreground">SEO Content</h3>
-              <Button type="button" variant="outline" size="sm" onClick={handleGenerateSeo} disabled={effectiveIsSubmitting || !watchedCityId || !watchedAreaId || !watchedCategoryId}>
-                  {isGeneratingSeo ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Wand2 className="mr-2 h-4 w-4" />}
-                  Generate AI SEO
-              </Button>
+              <div className="flex flex-wrap gap-2">
+                <Button type="button" variant="outline" size="sm" onClick={handleGenerateFreeSeo} disabled={effectiveIsSubmitting || !watchedCityId || !watchedAreaId || !watchedCategoryId}>
+                    <Sparkles className="mr-2 h-4 w-4 text-primary" />
+                    Auto-Fill (Free)
+                </Button>
+                <Button type="button" variant="outline" size="sm" onClick={handleGenerateSeo} disabled={effectiveIsSubmitting || !watchedCityId || !watchedAreaId || !watchedCategoryId}>
+                    {isGeneratingSeo ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Wand2 className="mr-2 h-4 w-4" />}
+                    Generate AI SEO
+                </Button>
+              </div>
             </div>
             <p className="text-xs text-muted-foreground">Leave blank to use global SEO patterns defined in SEO Settings.</p>
         </div>

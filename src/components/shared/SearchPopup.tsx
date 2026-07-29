@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Search, Loader2, XCircle, Image as ImageIcon } from 'lucide-react';
 import { db } from '@/lib/firebase';
-import { collection, getDocs, query, where, orderBy, addDoc, serverTimestamp } from "firebase/firestore";
+import { collection, getDocs, query, where, orderBy, addDoc, serverTimestamp } from '@/lib/mysqlDb';
 import type { FirestoreService } from '@/types/firestore';
 import Link from 'next/link';
 import NextImage from 'next/image';
@@ -16,6 +16,8 @@ import { useLoading } from '@/contexts/LoadingContext';
 import { useAuth } from '@/hooks/useAuth';
 import { getGuestId } from '@/lib/guestIdManager';
 import { logUserActivity } from '@/lib/activityLogger';
+import { formatCurrency } from '@/lib/utils';
+import { useApplicationConfig } from '@/hooks/useApplicationConfig';
 
 interface SearchPopupProps {
   isOpen: boolean;
@@ -23,6 +25,10 @@ interface SearchPopupProps {
 }
 
 export default function SearchPopup({ isOpen, onClose }: SearchPopupProps) {
+  const { config: appConfig } = useApplicationConfig();
+  const symbol = appConfig?.currencySymbol || '₹';
+  const decimals = appConfig?.currencyDecimalPoints !== undefined ? appConfig.currencyDecimalPoints : 2;
+  const code = appConfig?.currencyCode || 'INR';
   const [searchTerm, setSearchTerm] = useState('');
   const [allServices, setAllServices] = useState<FirestoreService[]>([]);
   const [filteredServices, setFilteredServices] = useState<FirestoreService[]>([]);
@@ -195,7 +201,7 @@ export default function SearchPopup({ isOpen, onClose }: SearchPopupProps) {
                         <p className="text-xs text-muted-foreground line-clamp-2 mt-0.5 sm:mt-1">
                           {service.description || service.shortDescription || "View details..."}
                         </p>
-                         <p className="font-semibold text-sm mt-1 sm:mt-2">₹{service.discountedPrice ?? service.price}</p>
+                          <p className="font-semibold text-sm mt-1 sm:mt-2">{formatCurrency(service.discountedPrice ?? service.price, symbol, decimals, code)}</p>
                       </div>
                     </div>
                   </Link>

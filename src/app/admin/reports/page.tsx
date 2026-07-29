@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { BarChart as BarChartIcon, DollarSign, ShoppingBag, CheckCircle, Clock, Loader2, PackageSearch, AlertTriangle } from "lucide-react";
@@ -9,11 +9,14 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as ChartTooltipRech
 import { ChartContainer, ChartTooltipContent, type ChartConfig } from "@/components/ui/chart";
 import type { FirestoreBooking } from '@/types/firestore';
 import { db } from '@/lib/firebase';
-import { collection, onSnapshot, query, orderBy, limit } from "firebase/firestore";
+import { collection, onSnapshot, query, orderBy, limit } from '@/lib/mysqlDb';
 import { useToast } from "@/hooks/use-toast";
 import { useAdminStats } from "@/hooks/useAdminStats";
 import { useAuth } from "@/hooks/useAuth";
+import { useApplicationConfig } from '@/hooks/useApplicationConfig';
+import { formatCurrency } from '@/lib/utils';
 import PermissionGuard from "@/components/admin/PermissionGuard";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 
 
@@ -22,7 +25,7 @@ interface ReportData {
   totalBookings: number;
   completedBookings: number;
   activeBookings: number; // Confirmed or Processing
-  bookingsPerMonth: { monthYear: string; bookings: number; earnings: number }[];
+  bookingsPerMonth: { monthYear: string; bookings: number; completedBookings: number; earnings: number }[];
 }
 
 const chartConfig = {
@@ -37,14 +40,13 @@ const chartConfig = {
 } satisfies ChartConfig;
 
 export default function AdminReportsPage() {
+  const { config: appConfig } = useApplicationConfig();
+  const symbol = appConfig?.currencySymbol || '₹';
+  const decimals = appConfig?.currencyDecimalPoints !== undefined ? appConfig.currencyDecimalPoints : 2;
+  const code = appConfig?.currencyCode || 'INR';
   const { stats: globalStats } = useAdminStats();
-  const [reportData, setReportData] = useState<ReportData>({
-    totalRevenue: 0,
-    totalBookings: 0,
-    completedBookings: 0,
-    activeBookings: 0,
-    bookingsPerMonth: [],
-  });
+  const [allBookings, setAllBookings] = useState<FirestoreBooking[]>([]);
+  const [selectedYear, setSelectedYear] = useState<number>(new Date().getFullYear());
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const { toast } = useToast();
@@ -54,7 +56,7 @@ export default function AdminReportsPage() {
     setIsLoading(true);
     setError(null); 
     const bookingsCollectionRef = collection(db, "bookings");
-    const q = query(bookingsCollectionRef, orderBy("createdAt", "desc"), limit(500)); 
+    const q = query(bookingsCollectionRef, orderBy("createdAt", "desc"), limit(1000)); 
 
     const unsubscribe = onSnapshot(q, (querySnapshot) => {
       console.log("AdminReportsPage: onSnapshot received data, docs count:", querySnapshot.docs.length);
@@ -63,75 +65,15 @@ export default function AdminReportsPage() {
         ...doc.data(),
         id: doc.id,
       } as FirestoreBooking));
-      
-      console.log("AdminReportsPage: fetchedBookings (first 5):", fetchedBookings.slice(0,5));
-
 
       if (querySnapshot.empty) {
         console.log("AdminReportsPage: No bookings found in snapshot.");
-        setReportData({
-          totalRevenue: 0,
-          totalBookings: 0,
-          completedBookings: 0,
-          activeBookings: 0,
-          bookingsPerMonth: [],
-        });
+        setAllBookings([]);
         setIsLoading(false);
         return;
       }
 
-      let newTotalRevenue = 0;
-      const newTotalBookings = fetchedBookings.length;
-      let newCompletedBookings = 0;
-      let newActiveBookings = 0;
-      const monthlyBookingsData: { [key: string]: { monthYear: string; bookings: number; earnings: number } } = {};
-
-      fetchedBookings.forEach(booking => {
-        // Only count revenue for COMPLETED bookings to match Dashboard logic
-        if (booking.status === "Completed") {
-          newTotalRevenue += booking.totalAmount || 0;
-          newCompletedBookings++;
-        }
-        
-        if (booking.status === "Confirmed" || booking.status === "Processing") {
-          newActiveBookings++;
-        }
-
-        // Aggregate bookings by month - DEFENSIVE CODING
-        if (typeof booking.scheduledDate !== 'string' || !booking.scheduledDate) {
-          console.warn(`Booking ID ${booking.id} has invalid or missing scheduledDate type: '${booking.scheduledDate}'. Skipping for chart aggregation.`);
-          return; 
-        }
-        
-        const scheduledDateObj = new Date(booking.scheduledDate);
-        if (isNaN(scheduledDateObj.getTime())) {
-          console.warn(`Invalid scheduledDate format for booking ID ${booking.id}: '${booking.scheduledDate}'. Skipping for chart aggregation.`);
-          return; 
-        }
-        
-        const year = scheduledDateObj.getFullYear();
-        const month = scheduledDateObj.getMonth() + 1; // JavaScript months are 0-indexed
-        const monthYear = `${year}-${month.toString().padStart(2, '0')}`;
-        
-        if (!monthlyBookingsData[monthYear]) {
-          monthlyBookingsData[monthYear] = { monthYear, bookings: 0, earnings: 0 };
-        }
-        monthlyBookingsData[monthYear].bookings++;
-        if (booking.status === "Completed") {
-          monthlyBookingsData[monthYear].earnings += booking.totalAmount || 0;
-        }
-      });
-      
-      const calculatedReportData: ReportData = {
-        totalRevenue: newTotalRevenue,
-        totalBookings: newTotalBookings,
-        completedBookings: newCompletedBookings,
-        activeBookings: newActiveBookings,
-        bookingsPerMonth: Object.values(monthlyBookingsData).sort((a, b) => a.monthYear.localeCompare(b.monthYear)),
-      };
-
-      console.log("AdminReportsPage: Processed reportData:", calculatedReportData);
-      setReportData(calculatedReportData);
+      setAllBookings(fetchedBookings);
       setIsLoading(false);
     }, (err) => {
       console.error("AdminReportsPage: Error fetching booking data for reports: ", err);
@@ -150,7 +92,95 @@ export default function AdminReportsPage() {
     };
   }, [toast]);
 
-  console.log("AdminReportsPage: Rendering component. isLoading:", isLoading, "error:", error, "reportData.totalBookings:", reportData.totalBookings);
+
+  // Dynamically extract all available years from booking data + current year
+  const availableYears = useMemo(() => {
+    const yearsSet = new Set<number>([new Date().getFullYear()]);
+    allBookings.forEach(booking => {
+      if (booking.scheduledDate) {
+        const date = new Date(booking.scheduledDate);
+        if (!isNaN(date.getTime())) {
+          yearsSet.add(date.getFullYear());
+        }
+      }
+    });
+    return Array.from(yearsSet).sort((a, b) => b - a);
+  }, [allBookings]);
+
+  // Aggregate stats for the selected year
+  const statsForSelectedYear = useMemo(() => {
+    let totalRevenue = 0;
+    let totalBookings = 0;
+    let completedBookings = 0;
+    let activeBookings = 0;
+
+    allBookings.forEach(booking => {
+      if (!booking.scheduledDate) return;
+      const date = new Date(booking.scheduledDate);
+      if (isNaN(date.getTime())) return;
+
+      if (date.getFullYear() === selectedYear) {
+        totalBookings++;
+        if (booking.status === "Completed") {
+          totalRevenue += booking.totalAmount || 0;
+          completedBookings++;
+        }
+        if (booking.status === "Confirmed" || booking.status === "Processing") {
+          activeBookings++;
+        }
+      }
+    });
+
+    return { totalRevenue, totalBookings, completedBookings, activeBookings };
+  }, [allBookings, selectedYear]);
+
+  // Map bookings into 12 months (Jan to Dec) for the selected year
+  const monthsOfSelectedYear = useMemo(() => {
+    const monthlyData: { monthYear: string; bookings: number; completedBookings: number; earnings: number }[] = [];
+    for (let m = 1; m <= 12; m++) {
+      const monthStr = m.toString().padStart(2, '0');
+      monthlyData.push({
+        monthYear: `${selectedYear}-${monthStr}`,
+        bookings: 0,
+        completedBookings: 0,
+        earnings: 0
+      });
+    }
+
+    allBookings.forEach(booking => {
+      if (!booking.scheduledDate) return;
+      const date = new Date(booking.scheduledDate);
+      if (isNaN(date.getTime())) return;
+
+      if (date.getFullYear() === selectedYear) {
+        const monthIndex = date.getMonth(); // 0 to 11
+        monthlyData[monthIndex].bookings++;
+        if (booking.status === "Completed") {
+          monthlyData[monthIndex].completedBookings++;
+          monthlyData[monthIndex].earnings += booking.totalAmount || 0;
+        }
+      }
+    });
+
+    return monthlyData;
+  }, [allBookings, selectedYear]);
+
+  const statsLifetime = useMemo(() => {
+    let totalRevenue = 0;
+    let completedBookings = 0;
+
+    allBookings.forEach(booking => {
+      if (booking.status === "Completed") {
+        totalRevenue += booking.totalAmount || 0;
+        completedBookings++;
+      }
+    });
+
+    return { totalRevenue, completedBookings };
+  }, [allBookings]);
+
+
+  console.log("AdminReportsPage: Rendering component. isLoading:", isLoading, "error:", error, "allBookings.length:", allBookings.length);
 
   if (isLoading) {
     return (
@@ -172,7 +202,7 @@ export default function AdminReportsPage() {
     );
   }
 
-  if (reportData.totalBookings === 0 && !isLoading) { // Ensure isLoading is false
+  if (allBookings.length === 0 && !isLoading) {
     return (
       <div className="text-center py-10">
         <PackageSearch className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
@@ -185,13 +215,35 @@ export default function AdminReportsPage() {
   return (
     <div className="space-y-6">
        <Card>
-        <CardHeader>
-          <CardTitle className="text-2xl flex items-center">
-            <BarChartIcon className="mr-2 h-6 w-6 text-primary" /> Reports Overview
-          </CardTitle>
-          <CardDescription>
-            Summary of booking activities and revenue.
-          </CardDescription>
+        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
+          <div>
+            <CardTitle className="text-2xl flex items-center">
+              <BarChartIcon className="mr-2 h-6 w-6 text-primary" /> Reports Overview
+            </CardTitle>
+            <CardDescription className="mt-1">
+              Summary of booking activities and revenue.
+            </CardDescription>
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="text-xs font-bold text-muted-foreground uppercase">Filter by Year</span>
+            <Select 
+              value={String(selectedYear)} 
+              onValueChange={(val) => {
+                setSelectedYear(Number(val));
+              }}
+            >
+              <SelectTrigger className="w-[120px] font-bold">
+                <SelectValue placeholder="Select year" />
+              </SelectTrigger>
+              <SelectContent>
+                {availableYears.map(year => (
+                  <SelectItem key={year} value={String(year)}>
+                    {year}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
         </CardHeader>
       </Card>
 
@@ -202,7 +254,7 @@ export default function AdminReportsPage() {
             <DollarSign className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">₹{(globalStats?.completedRevenue ?? reportData.totalRevenue).toLocaleString()}</div>
+            <div className="text-2xl font-bold">{formatCurrency(statsForSelectedYear.totalRevenue, symbol, decimals, code)}</div>
           </CardContent>
         </Card>
         <Card>
@@ -211,7 +263,7 @@ export default function AdminReportsPage() {
             <ShoppingBag className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{globalStats?.totalBookings ?? reportData.totalBookings}</div>
+            <div className="text-2xl font-bold">{statsForSelectedYear.totalBookings}</div>
           </CardContent>
         </Card>
         <Card>
@@ -220,7 +272,7 @@ export default function AdminReportsPage() {
             <CheckCircle className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{globalStats?.completedBookings ?? reportData.completedBookings}</div>
+            <div className="text-2xl font-bold">{statsForSelectedYear.completedBookings}</div>
           </CardContent>
         </Card>
         <Card>
@@ -229,7 +281,7 @@ export default function AdminReportsPage() {
             <Clock className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{reportData.activeBookings}</div>
+            <div className="text-2xl font-bold">{statsForSelectedYear.activeBookings}</div>
           </CardContent>
         </Card>
       </div>
@@ -240,9 +292,9 @@ export default function AdminReportsPage() {
           <CardDescription>Visual representation of bookings over time.</CardDescription>
         </CardHeader>
         <CardContent>
-          {reportData.bookingsPerMonth.length > 0 ? (
+          {monthsOfSelectedYear.length > 0 ? (
             <ChartContainer config={chartConfig} className="min-h-[300px] w-full">
-              <BarChart accessibilityLayer data={reportData.bookingsPerMonth}>
+              <BarChart accessibilityLayer data={monthsOfSelectedYear}>
                 <CartesianGrid vertical={false} />
                 <XAxis
                   dataKey="monthYear"
@@ -286,9 +338,9 @@ export default function AdminReportsPage() {
           <CardDescription>Visual representation of revenue over time (completed bookings only).</CardDescription>
         </CardHeader>
         <CardContent>
-          {reportData.bookingsPerMonth.length > 0 ? (
+          {monthsOfSelectedYear.length > 0 ? (
             <ChartContainer config={chartConfig} className="min-h-[300px] w-full">
-              <BarChart accessibilityLayer data={reportData.bookingsPerMonth}>
+              <BarChart accessibilityLayer data={monthsOfSelectedYear}>
                 <CartesianGrid vertical={false} />
                 <XAxis
                   dataKey="monthYear"
@@ -310,14 +362,14 @@ export default function AdminReportsPage() {
                   }}
                 />
                 <YAxis 
-                  tickFormatter={(value) => `₹${value.toLocaleString()}`}
+                  tickFormatter={(value) => formatCurrency(value, symbol, decimals, code)}
                 />
                 <ChartTooltipRecharts 
                   cursor={{ fill: 'hsl(var(--muted))' }} 
                   content={
                     <ChartTooltipContent 
                       hideLabel 
-                      formatter={(value) => `₹${Number(value).toLocaleString()}`}
+                      formatter={(value) => formatCurrency(Number(value), symbol, decimals, code)}
                     />
                   } 
                 />
@@ -327,6 +379,119 @@ export default function AdminReportsPage() {
           ) : (
             <p className="text-muted-foreground text-center py-4">Not enough data to display monthly earnings chart.</p>
           )}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-xl flex items-center gap-2">
+            <DollarSign className="h-5 w-5 text-primary" /> Average Booking Value (ABV)
+          </CardTitle>
+          <CardDescription>
+            Average value of completed bookings overall and broken down by month.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-6">
+          <div className="grid gap-6 md:grid-cols-3">
+            {/* Stat Callout */}
+            <div className="flex flex-col justify-center gap-6 p-6 bg-primary/5 border border-primary/10 rounded-2xl">
+              {/* Yearly ABV */}
+              <div className="space-y-1">
+                <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Yearly ABV ({selectedYear})</span>
+                <p className="text-3xl font-black text-primary">
+                  {formatCurrency(statsForSelectedYear.completedBookings > 0 
+                    ? (statsForSelectedYear.totalRevenue / statsForSelectedYear.completedBookings) 
+                    : 0, symbol, decimals, code)}
+                </p>
+                <p className="text-[11px] text-muted-foreground leading-tight">
+                  Based on <strong className="text-foreground">{statsForSelectedYear.completedBookings}</strong> completed bookings totaling <strong className="text-foreground">{formatCurrency(statsForSelectedYear.totalRevenue, symbol, decimals, code)}</strong> in {selectedYear}.
+                </p>
+              </div>
+
+              <div className="border-t border-primary/10 pt-4 space-y-1">
+                <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Lifetime ABV</span>
+                <p className="text-2xl font-black text-foreground/80">
+                  {formatCurrency(statsLifetime.completedBookings > 0 
+                    ? (statsLifetime.totalRevenue / statsLifetime.completedBookings) 
+                    : 0, symbol, decimals, code)}
+                </p>
+                <p className="text-[11px] text-muted-foreground leading-tight">
+                  Based on <strong className="text-foreground">{statsLifetime.completedBookings}</strong> completed bookings totaling <strong className="text-foreground">{formatCurrency(statsLifetime.totalRevenue, symbol, decimals, code)}</strong> overall.
+                </p>
+              </div>
+            </div>
+
+            {/* Monthly Breakdowns List/Table */}
+            <div className="md:col-span-2 space-y-4">
+              <h3 className="text-sm font-bold text-foreground">Monthly ABV Breakdown</h3>
+              
+              {/* Desktop view: Table */}
+              <div className="hidden md:block border rounded-lg overflow-x-auto">
+                <table className="w-full text-sm text-left whitespace-nowrap">
+                  <thead className="bg-muted text-muted-foreground text-xs uppercase">
+                    <tr>
+                      <th className="p-3">Month</th>
+                      <th className="p-3 text-right">Completed Bookings</th>
+                      <th className="p-3 text-right">Monthly Revenue</th>
+                      <th className="p-3 text-right font-bold text-primary">Average Booking Value</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y">
+                    {monthsOfSelectedYear.map((month) => {
+                      const monthlyCompleted = month.completedBookings || 0;
+                      const monthlyAbv = monthlyCompleted > 0 ? (month.earnings / monthlyCompleted) : 0;
+                      
+                      const [year, monthNum] = month.monthYear.split('-');
+                      const dateObj = new Date(Date.UTC(parseInt(year), parseInt(monthNum) - 1, 1));
+                      const monthLabel = dateObj.toLocaleDateString('en-US', { month: 'short', year: 'numeric', timeZone: 'UTC' });
+
+                      return (
+                        <tr key={month.monthYear} className="hover:bg-muted/50 transition-colors">
+                          <td className="p-3 font-medium">{monthLabel}</td>
+                          <td className="p-3 text-right">{monthlyCompleted}</td>
+                          <td className="p-3 text-right">{formatCurrency(month.earnings, symbol, decimals, code)}</td>
+                          <td className="p-3 text-right font-bold text-primary">{formatCurrency(monthlyAbv, symbol, decimals, code)}</td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Mobile/Tablet view: Cards */}
+              <div className="block md:hidden space-y-3">
+                {monthsOfSelectedYear.map((month) => {
+                  const monthlyCompleted = month.completedBookings || 0;
+                  const monthlyAbv = monthlyCompleted > 0 ? (month.earnings / monthlyCompleted) : 0;
+                  
+                  const [year, monthNum] = month.monthYear.split('-');
+                  const dateObj = new Date(Date.UTC(parseInt(year), parseInt(monthNum) - 1, 1));
+                  const monthLabel = dateObj.toLocaleDateString('en-US', { month: 'short', year: 'numeric', timeZone: 'UTC' });
+
+                  return (
+                    <Card key={month.monthYear} className="border border-muted p-4 space-y-2 bg-card">
+                      <div className="flex justify-between items-center border-b pb-2">
+                        <span className="font-bold text-foreground">{monthLabel}</span>
+                        <span className="text-xs bg-primary/10 text-primary font-semibold px-2 py-0.5 rounded-full">
+                          {monthlyCompleted} Bookings
+                        </span>
+                      </div>
+                      <div className="grid grid-cols-2 gap-2 text-xs pt-1">
+                        <div>
+                          <p className="text-muted-foreground">Monthly Revenue</p>
+                          <p className="font-semibold text-foreground">{formatCurrency(month.earnings, symbol, decimals, code)}</p>
+                        </div>
+                        <div className="text-right">
+                          <p className="text-muted-foreground font-semibold text-primary">Avg Booking Value</p>
+                          <p className="font-bold text-primary text-sm">{formatCurrency(monthlyAbv, symbol, decimals, code)}</p>
+                        </div>
+                      </div>
+                    </Card>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
         </CardContent>
       </Card>
     </div>

@@ -2,7 +2,7 @@
 "use client";
 
 import { useState, useEffect } from 'react';
-import { doc, onSnapshot } from "firebase/firestore";
+import { doc, onSnapshot } from '@/lib/mysqlDb';
 import { db } from '@/lib/firebase';
 
 export interface AdminStats {

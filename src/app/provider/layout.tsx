@@ -33,7 +33,7 @@ import { useToast } from '@/hooks/use-toast';
 import Link from 'next/link';
 import { useLoading } from '@/contexts/LoadingContext';
 import ThemeToggle from '@/components/shared/ThemeToggle';
-import { doc, getDoc, collection, query, where, onSnapshot, orderBy, limit, Timestamp, updateDoc } from 'firebase/firestore';
+import { doc, getDoc, collection, query, where, onSnapshot, orderBy, limit, Timestamp, updateDoc } from '@/lib/mysqlDb';
 import type { ProviderApplication, FirestoreNotification } from '@/types/firestore';
 import { useUnreadNotificationsCount } from '@/hooks/useUnreadNotificationsCount'; 
 import { useGlobalSettings } from '@/hooks/useGlobalSettings'; 

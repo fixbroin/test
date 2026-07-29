@@ -14,7 +14,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import type { FirestoreService, UserCart, PriceVariant } from '@/types/firestore';
 import { getCartEntries, saveCartEntries, syncCartToFirestore, saveActiveCheckoutEntries, type CartEntry } from '@/lib/cartManager';
 import { db } from '@/lib/firebase'; 
-import { doc, getDoc, onSnapshot } from "firebase/firestore";
+import { doc, getDoc, onSnapshot } from '@/lib/mysqlDb';
 import { useToast } from '@/hooks/use-toast';
 import { useLoading } from '@/contexts/LoadingContext';
 import { useRouter, usePathname } from 'next/navigation';
@@ -23,7 +23,8 @@ import TaxBreakdownDisplay from '@/components/shared/TaxBreakdownDisplay';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogClose } from '@/components/ui/dialog';
 import Breadcrumbs from '@/components/shared/Breadcrumbs';
 import type { BreadcrumbItem } from '@/types/ui';
-import { logUserActivity } from '@/lib/activityLogger'; 
+import { logUserActivity } from '@/lib/activityLogger';
+import { formatCurrency } from '@/lib/utils'; 
 import { useAuth as useAuthHook } from '@/hooks/useAuth'; 
 import { getGuestId } from '@/lib/guestIdManager'; 
 import ProtectedRoute from '@/components/auth/ProtectedRoute';
@@ -32,6 +33,9 @@ export interface CartItem extends FirestoreService {
   quantity: number;
   categoryId?: string;
   categoryName?: string;
+  visitingChargeAmount?: number;
+  minimumBookingAmount?: number;
+  minimumBookingPolicyDescription?: string;
 }
 
 // Helper to derive base price
@@ -81,14 +85,14 @@ const calculateIncrementalTotalPrice = (item: CartItem): number => {
     return total;
 };
 
-const getPriceDisplayInfo = (service: CartItem, quantity: number) => {
+const getPriceDisplayInfo = (service: CartItem, quantity: number, symbol: string = '₹', decimals: number = 2, code: string = 'INR') => {
     if (!service.hasPriceVariants || !service.priceVariants || service.priceVariants.length === 0) {
         const unitSaving = service.discountedPrice && service.discountedPrice < service.price ? service.price - service.discountedPrice : 0;
         const totalSaving = unitSaving * (quantity > 0 ? quantity : 1);
         return {
-            mainPrice: `₹${service.discountedPrice ?? service.price}`,
-            priceSuffix: unitSaving > 0 ? `₹${service.price}` : null,
-            promoText: unitSaving > 0 ? `Save ₹${totalSaving.toFixed(0)}!` : null,
+            mainPrice: formatCurrency(service.discountedPrice ?? service.price, symbol, decimals, code),
+            priceSuffix: unitSaving > 0 ? formatCurrency(service.price, symbol, decimals, code) : null,
+            promoText: unitSaving > 0 ? `Save ${formatCurrency(totalSaving, symbol, 0, code)}!` : null,
         };
     }
 
@@ -101,18 +105,18 @@ const getPriceDisplayInfo = (service: CartItem, quantity: number) => {
     
     if (nextCheaperTier) {
         const needed = nextCheaperTier.fromQuantity - quantity;
-        promoText = `Add ${needed} more to unlock ₹${nextCheaperTier.price} price!`;
+        promoText = `Add ${needed} more to unlock ${formatCurrency(nextCheaperTier.price, symbol, decimals, code)} price!`;
     } else {
         const finalTier = sortedVariants[sortedVariants.length - 1];
         if (quantity >= finalTier.fromQuantity) {
-            promoText = `Price continues at ₹${finalTier.price} each.`;
+            promoText = `Price continues at ${formatCurrency(finalTier.price, symbol, decimals, code)} each.`;
         }
     }
     
     const displayPrice = getPriceForNthUnit(service, nextQuantity);
     
     return {
-        mainPrice: `₹${displayPrice}`,
+        mainPrice: formatCurrency(displayPrice, symbol, decimals, code),
         priceSuffix: quantity > 0 ? 'per next unit' : 'onwards',
         promoText,
     };
@@ -209,6 +213,9 @@ function CartPageContent() {
             priceVariants: serviceData.priceVariants || [],
             hasMinQuantity: serviceData.hasMinQuantity === true,
             minQuantity: serviceData.minQuantity ?? 0,
+            visitingChargeAmount: categoryId !== 'unknown' ? catCache[categoryId]?.visitingChargeAmount : undefined,
+            minimumBookingAmount: categoryId !== 'unknown' ? catCache[categoryId]?.minimumBookingAmount : undefined,
+            minimumBookingPolicyDescription: categoryId !== 'unknown' ? catCache[categoryId]?.minimumBookingPolicyDescription : undefined,
           } as CartItem;
         }
         console.warn(`Service with ID ${entry.serviceId} not found. Removing from cart.`);
@@ -246,22 +253,6 @@ function CartPageContent() {
     
     loadCartItems(true);
     
-    let unsubscribeFirestore: (() => void) | null = null;
-    if (user?.uid) {
-        const cartDocRef = doc(db, 'userCarts', user.uid);
-        unsubscribeFirestore = onSnapshot(cartDocRef, (docSnap) => {
-            if (docSnap.exists()) {
-                const firestoreCart = docSnap.data() as UserCart;
-                saveCartEntries(firestoreCart.items);
-            } else {
-                saveCartEntries([]);
-            }
-            if (typeof window !== 'undefined') {
-                window.dispatchEvent(new StorageEvent('storage', { key: 'fixbroUserCart' }));
-            }
-        });
-    }
-
     const handleStorageChange = (event: StorageEvent) => {
       if (event.key === 'fixbroUserCart') {
         loadCartItems();
@@ -271,7 +262,6 @@ function CartPageContent() {
     
     return () => {
         window.removeEventListener('storage', handleStorageChange);
-        if (unsubscribeFirestore) unsubscribeFirestore();
     };
 
   }, [isMounted, toast, user, loadCartItems]);
@@ -417,14 +407,21 @@ function CartPageContent() {
         let displayedVisitingChargeAmount = 0;
         let currentPolicyMessage: string | null = null;
 
-        if (appConfig.enableMinimumBookingPolicy && typeof appConfig.minimumBookingAmount === 'number' && typeof appConfig.visitingChargeAmount === 'number') {
-            if (group.itemsTotal > 0 && group.itemsTotal < appConfig.minimumBookingAmount) {
-                displayedVisitingChargeAmount = appConfig.visitingChargeAmount;
+        const firstItem = group.items[0];
+        const vcAmount = (firstItem && typeof firstItem.visitingChargeAmount === 'number') ? firstItem.visitingChargeAmount : appConfig.visitingChargeAmount;
+        const minBooking = (firstItem && typeof firstItem.minimumBookingAmount === 'number') ? firstItem.minimumBookingAmount : appConfig.minimumBookingAmount;
+        const policyDesc = (firstItem && firstItem.minimumBookingPolicyDescription) ? firstItem.minimumBookingPolicyDescription : appConfig.minimumBookingPolicyDescription;
+
+        if (appConfig.enableMinimumBookingPolicy && typeof minBooking === 'number' && typeof vcAmount === 'number') {
+            if (group.itemsTotal > 0 && group.itemsTotal < minBooking) {
+                displayedVisitingChargeAmount = vcAmount;
                 calculatedBaseVisitingCharge = getBasePrice(displayedVisitingChargeAmount, appConfig.isVisitingChargeTaxInclusive, appConfig.visitingChargeTaxPercent);
-                if (appConfig.minimumBookingPolicyDescription) {
-                    currentPolicyMessage = appConfig.minimumBookingPolicyDescription
-                        .replace("{MINIMUM_BOOKING_AMOUNT}", appConfig.minimumBookingAmount.toString())
-                        .replace("{VISITING_CHARGE}", (appConfig.visitingChargeAmount || 0).toString());
+                if (policyDesc) {
+                    currentPolicyMessage = policyDesc
+                        .replace(/{MINIMUM_BOOKING_AMOUNT}/g, minBooking.toString())
+                        .replace(/{VISITING_CHARGE}/g, vcAmount.toString())
+                        .replace("{MINIMUM_BOOKING_AMOUNT}", minBooking.toString())
+                        .replace("{VISITING_CHARGE}", vcAmount.toString());
                 }
             }
         }
@@ -561,7 +558,7 @@ function CartPageContent() {
               <CardContent className="p-0 sm:p-4">
                 <div className="divide-y divide-border/50">
                   {group.items.map(item => {
-                    const { mainPrice, priceSuffix, promoText } = getPriceDisplayInfo(item, item.quantity);
+                    const { mainPrice, priceSuffix, promoText } = getPriceDisplayInfo(item, item.quantity, appConfig.currencySymbol, appConfig.currencyDecimalPoints, appConfig.currencyCode);
                     return (
                       <div key={item.id} className="p-3 sm:p-4 hover:bg-accent/5 transition-colors">
                         
@@ -647,7 +644,7 @@ function CartPageContent() {
                 <div className="space-y-2 sm:space-y-3 text-sm sm:text-base border-b pb-4">
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">Items Total:</span>
-                    <span>₹{group.itemsTotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                    <span>{formatCurrency(group.itemsTotal, appConfig.currencySymbol, appConfig.currencyDecimalPoints, appConfig.currencyCode)}</span>
                   </div>
                   
                   {group.visitingCharge > 0 && (
@@ -679,17 +676,17 @@ function CartPageContent() {
                                     <p className="text-sm font-medium">Visiting Charge Breakdown:</p>
                                     <div className="flex justify-between text-sm">
                                         <span>Base Charge</span>
-                                        <span>₹{group.visitingChargeBreakdown?.baseAmount.toFixed(2)}</span>
+                                        <span>{formatCurrency(group.visitingChargeBreakdown?.baseAmount, appConfig.currencySymbol, appConfig.currencyDecimalPoints, appConfig.currencyCode)}</span>
                                     </div>
                                     {group.visitingChargeBreakdown?.taxAmount > 0 && (
                                         <div className="flex justify-between text-sm">
                                             <span>Tax ({group.visitingChargeBreakdown?.taxPercent}%)</span>
-                                            <span>+ ₹{group.visitingChargeBreakdown?.taxAmount.toFixed(2)}</span>
+                                            <span>+ {formatCurrency(group.visitingChargeBreakdown?.taxAmount, appConfig.currencySymbol, appConfig.currencyDecimalPoints, appConfig.currencyCode)}</span>
                                         </div>
                                     )}
                                     <div className="flex justify-between font-bold border-t pt-2">
                                         <span>Total Charge</span>
-                                        <span>₹{group.visitingChargeBreakdown?.amount.toFixed(2)}</span>
+                                        <span>{formatCurrency(group.visitingChargeBreakdown?.amount, appConfig.currencySymbol, appConfig.currencyDecimalPoints, appConfig.currencyCode)}</span>
                                     </div>
                                 </div>
                             </div>
@@ -699,7 +696,7 @@ function CartPageContent() {
                           </DialogContent>
                         </Dialog>
                       </div>
-                      <span className="font-medium">+ ₹{(appConfig.visitingChargeAmount || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                      <span className="font-medium">+ {formatCurrency(group.visitingChargeBreakdown?.amount || 0, appConfig.currencySymbol, appConfig.currencyDecimalPoints, appConfig.currencyCode)}</span>
                     </div>
                   )}
 
@@ -716,7 +713,7 @@ function CartPageContent() {
                               <Info className="h-3.5 w-3.5 text-muted-foreground hover:text-primary"/>
                             </Button>
                           </DialogTrigger>
-                          <DialogContent className="w-[90vw] sm:max-w-md max-h-[80vh] overflow-y-auto">
+                          <DialogContent className="w-[90vw] sm:max-w-2xl md:max-w-3xl max-h-[85vh] overflow-y-auto">
                             <DialogHeader>
                               <DialogTitle>Tax Breakdown - {group.categoryName}</DialogTitle>
                             </DialogHeader>
@@ -735,14 +732,14 @@ function CartPageContent() {
                           </DialogContent>
                         </Dialog>
                       </div>
-                      <span>+ ₹{group.estimatedTax.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                      <span>+ {formatCurrency(group.estimatedTax, appConfig.currencySymbol, appConfig.currencyDecimalPoints, appConfig.currencyCode)}</span>
                     </div>
                   )}
 
                   <Separator />
                   <div className="flex justify-between font-bold text-lg sm:text-xl">
                     <span>Subtotal:</span>
-                    <span className="text-primary">₹{group.total.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                    <span className="text-primary">{formatCurrency(group.total, appConfig.currencySymbol, appConfig.currencyDecimalPoints, appConfig.currencyCode)}</span>
                   </div>
                 </div>
 

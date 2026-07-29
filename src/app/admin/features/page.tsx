@@ -10,7 +10,7 @@ import CategoryDisplayTab from '@/components/admin/features/CategoryDisplayTab';
 import AdsManagementTab from '@/components/admin/features/AdsManagementTab';
 import type { FirestoreCategory, FirestoreService } from '@/types/firestore';
 import { db } from '@/lib/firebase';
-import { collection, query, orderBy, getDocs } from 'firebase/firestore';
+import { collection, query, orderBy, getDocs } from '@/lib/mysqlDb';
 import { useToast } from '@/hooks/use-toast';
 import PermissionGuard from '@/components/admin/PermissionGuard';
 
