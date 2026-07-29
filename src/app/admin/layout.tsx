@@ -35,7 +35,7 @@ import AdminFloatingChatButton from '@/components/admin/AdminFloatingChatButton'
 import FloatingAdminChatWindow from '@/components/admin/FloatingAdminChatWindow';
 import { useTotalAdminUnreadChatCount } from '@/hooks/useTotalAdminUnreadChatCount';
 import { useGlobalSettings } from '@/hooks/useGlobalSettings';
-import { collection, query, where, onSnapshot, orderBy, limit, doc, updateDoc } from '@/lib/mysqlDb'; 
+import { collection, query, where, onSnapshot, orderBy, limit, doc, updateDoc } from 'firebase/firestore'; 
 import type { FirestoreNotification } from '@/types/firestore'; 
 import NewBookingAdminPopup from '@/components/admin/NewBookingAdminPopup'; 
 
@@ -239,7 +239,7 @@ export default function AdminLayout({ children }: PropsWithChildren) {
     return (
       <div className="flex justify-center items-center min-h-screen bg-background text-center flex-col">
         <Loader2 className="h-12 w-12 animate-spin text-primary mb-4" />
-        <p className="text-muted-foreground font-black text-[10px] uppercase tracking-[0.3em] animate-pulse">Wecanfix Admin Secure Load...</p>
+        <p className="text-muted-foreground font-black text-[10px] uppercase tracking-[0.3em] animate-pulse">FixBro Admin Secure Load...</p>
       </div>
     );
   }

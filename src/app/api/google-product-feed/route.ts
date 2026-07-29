@@ -45,7 +45,7 @@ export async function GET() {
   let xml = '<?xml version="1.0" encoding="UTF-8"?>\n';
   xml += '<rss xmlns:g="http://base.google.com/ns/1.0" version="2.0">\n';
   xml += '  <channel>\n';
-  xml += '    <title>Wecanfix Home Services Feed</title>\n';
+  xml += '    <title>FixBro Home Services Feed</title>\n';
   xml += `    <link>${baseUrl}</link>\n`;
   xml += '    <description>Verified carpenter, plumber, electrician, and home repair services in Bangalore</description>\n';
 
@@ -68,7 +68,7 @@ export async function GET() {
     xml += `      <g:image_link>${escapeXml(imageUrl)}</g:image_link>\n`;
     xml += '      <g:availability>in_stock</g:availability>\n';
     xml += `      <g:price>${price} INR</g:price>\n`;
-    xml += '      <g:brand>Wecanfix</g:brand>\n';
+    xml += '      <g:brand>FixBro</g:brand>\n';
     xml += '      <g:condition>new</g:condition>\n';
     xml += '      <g:google_product_category>Home &amp; Garden &gt; Household Services &gt; General Handyman Services</g:google_product_category>\n';
     xml += '    </item>\n';

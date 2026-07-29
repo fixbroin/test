@@ -11,7 +11,7 @@ import { getBaseUrl } from '@/lib/config';
 import { generateBreadcrumbSchema } from '@/lib/seoAdvancedUtils';
 import JsonLdScript from '@/components/shared/JsonLdScript';
 
-export const dynamic = 'force-dynamic';
+export const revalidate = false;
 
 export async function generateMetadata(): Promise<Metadata> {
   const appBaseUrl = getBaseUrl();
@@ -29,7 +29,7 @@ export async function generateMetadata(): Promise<Metadata> {
       title: 'Top-Rated Home Service Categories in Bangalore',
       description: 'Explore all professional home service categories in Bangalore. Find expert carpenters, plumbers, electricians, painters, and appliance technicians near you.',
       url: '/categories',
-      images: [{ url: `${appBaseUrl}/android-chrome-512x512.png`, width: 512, height: 512, alt: 'Wecanfix Categories' }],
+      images: [{ url: `${appBaseUrl}/android-chrome-512x512.png`, width: 512, height: 512, alt: 'FixBro Categories' }],
       type: 'website',
     },
   };
@@ -47,7 +47,7 @@ const getCategories = unstable_cache(
     }
   },
   ['admin-categories-list'],
-  { revalidate: 86400, tags: ['categories', 'global-cache'] }
+  { revalidate: false, tags: ['categories', 'global-cache'] }
 );
 
 

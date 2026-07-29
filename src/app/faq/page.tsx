@@ -56,7 +56,7 @@ export default async function FAQPage() {
             Frequently Asked Questions
           </h1>
           <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
-            Everything you need to know about Wecanfix services, bookings, and more.
+            Everything you need to know about FixBro services, bookings, and more.
           </p>
         </div>
 

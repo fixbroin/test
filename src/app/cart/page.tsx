@@ -14,7 +14,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import type { FirestoreService, UserCart, PriceVariant } from '@/types/firestore';
 import { getCartEntries, saveCartEntries, syncCartToFirestore, saveActiveCheckoutEntries, type CartEntry } from '@/lib/cartManager';
 import { db } from '@/lib/firebase'; 
-import { doc, getDoc, onSnapshot } from '@/lib/mysqlDb';
+import { doc, getDoc, onSnapshot } from "firebase/firestore";
 import { useToast } from '@/hooks/use-toast';
 import { useLoading } from '@/contexts/LoadingContext';
 import { useRouter, usePathname } from 'next/navigation';
@@ -32,9 +32,6 @@ export interface CartItem extends FirestoreService {
   quantity: number;
   categoryId?: string;
   categoryName?: string;
-  visitingChargeAmount?: number;
-  minimumBookingAmount?: number;
-  minimumBookingPolicyDescription?: string;
 }
 
 // Helper to derive base price
@@ -212,9 +209,6 @@ function CartPageContent() {
             priceVariants: serviceData.priceVariants || [],
             hasMinQuantity: serviceData.hasMinQuantity === true,
             minQuantity: serviceData.minQuantity ?? 0,
-            visitingChargeAmount: categoryId !== 'unknown' ? catCache[categoryId]?.visitingChargeAmount : undefined,
-            minimumBookingAmount: categoryId !== 'unknown' ? catCache[categoryId]?.minimumBookingAmount : undefined,
-            minimumBookingPolicyDescription: categoryId !== 'unknown' ? catCache[categoryId]?.minimumBookingPolicyDescription : undefined,
           } as CartItem;
         }
         console.warn(`Service with ID ${entry.serviceId} not found. Removing from cart.`);
@@ -231,7 +225,7 @@ function CartPageContent() {
         saveCartEntries(validEntries);
         if (user?.uid) await syncCartToFirestore(user.uid, validEntries);
         if (typeof window !== 'undefined') {
-          window.dispatchEvent(new StorageEvent('storage', { key: 'wecanfixUserCart' }));
+          window.dispatchEvent(new StorageEvent('storage', { key: 'fixbroUserCart' }));
         }
       }
 
@@ -263,13 +257,13 @@ function CartPageContent() {
                 saveCartEntries([]);
             }
             if (typeof window !== 'undefined') {
-                window.dispatchEvent(new StorageEvent('storage', { key: 'wecanfixUserCart' }));
+                window.dispatchEvent(new StorageEvent('storage', { key: 'fixbroUserCart' }));
             }
         });
     }
 
     const handleStorageChange = (event: StorageEvent) => {
-      if (event.key === 'wecanfixUserCart') {
+      if (event.key === 'fixbroUserCart') {
         loadCartItems();
       }
     };
@@ -292,7 +286,7 @@ function CartPageContent() {
         syncCartToFirestore(user.uid, entriesToSave);
     }
     if (typeof window !== 'undefined') {
-      window.dispatchEvent(new StorageEvent('storage', { key: 'wecanfixUserCart' }));
+      window.dispatchEvent(new StorageEvent('storage', { key: 'fixbroUserCart' }));
     }
   };
 
@@ -423,21 +417,14 @@ function CartPageContent() {
         let displayedVisitingChargeAmount = 0;
         let currentPolicyMessage: string | null = null;
 
-        const firstItem = group.items[0];
-        const vcAmount = (firstItem && typeof firstItem.visitingChargeAmount === 'number') ? firstItem.visitingChargeAmount : appConfig.visitingChargeAmount;
-        const minBooking = (firstItem && typeof firstItem.minimumBookingAmount === 'number') ? firstItem.minimumBookingAmount : appConfig.minimumBookingAmount;
-        const policyDesc = (firstItem && firstItem.minimumBookingPolicyDescription) ? firstItem.minimumBookingPolicyDescription : appConfig.minimumBookingPolicyDescription;
-
-        if (appConfig.enableMinimumBookingPolicy && typeof minBooking === 'number' && typeof vcAmount === 'number') {
-            if (group.itemsTotal > 0 && group.itemsTotal < minBooking) {
-                displayedVisitingChargeAmount = vcAmount;
+        if (appConfig.enableMinimumBookingPolicy && typeof appConfig.minimumBookingAmount === 'number' && typeof appConfig.visitingChargeAmount === 'number') {
+            if (group.itemsTotal > 0 && group.itemsTotal < appConfig.minimumBookingAmount) {
+                displayedVisitingChargeAmount = appConfig.visitingChargeAmount;
                 calculatedBaseVisitingCharge = getBasePrice(displayedVisitingChargeAmount, appConfig.isVisitingChargeTaxInclusive, appConfig.visitingChargeTaxPercent);
-                if (policyDesc) {
-                    currentPolicyMessage = policyDesc
-                        .replace(/{MINIMUM_BOOKING_AMOUNT}/g, minBooking.toString())
-                        .replace(/{VISITING_CHARGE}/g, vcAmount.toString())
-                        .replace("{MINIMUM_BOOKING_AMOUNT}", minBooking.toString())
-                        .replace("{VISITING_CHARGE}", vcAmount.toString());
+                if (appConfig.minimumBookingPolicyDescription) {
+                    currentPolicyMessage = appConfig.minimumBookingPolicyDescription
+                        .replace("{MINIMUM_BOOKING_AMOUNT}", appConfig.minimumBookingAmount.toString())
+                        .replace("{VISITING_CHARGE}", (appConfig.visitingChargeAmount || 0).toString());
                 }
             }
         }
@@ -492,21 +479,21 @@ function CartPageContent() {
   const handleProceedToSchedule = (categoryId: string, categoryName: string, items: CartItem[]) => {
     showLoading();
     setIsCheckingOutCategory(categoryId);
-    localStorage.setItem('wecanfixActiveCheckoutCategory', categoryId);
-    localStorage.setItem('wecanfixActiveCheckoutCategoryName', categoryName);
+    localStorage.setItem('fixbroActiveCheckoutCategory', categoryId);
+    localStorage.setItem('fixbroActiveCheckoutCategoryName', categoryName);
     
     // Save only these items for the checkout flow
     saveActiveCheckoutEntries(items.map(i => ({ serviceId: i.id, quantity: i.quantity })));
     
     // Clear any previous checkout-specific data
-    localStorage.removeItem('wecanfixScheduledDate');
-    localStorage.removeItem('wecanfixScheduledTimeSlot');
-    localStorage.removeItem('wecanfixEstimatedEndTime');
-    localStorage.removeItem('wecanfixCustomerAddress');
-    localStorage.removeItem('wecanfixAppliedPromoCode');
-    localStorage.removeItem('wecanfixBookingDiscountCode');
-    localStorage.removeItem('wecanfixBookingDiscountAmount');
-    localStorage.removeItem('wecanfixAppliedPromoCodeId');
+    localStorage.removeItem('fixbroScheduledDate');
+    localStorage.removeItem('fixbroScheduledTimeSlot');
+    localStorage.removeItem('fixbroEstimatedEndTime');
+    localStorage.removeItem('fixbroCustomerAddress');
+    localStorage.removeItem('fixbroAppliedPromoCode');
+    localStorage.removeItem('fixbroBookingDiscountCode');
+    localStorage.removeItem('fixbroBookingDiscountAmount');
+    localStorage.removeItem('fixbroAppliedPromoCodeId');
 
     logUserActivity(
         'checkoutStep',
@@ -712,7 +699,7 @@ function CartPageContent() {
                           </DialogContent>
                         </Dialog>
                       </div>
-                      <span className="font-medium">+ ₹{(group.visitingChargeBreakdown?.amount || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                      <span className="font-medium">+ ₹{(appConfig.visitingChargeAmount || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                     </div>
                   )}
 
@@ -729,7 +716,7 @@ function CartPageContent() {
                               <Info className="h-3.5 w-3.5 text-muted-foreground hover:text-primary"/>
                             </Button>
                           </DialogTrigger>
-                          <DialogContent className="w-[90vw] sm:max-w-2xl md:max-w-3xl max-h-[85vh] overflow-y-auto">
+                          <DialogContent className="w-[90vw] sm:max-w-md max-h-[80vh] overflow-y-auto">
                             <DialogHeader>
                               <DialogTitle>Tax Breakdown - {group.categoryName}</DialogTitle>
                             </DialogHeader>

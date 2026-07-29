@@ -40,9 +40,9 @@ export const generateInvoicePdf = async (booking: FirestoreBooking, companyDetai
   const timezone = companyDetails?.timezone || 'Asia/Kolkata';
 
   const defaultCompanyDetails: CompanyDetails = {
-    name: companyDetails?.name || "Wecanfix.in",
+    name: companyDetails?.name || "FixBro.in",
     address: companyDetails?.address || "#44 G S Palya Road Konappana Agrahara Electronic City Phase 2 -560100",
-    contactEmail: companyDetails?.contactEmail || 'support@wecanfix.in',
+    contactEmail: companyDetails?.contactEmail || 'support@fixbro.in',
     contactMobile: companyDetails?.contactMobile || '+91-7353113455',
     logoUrl: companyDetails?.logoUrl,
     timezone: timezone

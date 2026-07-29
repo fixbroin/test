@@ -9,8 +9,8 @@ import CheckoutStepper from '@/components/checkout/CheckoutStepper';
 import { Separator } from '@/components/ui/separator';
 import { cn } from '@/lib/utils';
 import { db, auth } from '@/lib/firebase';
-import { collection, addDoc, Timestamp, doc, getDoc, runTransaction, query, where, getDocs, limit, updateDoc, deleteDoc, setDoc } from '@/lib/mysqlDb';
-import type { FirestoreBooking, BookingServiceItem, FirestoreService, FirestorePromoCode, AppSettings, AppliedPlatformFeeItem, FirestoreNotification, BookingStatus, MarketingAutomationSettings, MarketingSettings, ProviderApplication, FirestoreCategory } from '@/types/firestore';
+import { collection, addDoc, Timestamp, doc, getDoc, runTransaction, query, where, getDocs, limit, updateDoc, deleteDoc, setDoc } from "firebase/firestore";
+import type { FirestoreBooking, BookingServiceItem, FirestoreService, FirestorePromoCode, AppSettings, AppliedPlatformFeeItem, FirestoreNotification, BookingStatus, MarketingAutomationSettings, MarketingSettings, ProviderApplication } from '@/types/firestore';
 import { getActiveCheckoutEntries, removeCheckedOutItemsFromCart } from '@/lib/cartManager';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
@@ -63,23 +63,23 @@ const clearLocalStorageItems = async (uid?: string) => {
         console.error("Error clearing cart after booking:", e);
     }
     if (typeof window !== 'undefined') {
-        localStorage.removeItem('wecanfixScheduledDate');
-        localStorage.removeItem('wecanfixScheduledTimeSlot');
-        localStorage.removeItem('wecanfixEstimatedEndTime');
-        localStorage.removeItem('wecanfixCustomerAddress');
+        localStorage.removeItem('fixbroScheduledDate');
+        localStorage.removeItem('fixbroScheduledTimeSlot');
+        localStorage.removeItem('fixbroEstimatedEndTime');
+        localStorage.removeItem('fixbroCustomerAddress');
         localStorage.removeItem('razorpayPaymentId');
         localStorage.removeItem('razorpayOrderId');
         localStorage.removeItem('razorpaySignature');
-        localStorage.removeItem('wecanfixAppliedPromoCode');
-        localStorage.removeItem('wecanfixBookingDiscountCode');
-        localStorage.removeItem('wecanfixBookingDiscountAmount');
-        localStorage.removeItem('wecanfixAppliedPromoCodeId');
-        localStorage.removeItem('wecanfixAppliedPlatformFees');
+        localStorage.removeItem('fixbroAppliedPromoCode');
+        localStorage.removeItem('fixbroBookingDiscountCode');
+        localStorage.removeItem('fixbroBookingDiscountAmount');
+        localStorage.removeItem('fixbroAppliedPromoCodeId');
+        localStorage.removeItem('fixbroAppliedPlatformFees');
         localStorage.removeItem('isProcessingCancellationFee');
         localStorage.removeItem('bookingIdForCancellationFee');
         localStorage.removeItem('cancellationFeeAmount');
-        localStorage.removeItem('wecanfixPaymentMethod');
-        localStorage.removeItem('wecanfixFinalBookingTotal');
+        localStorage.removeItem('fixbroPaymentMethod');
+        localStorage.removeItem('fixbroFinalBookingTotal');
     }
 };
 
@@ -164,7 +164,7 @@ export default function ThankYouPage() {
       setIsLoadingPage(true);
       hideLoading(); 
       
-      const paymentMethod = localStorage.getItem('wecanfixPaymentMethod');
+      const paymentMethod = localStorage.getItem('fixbroPaymentMethod');
       const isOnlinePayment = paymentMethod === 'Online';
       
       const isProcessingCancellationFee = localStorage.getItem('isProcessingCancellationFee') === 'true';
@@ -264,22 +264,22 @@ export default function ThankYouPage() {
         let storedDailyTimeline: any[] = [];
 
         if (typeof window !== 'undefined') {
-          customerEmail = localStorage.getItem('wecanfixCustomerEmail') || customerEmail;
-          currentCategoryId = localStorage.getItem('wecanfixActiveCheckoutCategory');
-          scheduledDateStored = localStorage.getItem('wecanfixScheduledDate') || scheduledDateStored; 
-          scheduledTimeSlot = localStorage.getItem('wecanfixScheduledTimeSlot') || scheduledTimeSlot;
-          estimatedEndTime = localStorage.getItem('wecanfixEstimatedEndTime') || undefined;
-          const breaksStr = localStorage.getItem('wecanfixInterveningBreaks');
+          customerEmail = localStorage.getItem('fixbroCustomerEmail') || customerEmail;
+          currentCategoryId = localStorage.getItem('fixbroActiveCheckoutCategory');
+          scheduledDateStored = localStorage.getItem('fixbroScheduledDate') || scheduledDateStored; 
+          scheduledTimeSlot = localStorage.getItem('fixbroScheduledTimeSlot') || scheduledTimeSlot;
+          estimatedEndTime = localStorage.getItem('fixbroEstimatedEndTime') || undefined;
+          const breaksStr = localStorage.getItem('fixbroInterveningBreaks');
           if (breaksStr) { try { storedInterveningBreaks = JSON.parse(breaksStr); } catch (e) {} }
-          const dailyTimelineStr = localStorage.getItem('wecanfixDailyTimeline');
+          const dailyTimelineStr = localStorage.getItem('fixbroDailyTimeline');
           if (dailyTimelineStr) { try { storedDailyTimeline = JSON.parse(dailyTimelineStr); } catch (e) {} }
-          bookingDiscountCode = localStorage.getItem('wecanfixBookingDiscountCode') || undefined;
-          const discountAmountStr = localStorage.getItem('wecanfixBookingDiscountAmount');
+          bookingDiscountCode = localStorage.getItem('fixbroBookingDiscountCode') || undefined;
+          const discountAmountStr = localStorage.getItem('fixbroBookingDiscountAmount');
           bookingDiscountAmount = discountAmountStr ? parseFloat(discountAmountStr) : undefined;
-          appliedPromoCodeId = localStorage.getItem('wecanfixAppliedPromoCodeId') || undefined;
-          const platformFeesStr = localStorage.getItem('wecanfixAppliedPlatformFees');
+          appliedPromoCodeId = localStorage.getItem('fixbroAppliedPromoCodeId') || undefined;
+          const platformFeesStr = localStorage.getItem('fixbroAppliedPlatformFees');
           if (platformFeesStr) { try { storedAppliedPlatformFees = JSON.parse(platformFeesStr); } catch (e) { console.error("Error parsing stored platform fees:", e); } }
-          const addressDataString = localStorage.getItem('wecanfixCustomerAddress');
+          const addressDataString = localStorage.getItem('fixbroCustomerAddress');
           if (addressDataString) { const addressData = JSON.parse(addressDataString); customerName = addressData.fullName || customerName; customerPhone = addressData.phone || customerPhone; addressLine1 = addressData.addressLine1 || addressLine1; addressLine2 = addressData.addressLine2 || undefined; city = addressData.city || city; state = addressData.state || state; pincode = addressData.pincode || pincode; latitude = addressData.latitude === null ? undefined : addressData.latitude; longitude = addressData.longitude === null ? undefined : addressData.longitude; }
         }
 
@@ -310,38 +310,9 @@ export default function ThankYouPage() {
 
         const baseSubTotalForBooking = resolvedServiceItems.reduce((sum, item) => sum + (item._basePriceForBooking * item.quantity), 0);
         
-        let customCategoryData: {
-          visitingChargeAmount?: number;
-          minimumBookingAmount?: number;
-          minimumBookingPolicyDescription?: string;
-        } | null = null;
-
-        if (currentCategoryId) {
-          try {
-            const catSnap = await getDoc(doc(db, "adminCategories", currentCategoryId));
-            if (catSnap.exists()) {
-              const cd = catSnap.data();
-              customCategoryData = {
-                visitingChargeAmount: cd.visitingChargeAmount,
-                minimumBookingAmount: cd.minimumBookingAmount,
-                minimumBookingPolicyDescription: cd.minimumBookingPolicyDescription
-              };
-            }
-          } catch (e) {
-            console.error("Error loading category overrides in thank-you page:", e);
-          }
-        }
-
-        const vcAmount = (customCategoryData && typeof customCategoryData.visitingChargeAmount === 'number') ? customCategoryData.visitingChargeAmount : appConfig.visitingChargeAmount;
-        const minBooking = (customCategoryData && typeof customCategoryData.minimumBookingAmount === 'number') ? customCategoryData.minimumBookingAmount : appConfig.minimumBookingAmount;
-
         let baseVisitingChargeForBooking = 0; 
         const subtotalForVcPolicyCheck = sumOfDisplayedItemPrices - (bookingDiscountAmount || 0);
-        if (appConfig.enableMinimumBookingPolicy && typeof minBooking === 'number' && typeof vcAmount === 'number') { 
-          if (subtotalForVcPolicyCheck > 0 && subtotalForVcPolicyCheck < minBooking) { 
-            baseVisitingChargeForBooking = getBasePriceForInvoice(vcAmount, !!appConfig.isVisitingChargeTaxInclusive, appConfig.visitingChargeTaxPercent); 
-          } 
-        }
+        if (appConfig.enableMinimumBookingPolicy && typeof appConfig.minimumBookingAmount === 'number' && typeof appConfig.visitingChargeAmount === 'number') { if (subtotalForVcPolicyCheck > 0 && subtotalForVcPolicyCheck < appConfig.minimumBookingAmount) { baseVisitingChargeForBooking = getBasePriceForInvoice(appConfig.visitingChargeAmount, !!appConfig.isVisitingChargeTaxInclusive, appConfig.visitingChargeTaxPercent); } }
         
         const totalItemTax = resolvedServiceItems.reduce((sum, item) => sum + (item.taxAmountForItem || 0), 0);
         let visitingChargeTax = 0; if (appConfig.enableTaxOnVisitingCharge && baseVisitingChargeForBooking > 0 && (appConfig.visitingChargeTaxPercent || 0) > 0) { visitingChargeTax = baseVisitingChargeForBooking * ((appConfig.visitingChargeTaxPercent || 0) / 100); }

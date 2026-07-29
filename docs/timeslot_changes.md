@@ -55,7 +55,7 @@ This document lists all the files modified and created to support the multiple t
 
 ### 7. `src/app/checkout/page.tsx`
 * **Changes**:
-  * Saved the computed gaps, holidays, and leaves list (`interveningBreaks`) directly to `localStorage` (`wecanfixInterveningBreaks`) when the schedule is selected.
+  * Saved the computed gaps, holidays, and leaves list (`interveningBreaks`) directly to `localStorage` (`fixbroInterveningBreaks`) when the schedule is selected.
 
 ---
 
@@ -85,7 +85,7 @@ This document lists all the files modified and created to support the multiple t
 * **Changes across files**:
   * **`src/app/api/checkout/available-slots/route.ts`**: Implemented `calculateDailyTimeline` to simulate work progression day-by-day and return a `dailyTimeline` array inside each available time slot object.
   * **`src/components/checkout/ScheduleSelection.tsx`**: Renders a **"Day-by-Day Work Schedule"** list (only if the booking spans across multiple days) underneath the slot card in the selection modal.
-  * **`src/app/checkout/page.tsx`**: Saves the selected schedule's daily timeline to `localStorage` (`wecanfixDailyTimeline`).
+  * **`src/app/checkout/page.tsx`**: Saves the selected schedule's daily timeline to `localStorage` (`fixbroDailyTimeline`).
   * **`src/app/checkout/thank-you/page.tsx`**: Loads the daily timeline from `localStorage` and saves it to the Firestore booking document. Renders the day-by-day timeline inside the confirmation summary.
   * **`src/app/my-bookings/page.tsx`**: Reads `dailyTimeline` from the booking document and renders the timeline within the customer's historical booking card summary.
 

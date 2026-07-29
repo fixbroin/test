@@ -10,7 +10,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
 import { getBaseUrl } from '@/lib/config';
 import type { ReferralSettings, Referral, EnrichedReferral } from '@/types/firestore';
-import { doc, getDoc, collection, query, where, onSnapshot } from '@/lib/mysqlDb';
+import { doc, getDoc, collection, query, where, onSnapshot } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from '@/components/ui/badge';
@@ -97,8 +97,8 @@ export default function ReferralInfoTab({ settings }: ReferralInfoTabProps) {
     ? `${settings.referredUserBonus}%` 
     : `₹${settings.referredUserBonus || 0}`;
 
-  const shareMessage = `Hey! I've been using Wecanfix for my home services and they are excellent. You should try them too! Sign up using my link you'll get a ${referredBonusDisplay} welcome reward in your wallet immediately! 🏠🛠️\n\nJoin here: ${referralLink}`;
-  const codeShareMessage = `Hey! Use my referral code: ${firestoreUser?.referralCode} on Wecanfix to get a ${referredBonusDisplay} welcome bonus in your wallet! 🏠🛠️\n\nJoin here: ${referralLink}`;
+  const shareMessage = `Hey! I've been using FixBro for my home services and they are excellent. You should try them too! Sign up using my link you'll get a ${referredBonusDisplay} welcome reward in your wallet immediately! 🏠🛠️\n\nJoin here: ${referralLink}`;
+  const codeShareMessage = `Hey! Use my referral code: ${firestoreUser?.referralCode} on FixBro to get a ${referredBonusDisplay} welcome bonus in your wallet! 🏠🛠️\n\nJoin here: ${referralLink}`;
 
   const shareOnWhatsApp = () => {
     const encodedMessage = encodeURIComponent(shareMessage);

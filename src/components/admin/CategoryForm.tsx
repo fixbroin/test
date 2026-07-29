@@ -10,16 +10,15 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import type { FirestoreCategory } from '@/types/firestore';
 import { useEffect, useState, useRef, useCallback } from "react";
-import { Loader2, Image as ImageIcon, Trash2, Wand2, Edit2, Lock, Sparkles } from "lucide-react";
+import { Loader2, Image as ImageIcon, Trash2, Wand2, Edit2, Lock } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import NextImage from 'next/image';
 import { storage, db } from '@/lib/firebase';
-import { ref as storageRef, uploadBytesResumable, getDownloadURL, deleteObject } from '@/lib/mysqlStorage';
-import { collection, query, where, getDocs, limit } from '@/lib/mysqlDb';
+import { ref as storageRef, uploadBytesResumable, getDownloadURL, deleteObject } from "firebase/storage";
+import { collection, query, where, getDocs, limit } from "firebase/firestore";
 import { Progress } from "@/components/ui/progress";
 import { Switch } from "@/components/ui/switch";
 import { generateCategorySeo } from '@/ai/flows/generateCategorySeoFlow';
-import { getSpinnedLocalContent } from "@/lib/seoGenerator";
 import { compressImage } from "@/lib/imageCompressor";
 
 const generateSlug = (name: string) => {
@@ -36,10 +35,7 @@ const categoryFormSchema = z.object({
   slug: z.string().min(2, "Slug must be at least 2 characters.").regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/, "Invalid slug format (e.g., my-category-name).").optional().or(z.literal('')),
   order: z.coerce.number().min(0, { message: "Order must be a non-negative number." }),
   isActive: z.boolean().default(true),
-  imageUrl: z.string().refine(
-    (val) => !val || val === "" || val.startsWith('/') || val.startsWith('http://') || val.startsWith('https://') || val.startsWith('uploads/'),
-    { message: "Must be a valid URL or path if provided." }
-  ).optional().or(z.literal('')),
+  imageUrl: z.string().url({ message: "Must be a valid URL if provided." }).optional().or(z.literal('')),
   imageHint: z.string().max(50, { message: "Image hint should be max 50 characters."}).optional().or(z.literal('')),
   h1_title: z.string().optional().or(z.literal('')),
   seo_title: z.string().optional().or(z.literal('')),
@@ -50,9 +46,6 @@ const categoryFormSchema = z.object({
     question: z.string(),
     answer: z.string()
   })).optional(),
-  visitingChargeAmount: z.preprocess(val => val === '' ? undefined : Number(val), z.number().min(0).optional()),
-  minimumBookingAmount: z.preprocess(val => val === '' ? undefined : Number(val), z.number().min(0).optional()),
-  minimumBookingPolicyDescription: z.string().optional().or(z.literal('')),
 });
 
 type CategoryFormData = z.infer<typeof categoryFormSchema>;
@@ -65,9 +58,9 @@ interface CategoryFormProps {
   nextOrder?: number;
 }
 
-const isFirebaseStorageUrl = (url: string | null | undefined): boolean => {
+const isFirebaseStorageUrl = (url: string): boolean => {
   if (!url) return false;
-  return typeof url === 'string' && url.trim().length > 0;
+  return typeof url === 'string' && url.includes("firebasestorage.googleapis.com");
 };
 
 const isValidImageSrc = (url: string | null | undefined): url is string => {
@@ -102,9 +95,6 @@ export default function CategoryForm({ onSubmit: onSubmitProp, initialData, onCa
     defaultValues: {
       name: "", slug: "", order: nextOrder, isActive: true, imageUrl: "", imageHint: "",
       h1_title: "", seo_title: "", seo_description: "", seo_keywords: "", seo_content: "", faqs: [],
-      visitingChargeAmount: "" as any,
-      minimumBookingAmount: "" as any,
-      minimumBookingPolicyDescription: "We charge a ₹{VISITING_CHARGE} visiting fee if your order value is below ₹{MINIMUM_BOOKING_AMOUNT}.",
     },
   });
 
@@ -155,9 +145,6 @@ export default function CategoryForm({ onSubmit: onSubmitProp, initialData, onCa
         seo_keywords: initialData.seo_keywords || "",
         seo_content: initialData.seo_content || "",
         faqs: initialData.faqs || [],
-        visitingChargeAmount: initialData.visitingChargeAmount !== undefined ? initialData.visitingChargeAmount : "" as any,
-        minimumBookingAmount: initialData.minimumBookingAmount !== undefined ? initialData.minimumBookingAmount : "" as any,
-        minimumBookingPolicyDescription: initialData.minimumBookingPolicyDescription || "We charge a ₹{VISITING_CHARGE} visiting fee if your order value is below ₹{MINIMUM_BOOKING_AMOUNT}.",
       });
       setCurrentImagePreview(initialData.imageUrl || null);
       setOriginalImageUrlFromInitialData(initialData.imageUrl || null);
@@ -165,9 +152,6 @@ export default function CategoryForm({ onSubmit: onSubmitProp, initialData, onCa
       form.reset({
         name: "", slug: "", order: nextOrder, isActive: true, imageUrl: "", imageHint: "",
         h1_title: "", seo_title: "", seo_description: "", seo_keywords: "", seo_content: "", faqs: [],
-        visitingChargeAmount: "" as any,
-        minimumBookingAmount: "" as any,
-        minimumBookingPolicyDescription: "We charge a ₹{VISITING_CHARGE} visiting fee if your order value is below ₹{MINIMUM_BOOKING_AMOUNT}.",
       });
       setCurrentImagePreview(null);
       setOriginalImageUrlFromInitialData(null);
@@ -245,55 +229,6 @@ export default function CategoryForm({ onSubmit: onSubmitProp, initialData, onCa
     if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
-  const handleGenerateFreeSeo = async () => {
-    const categoryName = form.getValues("name");
-    if (!categoryName.trim()) {
-        toast({ title: "Category Name Required", description: "Please enter a category name first.", variant: "destructive" });
-        return;
-    }
-
-    try {
-        const spinnedContent = getSpinnedLocalContent({
-            cityName: "your city",
-            categoryName: categoryName
-        });
-
-        const h1Title = `Professional ${categoryName} Services`;
-        const seoTitle = `Best ${categoryName} Services near me | Wecanfix`;
-        const seoDescription = `Book certified and background-verified ${categoryName.toLowerCase()} experts with Wecanfix. Quality service, upfront pricing, and trusted professionals.`;
-        const seoKeywords = `${categoryName.toLowerCase()} services, best ${categoryName.toLowerCase()} near me, local ${categoryName.toLowerCase()}`;
-        const imageHint = `${categoryName.toLowerCase()} services`;
-
-        const faqsList = [
-          {
-            question: `How do I book ${categoryName.toLowerCase()} services on Wecanfix?`,
-            answer: `You can easily book online. Select the required ${categoryName.toLowerCase()} service, choose a convenient date and time slot, and confirm your booking instantly.`
-          },
-          {
-            question: `Are your ${categoryName.toLowerCase()} professionals certified?`,
-            answer: `Yes, all ${categoryName.toLowerCase()} technicians on our platform are background-checked, vetted, and highly experienced.`
-          }
-        ];
-
-        form.setValue("h1_title", h1Title, { shouldValidate: true, shouldDirty: true });
-        form.setValue("seo_title", seoTitle, { shouldValidate: true, shouldDirty: true });
-        form.setValue("seo_description", seoDescription, { shouldValidate: true, shouldDirty: true });
-        form.setValue("seo_keywords", seoKeywords, { shouldValidate: true, shouldDirty: true });
-        form.setValue("seo_content", spinnedContent, { shouldValidate: true, shouldDirty: true });
-        form.setValue("faqs", faqsList, { shouldValidate: true, shouldDirty: true });
-        form.setValue("imageHint", imageHint, { shouldValidate: true, shouldDirty: true });
-
-        toast({ 
-            title: "Content Generated (Free)!", 
-            description: "SEO fields and FAQs have been auto-populated using dynamic templates.",
-            className: "bg-green-100 border-green-300 text-green-700" 
-        });
-    } catch (error) {
-        console.error("Error generating free category SEO:", error);
-        toast({ title: "Error", description: "Failed to generate free SEO content.", variant: "destructive" });
-    }
-  };
-
   const handleGenerateSeo = async () => {
     const categoryName = form.getValues("name");
     if (!categoryName.trim()) {
@@ -330,19 +265,19 @@ export default function CategoryForm({ onSubmit: onSubmitProp, initialData, onCa
         setStatusMessage("Uploading image...");
         setUploadProgress(0);
 
-        if (originalImageUrlFromInitialData) {
+        if (originalImageUrlFromInitialData && isFirebaseStorageUrl(originalImageUrlFromInitialData)) {
           try {
             const oldImageRef = storageRef(storage, originalImageUrlFromInitialData);
             await deleteObject(oldImageRef);
           } catch (error) {
-            console.warn("Error deleting old image: ", error);
+            console.warn("Error deleting old image from Firebase Storage: ", error);
           }
         }
 
         const timestamp = Math.floor(Date.now() / 1000);
         const randomString = generateRandomHexString(16);
         const extension = selectedFile.name.split('.').pop()?.toLowerCase() || 'png';
-        const fileName = `category_${timestamp}_${randomString}.${extension}`;
+        const fileName = `blog_cover_${timestamp}_${randomString}.${extension}`;
         const imagePath = `public/uploads/categories/${fileName}`;
         const fileStorageRefInstance = storageRef(storage, imagePath);
         const uploadTask = uploadBytesResumable(fileStorageRefInstance, selectedFile);
@@ -362,7 +297,7 @@ export default function CategoryForm({ onSubmit: onSubmitProp, initialData, onCa
           );
         });
         setStatusMessage("Image uploaded. Saving category...");
-      } else if (!formData.imageUrl && originalImageUrlFromInitialData) {
+      } else if (!formData.imageUrl && originalImageUrlFromInitialData && isFirebaseStorageUrl(originalImageUrlFromInitialData)) {
         setStatusMessage("Removing image from storage...");
         try {
           const oldImageRef = storageRef(storage, originalImageUrlFromInitialData);
@@ -370,7 +305,8 @@ export default function CategoryForm({ onSubmit: onSubmitProp, initialData, onCa
           finalImageUrl = "";
           setStatusMessage("Image removed. Saving category...");
         } catch (error: any) {
-          console.error("Error deleting image from storage: ", error);
+          console.error("Error deleting image from Firebase Storage: ", error);
+          throw new Error(`Failed to delete previous image from storage: ${error.message}. Category not saved.`);
         }
       } else {
         setStatusMessage(initialData ? "Saving changes..." : "Creating category...");
@@ -389,9 +325,6 @@ export default function CategoryForm({ onSubmit: onSubmitProp, initialData, onCa
         seo_keywords: formData.seo_keywords,
         seo_content: formData.seo_content,
         faqs: formData.faqs,
-        visitingChargeAmount: typeof formData.visitingChargeAmount === 'number' ? formData.visitingChargeAmount : undefined,
-        minimumBookingAmount: typeof formData.minimumBookingAmount === 'number' ? formData.minimumBookingAmount : undefined,
-        minimumBookingPolicyDescription: formData.minimumBookingPolicyDescription || undefined,
         id: initialData?.id,
       });
 
@@ -573,77 +506,25 @@ export default function CategoryForm({ onSubmit: onSubmitProp, initialData, onCa
         />
 
         <div className="space-y-4 pt-4 border-t">
-          <h3 className="text-md font-semibold text-muted-foreground">Visiting Fee Settings (Optional)</h3>
-          <p className="text-xs text-muted-foreground">Override the global visiting charge settings for this category. Leave blank to use defaults.</p>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <FormField control={form.control} name="visitingChargeAmount" render={({ field }) => (
-              <FormItem>
-                <FormLabel>Visiting Charge (₹)</FormLabel>
-                <FormControl>
-                  <Input type="number" step="any" placeholder="e.g., 150" {...field} disabled={effectiveIsSubmitting} />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}/>
-            <FormField control={form.control} name="minimumBookingAmount" render={({ field }) => (
-              <FormItem>
-                <FormLabel>Min Booking Amount for Free Delivery (₹)</FormLabel>
-                <FormControl>
-                  <Input type="number" step="any" placeholder="e.g., 399" {...field} disabled={effectiveIsSubmitting} />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}/>
-          </div>
-          <FormField control={form.control} name="minimumBookingPolicyDescription" render={({ field }) => (
-            <FormItem>
-              <FormLabel>Min Booking Policy Description Override</FormLabel>
-              <FormControl>
-                <Textarea 
-                  placeholder="e.g., We charge a ₹{VISITING_CHARGE} visiting fee if your order value is below ₹{MINIMUM_BOOKING_AMOUNT}." 
-                  {...field} 
-                  rows={2} 
-                  disabled={effectiveIsSubmitting} 
-                />
-              </FormControl>
-              <FormDescription>Use placeholders: <code>{"{MINIMUM_BOOKING_AMOUNT}"}</code> and <code>{"{VISITING_CHARGE}"}</code> to substitute values dynamically.</FormDescription>
-              <FormMessage />
-            </FormItem>
-          )}/>
-        </div>
-
-        <div className="space-y-4 pt-4 border-t">
           <div className="flex justify-between items-center">
               <h3 className="text-md font-semibold text-muted-foreground">SEO Settings (Optional)</h3>
-              <div className="flex gap-2">
-                <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={handleGenerateFreeSeo}
-                    disabled={effectiveIsSubmitting || !watchedName}
-                >
-                    <Sparkles className="mr-2 h-4 w-4 text-primary" />
-                    Auto-Fill (Free)
-                </Button>
-                <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={handleGenerateSeo}
-                    disabled={effectiveIsSubmitting || !watchedName}
-                >
-                    {isGeneratingSeo ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Wand2 className="mr-2 h-4 w-4" />}
-                    Generate AI SEO
-                </Button>
-              </div>
+              <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={handleGenerateSeo}
+                  disabled={effectiveIsSubmitting || !watchedName}
+              >
+                  {isGeneratingSeo ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Wand2 className="mr-2 h-4 w-4" />}
+                  Generate AI SEO
+              </Button>
             </div>
           <p className="text-xs text-muted-foreground">Leave blank to use global SEO patterns defined in SEO Settings. Use <code>{"{{categoryName}}"}</code> in global patterns.</p>
           <FormField control={form.control} name="h1_title" render={({ field }) => (
             <FormItem><FormLabel>H1 Title</FormLabel><FormControl><Input placeholder="e.g., Expert Home Repair Services" {...field} disabled={effectiveIsSubmitting} /></FormControl><FormMessage /></FormItem>
           )}/>
           <FormField control={form.control} name="seo_title" render={({ field }) => (
-            <FormItem><FormLabel>Meta Title</FormLabel><FormControl><Input placeholder="e.g., Home Repair Services | Wecanfix" {...field} disabled={effectiveIsSubmitting} /></FormControl><FormMessage /></FormItem>
+            <FormItem><FormLabel>Meta Title</FormLabel><FormControl><Input placeholder="e.g., Home Repair Services | FixBro" {...field} disabled={effectiveIsSubmitting} /></FormControl><FormMessage /></FormItem>
           )}/>
           <FormField control={form.control} name="seo_description" render={({ field }) => (
             <FormItem><FormLabel>Meta Description</FormLabel><FormControl><Textarea placeholder="e.g., Get reliable home repair services for plumbing, electrical, and more." {...field} rows={3} disabled={effectiveIsSubmitting} /></FormControl><FormMessage /></FormItem>

@@ -11,11 +11,10 @@ import { Switch } from "@/components/ui/switch";
 import type { FirestoreCity, FirestoreArea, FirestoreService, AreaServiceSeoSetting } from '@/types/firestore';
 import { useEffect, useState, useCallback, useMemo } from "react";
 import { cn } from "@/lib/utils";
-import { Loader2, Edit2, Lock, CheckCircle, Search, MapPin, Building, Tags, Plus, Trash2, Sparkles } from "lucide-react";
+import { Loader2, Edit2, Lock, CheckCircle, Search, MapPin, Building, Tags, Plus, Trash2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { generateFreeAreaServiceSeoData, getNearbyAreasSorted } from "@/lib/seoGenerator";
 import { db } from '@/lib/firebase';
-import { doc, getDoc, collection, query, where, getDocs, limit } from '@/lib/mysqlDb';
+import { doc, getDoc, collection, query, where, getDocs, limit } from "firebase/firestore";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -36,9 +35,9 @@ const areaServiceSeoFormSchema = z.object({
   meta_keywords: z.string().optional().or(z.literal('')),
   seo_content: z.string().optional().or(z.literal('')),
   faqs: z.array(z.object({
-    question: z.string().min(5, "Question must be at least 5 characters."),
-    answer: z.string().min(5, "Answer must be at least 5 characters."),
-  })).optional(),
+    question: z.string().min(1, "Question cannot be empty"),
+    answer: z.string().min(1, "Answer cannot be empty")
+  })).default([]),
   isActive: z.boolean().default(true),
 });
 
@@ -206,8 +205,8 @@ export default function AreaServiceSeoForm({
       // Set fallback titles
       const cleanServiceName = selectedService.name;
       form.setValue("h1_title", `${cleanServiceName} in ${selectedArea.name}, ${selectedCity.name}`);
-      form.setValue("meta_title", `${cleanServiceName} in ${selectedArea.name}, ${selectedCity.name} | Wecanfix`);
-      form.setValue("meta_description", `Professional ${cleanServiceName} services in ${selectedArea.name}, ${selectedCity.name}. Trusted, transparent pricing, verified experts by Wecanfix.`);
+      form.setValue("meta_title", `${cleanServiceName} in ${selectedArea.name}, ${selectedCity.name} | FixBro`);
+      form.setValue("meta_description", `Professional ${cleanServiceName} services in ${selectedArea.name}, ${selectedCity.name}. Trusted, transparent pricing, verified experts by FixBro.`);
       form.setValue("meta_keywords", `${cleanServiceName} in ${selectedArea.name}, ${cleanServiceName} near me, best ${cleanServiceName} in ${selectedCity.name}`);
 
       // Auto-populate SEO Content details from global/default template
@@ -237,87 +236,12 @@ export default function AreaServiceSeoForm({
     }
   }, [selectedCity, selectedArea, selectedService, isEditing, isSlugEditable, form, checkSlugUniqueness, initialId, globalSeo]);
 
-  const handleGenerateFreeSeo = async () => {
-    const cityId = form.getValues("cityId");
-    const areaId = form.getValues("areaId");
-    const serviceId = form.getValues("serviceId");
-
-    const selectedCityObj = cities.find(c => c.id === cityId);
-    const selectedAreaObj = areas.find(a => a.id === areaId);
-    const selectedServiceObj = services.find(s => s.id === serviceId);
-
-    if (!selectedCityObj || !selectedAreaObj || !selectedServiceObj) {
-      toast({
-        title: "City, Area & Service Required",
-        description: "Please select a city, area, and service first.",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    try {
-      let categoryName = "Home Services";
-      if (selectedServiceObj.parentCategoryId) {
-        const catDoc = await getDoc(doc(db, "adminCategories", selectedServiceObj.parentCategoryId));
-        if (catDoc.exists()) {
-          categoryName = catDoc.data().name;
-        }
-      }
-
-      const fallbackNearby = getNearbyAreasSorted(selectedAreaObj, areas.filter(a => a.cityId === cityId), 10);
-
-      const result = generateFreeAreaServiceSeoData(
-        selectedCityObj.name,
-        selectedAreaObj.name,
-        categoryName,
-        selectedServiceObj.name,
-        fallbackNearby
-      );
-
-      form.setValue("h1_title", result.h1_title, { shouldValidate: true, shouldDirty: true });
-      form.setValue("meta_title", result.seo_title, { shouldValidate: true, shouldDirty: true });
-      form.setValue("meta_description", result.seo_description, { shouldValidate: true, shouldDirty: true });
-      form.setValue("meta_keywords", result.seo_keywords, { shouldValidate: true, shouldDirty: true });
-      form.setValue("seo_content", result.seo_content, { shouldValidate: true, shouldDirty: true });
-      form.setValue("faqs", result.faqs, { shouldValidate: true, shouldDirty: true });
-
-      toast({ 
-        title: "Content Generated (Free)!", 
-        description: "SEO fields and FAQs have been auto-populated using dynamic templates.",
-        className: "bg-green-100 border-green-300 text-green-700" 
-      });
-    } catch (error) {
-      console.error("Error generating free SEO:", error);
-      toast({ title: "Error", description: "Failed to generate free SEO content.", variant: "destructive" });
-    }
-  };
-
   const handleSlugBlur = async () => {
     const rawVal = form.getValues("slug");
     if (!rawVal) return;
     const formatted = generateSeoSlug([rawVal]);
     const unique = await checkSlugUniqueness(formatted, initialId);
     form.setValue("slug", unique);
-  };
-
-  const handleCopyLink = () => {
-    const slug = form.getValues("slug");
-    if (!slug) {
-      toast({ title: "Cannot copy", description: "Slug must be set first.", variant: "warning" });
-      return;
-    }
-    const fullUrl = `${window.location.origin}/${slug}`;
-    navigator.clipboard.writeText(fullUrl);
-    toast({ title: "Copied!", description: "Link copied to clipboard." });
-  };
-
-  const handleVisitPage = () => {
-    const slug = form.getValues("slug");
-    if (!slug) {
-      toast({ title: "Cannot visit", description: "Slug must be set first.", variant: "warning" });
-      return;
-    }
-    window.open(`/${slug}`, '_blank');
   };
 
   const onSubmit = async (formData: AreaServiceSeoFormData) => {
@@ -622,41 +546,17 @@ export default function AreaServiceSeoForm({
         {/* Slug Input */}
         <FormField control={form.control} name="slug" render={({ field }) => (
           <FormItem>
-            <FormLabel className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+            <FormLabel className="flex items-center justify-between">
               <span>SEO Slug URL Path</span>
-              <div className="flex flex-wrap items-center gap-1">
-                {watchedSlug && (
-                  <>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      onClick={handleCopyLink}
-                      className="h-6 text-[10px] py-0 px-2 text-primary hover:text-primary/80 hover:bg-muted"
-                    >
-                      Copy Link
-                    </Button>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      onClick={handleVisitPage}
-                      className="h-6 text-[10px] py-0 px-2 text-primary hover:text-primary/80 hover:bg-muted"
-                    >
-                      Open Page
-                    </Button>
-                  </>
-                )}
-                <Button
-                  type="button"
-                  variant="ghost"
-                  className="h-6 text-[10px] py-0 px-2"
-                  onClick={() => setIsSlugEditable(!isSlugEditable)}
-                >
-                  {isSlugEditable ? <Lock className="mr-1 h-3 w-3" /> : <Edit2 className="mr-1 h-3 w-3" />}
-                  {isSlugEditable ? "Lock Auto-slug" : "Customize Slug"}
-                </Button>
-              </div>
+              <Button
+                type="button"
+                variant="ghost"
+                className="h-6 text-[10px] py-0 px-2"
+                onClick={() => setIsSlugEditable(!isSlugEditable)}
+              >
+                {isSlugEditable ? <Lock className="mr-1 h-3 w-3" /> : <Edit2 className="mr-1 h-3 w-3" />}
+                {isSlugEditable ? "Lock Auto-slug" : "Customize Slug"}
+              </Button>
             </FormLabel>
             <FormControl>
               <div className="relative flex items-center">
@@ -674,17 +574,6 @@ export default function AreaServiceSeoForm({
             <FormMessage />
           </FormItem>
         )}/>
-
-        <div className="space-y-4 pt-4 border-t">
-          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
-            <h3 className="text-md font-semibold text-muted-foreground">SEO Content</h3>
-            <Button type="button" variant="outline" size="sm" onClick={handleGenerateFreeSeo} disabled={effectiveIsSubmitting || !watchedCityId || !watchedAreaId || !watchedServiceId}>
-              <Sparkles className="mr-2 h-4 w-4 text-primary" />
-              Auto-Fill (Free)
-            </Button>
-          </div>
-          <p className="text-xs text-muted-foreground">Generate localized spinned description and FAQ schema blocks for free.</p>
-        </div>
 
         {/* H1 Title */}
         <FormField control={form.control} name="h1_title" render={({ field }) => (

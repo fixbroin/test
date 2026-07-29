@@ -9,7 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter }
 import { Loader2, ArrowLeft, MapPin, Phone, Mail, CalendarDays, Clock, UserCircle, ExternalLink, ListOrdered, AlertTriangle, DollarSign, PlayCircle, CheckCircle, XCircle } from 'lucide-react';
 import type { FirestoreBooking, BookingStatus, FirestoreNotification } from '@/types/firestore';
 import { db } from '@/lib/firebase';
-import { doc, onSnapshot, Timestamp, updateDoc, getDoc, collection, query, where, getDocs, limit, addDoc } from '@/lib/mysqlDb';
+import { doc, onSnapshot, Timestamp, updateDoc, getDoc, collection, query, where, getDocs, limit, addDoc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
 import { Badge } from '@/components/ui/badge';
@@ -110,19 +110,15 @@ export default function ProviderBookingDetailsPage() {
       const updateData: any = { status: newStatus, updatedAt: Timestamp.now() };
       
       let updatedTotal = booking.totalAmount;
-      if (newStatus === "Completed") {
-        if (booking.status !== "Completed") {
-          updateData.isReviewedByCustomer = false;
-        }
-        if (additionalCharges && additionalCharges.length > 0) {
-          updateData.additionalCharges = additionalCharges;
-          const extraTotal = additionalCharges.reduce((sum, c) => sum + c.amount, 0);
-          updatedTotal = (booking.totalAmount || 0) + extraTotal;
-          updateData.totalAmount = updatedTotal;
-        }
-        if (finalizedPaymentMethod) {
-          updateData.paymentMethod = finalizedPaymentMethod;
-        }
+      if (newStatus === "Completed" && additionalCharges && additionalCharges.length > 0) {
+        updateData.additionalCharges = additionalCharges;
+        const extraTotal = additionalCharges.reduce((sum, c) => sum + c.amount, 0);
+        updatedTotal = (booking.totalAmount || 0) + extraTotal;
+        updateData.totalAmount = updatedTotal;
+      }
+
+      if (newStatus === "Completed" && finalizedPaymentMethod) {
+        updateData.paymentMethod = finalizedPaymentMethod;
       }
 
       await updateDoc(bookingDocRef, updateData);
@@ -191,12 +187,11 @@ export default function ProviderBookingDetailsPage() {
             <Badge variant={
               booking.status === 'Completed' ? 'default' :
               booking.status === 'ProviderAccepted' || booking.status === 'InProgressByProvider' ? 'default' :
-              booking.status === 'AssignedToProvider' || booking.status === 'Rescheduled' ? 'secondary' :
+              booking.status === 'AssignedToProvider' ? 'secondary' :
               'outline'
             } className={`capitalize text-sm ${
               booking.status === 'ProviderAccepted' || booking.status === 'InProgressByProvider' ? 'bg-blue-500 text-white' :
-              booking.status === 'Completed' ? 'bg-green-500 text-white' : 
-              booking.status === 'Rescheduled' ? 'bg-orange-500 text-white' : ''
+              booking.status === 'Completed' ? 'bg-green-500 text-white' : ''
             }`}>
               {booking.status.replace(/([A-Z])/g, ' $1').replace('Provider ','')}
             </Badge>
@@ -342,7 +337,7 @@ export default function ProviderBookingDetailsPage() {
         </CardContent>
         {/* Action Buttons Footer */}
         <CardFooter className="flex flex-col sm:flex-row justify-end gap-3 bg-muted/20 border-t p-3">
-            {(booking.status === 'AssignedToProvider' || booking.status === 'Rescheduled') && (
+            {booking.status === 'AssignedToProvider' && (
                 <>
                     <Button 
                         variant="destructive" 

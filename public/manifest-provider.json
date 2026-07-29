@@ -1,9 +1,9 @@
 {
-  "name": "Wecanfix Provider",
-  "short_name": "Wecanfix Provider",
+  "name": "FixBro Provider",
+  "short_name": "FixBro Provider",
   "id": "/provider",
   "scope": "/provider",
-  "description": "Provider Dashboard for Wecanfix Services",
+  "description": "Provider Dashboard for FixBro Services",
   "start_url": "/provider",
   "display": "standalone",
   "orientation": "portrait",

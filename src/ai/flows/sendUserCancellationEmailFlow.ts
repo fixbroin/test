@@ -22,9 +22,9 @@ const UserCancellationEmailInputSchema = z.object({
   smtpPort: z.string().optional().describe("SMTP port (e.g., '587', '465')."),
   smtpUser: z.string().optional().describe("SMTP username."),
   smtpPass: z.string().optional().describe("SMTP password."),
-  senderEmail: z.string().optional().describe("The email address to send from."),
-  siteName: z.string().optional().default("Wecanfix"),
-  logoUrl: z.string().optional(),
+  senderEmail: z.string().email().optional().describe("The email address to send from."),
+  siteName: z.string().optional().default("FixBro"),
+  logoUrl: z.string().url().optional(),
 });
 
 export type UserCancellationEmailInput = z.infer<typeof UserCancellationEmailInputSchema>;
@@ -40,10 +40,7 @@ export async function sendUserCancellationEmail(input: UserCancellationEmailInpu
 }
 
 const createHtmlTemplate = (title: string, bodyContent: string, siteName: string, logoUrl?: string) => {
-    let finalLogoUrl = logoUrl || `${getBaseUrl()}/default-image.png`;
-    if (finalLogoUrl.startsWith('/')) {
-        finalLogoUrl = getBaseUrl() + finalLogoUrl;
-    }
+    const finalLogoUrl = logoUrl || `${getBaseUrl()}/default-image.png`;
     return `
 <!DOCTYPE html>
 <html lang="en">
@@ -113,7 +110,7 @@ const userCancellationEmailFlow = ai.defineFlow(
   async (bookingDetails) => {
     try {
       const {
-        smtpHost, smtpPort, smtpUser, smtpPass, senderEmail, siteName = "Wecanfix", logoUrl,
+        smtpHost, smtpPort, smtpUser, smtpPass, senderEmail, siteName = "FixBro", logoUrl,
         customerName, customerEmail, bookingId,
         paymentMethod, paidAmount, cancellationFee, refundableAmount,
       } = bookingDetails;
@@ -153,7 +150,7 @@ const userCancellationEmailFlow = ai.defineFlow(
       const adminEmailSubject = `Booking Cancelled by User (ID: ${bookingId})`;
       const adminBodyContent = `<p>Booking ID <strong>${bookingId}</strong> for <strong>${customerName}</strong> was cancelled by the user.</p><p>The user has been notified with the relevant payment/refund details.</p>`;
       const adminEmailBody = createHtmlTemplate("Admin Alert: User Cancellation", adminBodyContent, siteName, logoUrl);
-      const adminEmail = "wecanfix.in@gmail.com"; 
+      const adminEmail = "fixbro.in@gmail.com"; 
 
       if (!canAttemptRealEmail) {
         console.warn("SMTP configuration incomplete. Simulating cancellation emails.");

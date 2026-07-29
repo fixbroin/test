@@ -29,7 +29,7 @@ export const getRemoteCacheVersions = async (): Promise<any> => {
   lastVersionFetchTime = now;
   remoteVersionsPromise = (async () => {
     try {
-      const res = await fetch('/api/cache-versions', { cache: 'no-store' });
+      const res = await fetch('/api/cache-versions');
       if (res.ok) {
         return await res.json();
       }
@@ -62,7 +62,7 @@ export const setCache = (key: string, data: any, persist = false): void => {
 
   if (persist && typeof window !== 'undefined') {
     try {
-      localStorage.setItem(`wecanfix_cache_${key}`, JSON.stringify(entry));
+      localStorage.setItem(`fixbro_cache_${key}`, JSON.stringify(entry));
     } catch (e) {
       console.warn("client-cache: Failed to persist to localStorage", e);
     }
@@ -80,7 +80,7 @@ export const getCache = <T>(key: string, usePersistence = false): T | null => {
 
   if (!entry && usePersistence && typeof window !== 'undefined') {
     try {
-      const stored = localStorage.getItem(`wecanfix_cache_${key}`);
+      const stored = localStorage.getItem(`fixbro_cache_${key}`);
       if (stored) {
         entry = JSON.parse(stored);
       }
@@ -98,7 +98,7 @@ export const getCache = <T>(key: string, usePersistence = false): T | null => {
   
   if (isStale) {
     if (typeof window !== 'undefined') {
-      localStorage.removeItem(`wecanfix_cache_${key}`);
+      localStorage.removeItem(`fixbro_cache_${key}`);
     }
     cache.delete(key);
     return null;
@@ -114,7 +114,7 @@ export const clearCache = (): void => {
   cache.clear();
   if (typeof window !== 'undefined') {
     Object.keys(localStorage)
-      .filter(key => key.startsWith('wecanfix_cache_'))
+      .filter(key => key.startsWith('fixbro_cache_'))
       .forEach(key => localStorage.removeItem(key));
   }
 };

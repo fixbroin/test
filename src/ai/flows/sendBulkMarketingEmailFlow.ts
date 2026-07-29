@@ -7,7 +7,7 @@
 
 import { ai } from '@/ai/genkit';
 import { z } from 'genkit';
-import { getFirestore, Timestamp } from '@/lib/mysqlDbAdmin';
+import { getFirestore, Timestamp } from 'firebase-admin/firestore';
 import { initFirebaseAdmin } from '@/lib/firebase-admin';
 import type { FirestoreUser, AppSettings, GlobalWebSettings, FirestoreService, FirestoreCategory } from '@/types/firestore';
 import { sendMarketingEmail } from './sendMarketingEmailFlow';
@@ -133,9 +133,9 @@ const bulkMarketingEmailFlow = ai.defineFlow(
       let failedSends = 0;
 
       const appDetails = {
-        websiteName: globalSettings.websiteName || 'Wecanfix',
+        websiteName: globalSettings.websiteName || 'FixBro',
         websiteUrl: getBaseUrl(),
-        supportEmail: globalSettings.contactEmail || 'support@wecanfix.in',
+        supportEmail: globalSettings.contactEmail || 'support@fixbro.in',
         companyAddress: globalSettings.address || '',
         logoUrl: globalSettings.logoUrl || '',
       };

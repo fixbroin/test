@@ -53,7 +53,7 @@ export default function CitiesInterlinking({
       </div>
       
       <p className="mt-4 text-xs text-muted-foreground italic">
-        Wecanfix provides expert {searchTerm.toLowerCase()} services across all major cities in India.
+        FixBro provides expert {searchTerm.toLowerCase()} services across all major cities in India.
       </p>
     </div>
   );

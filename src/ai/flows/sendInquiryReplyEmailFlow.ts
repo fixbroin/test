@@ -19,15 +19,15 @@ const InquiryReplyEmailInputSchema = z.object({
   userEmail: z.string().email().describe("The email address of the user."),
   originalMessage: z.string().describe("The original message or a summary of the inquiry submitted by the user."),
   replyMessage: z.string().describe("The admin's reply message."),
-  adminName: z.string().optional().default("Wecanfix Support").describe("The name of the admin or support team sending the reply."),
+  adminName: z.string().optional().default("FixBro Support").describe("The name of the admin or support team sending the reply."),
   // SMTP Settings
   smtpHost: z.string().optional().describe("SMTP host for sending emails."),
   smtpPort: z.string().optional().describe("SMTP port (e.g., '587', '465')."),
   smtpUser: z.string().optional().describe("SMTP username."),
   smtpPass: z.string().optional().describe("SMTP password."),
-  senderEmail: z.string().optional().describe("The email address to send from (e.g., support@yourdomain.com)."),
+  senderEmail: z.string().email().optional().describe("The email address to send from (e.g., support@yourdomain.com)."),
   siteName: z.string().optional(),
-  logoUrl: z.string().optional(),
+  logoUrl: z.string().url().optional(),
 });
 
 export type InquiryReplyEmailInput = z.infer<typeof InquiryReplyEmailInputSchema>;
@@ -49,10 +49,7 @@ export async function sendInquiryReplyEmail(input: InquiryReplyEmailInput): Prom
 }
 
 const createHtmlTemplate = (title: string, bodyContent: string, siteName: string, logoUrl?: string) => {
-    let finalLogoUrl = logoUrl || `${getBaseUrl()}/default-image.png`;
-    if (finalLogoUrl.startsWith('/')) {
-        finalLogoUrl = getBaseUrl() + finalLogoUrl;
-    }
+    const finalLogoUrl = logoUrl || `${getBaseUrl()}/default-image.png`;
     return `
 <!DOCTYPE html>
 <html lang="en">
@@ -125,7 +122,7 @@ const inquiryReplyEmailFlow = ai.defineFlow(
       const {
         smtpHost, smtpPort, smtpUser, smtpPass, senderEmail,
         userName, userEmail, originalMessage, replyMessage, adminName, inquiryId,
-        siteName = "Wecanfix", logoUrl,
+        siteName = "FixBro", logoUrl,
       } = details;
 
       const canAttemptRealEmail = smtpHost && smtpPort && smtpUser && smtpPass && senderEmail;

@@ -4,10 +4,10 @@ import type { FirestoreSEOSettings } from '@/types/firestore';
 import { cleanSeoString, getCategorySearchTerm } from './seoAdvancedUtils';
 
 export const defaultSeoValues: FirestoreSEOSettings = {
-  siteName: 'Wecanfix - Home Services in Bangalore',
+  siteName: 'FixBro - Home Services in Bangalore',
 
   // Automatically added to every meta title
-  defaultMetaTitleSuffix: ' | Wecanfix',
+  defaultMetaTitleSuffix: ' | FixBro',
 
   defaultMetaDescription:
     'Book trusted carpenter, plumber, electrician, TV installation, painting, interior work, furniture assembly, and home repair services near you in Bangalore. Verified professionals, upfront pricing, and same-day service.',
@@ -16,7 +16,7 @@ export const defaultSeoValues: FirestoreSEOSettings = {
     'carpenter near me, plumber near me, electrician near me, tv installation near me, painting services near me, interior designers near me, furniture assembly near me, home repair services bangalore',
 
   homepageMetaTitle:
-    'Verified Carpenter, Plumber, Electrician & Home Services in Bangalore | Wecanfix',
+    'Verified Carpenter, Plumber, Electrician & Home Services in Bangalore | FixBro',
 
   homepageMetaDescription:
     'Book verified carpenter, plumber, electrician, painting, appliance repair, and home maintenance services in Bangalore. Same-day service, upfront pricing, and 99.9% satisfaction guaranteed.',
@@ -67,7 +67,7 @@ export const defaultSeoValues: FirestoreSEOSettings = {
     'Professional {{serviceName}} in Bangalore | Same-Day Service',
 
   servicePageDescriptionPattern:
-    'Book professional {{serviceName}} in Bangalore with Wecanfix. Verified technicians, transparent rates, and same-day availability. 99.9% satisfaction guaranteed!',
+    'Book professional {{serviceName}} in Bangalore with FixBro. Verified technicians, transparent rates, and same-day availability. 99.9% satisfaction guaranteed!',
 
   servicePageKeywordsPattern:
     '{{serviceName}} near me, best {{serviceName}} in bangalore, affordable {{serviceName}}, local {{serviceName}} services',
@@ -88,7 +88,7 @@ export const defaultSeoValues: FirestoreSEOSettings = {
     'Home Services in {{areaName}}',
 
   cityPageTitlePattern:
-    'Top-Rated Home Repair Services in {{cityName}} | Wecanfix',
+    'Top-Rated Home Repair Services in {{cityName}} | FixBro',
 
   cityPageDescriptionPattern:
     'Book trusted carpenter, plumber, electrician, painting, furniture assembly, and home repair services in {{cityName}} Bangalore. Professional, verified experts near you.',
@@ -101,7 +101,7 @@ export const defaultSeoValues: FirestoreSEOSettings = {
 
   structuredDataType: 'LocalBusiness',
 
-  structuredDataName: 'Wecanfix',
+  structuredDataName: 'FixBro',
 
   structuredDataStreetAddress:
     '#44, G S Palya Road, Konappana Agrahara, Electronic City Phase 2',
@@ -117,14 +117,14 @@ export const defaultSeoValues: FirestoreSEOSettings = {
   structuredDataTelephone: '+91-7353113455',
 
   structuredDataImage:
-    'https://wecanfix.in/android-chrome-512x512.png',
+    'https://fixbro.in/android-chrome-512x512.png',
 
   socialProfileUrls: {
-    facebook: 'https://www.facebook.com/wecanfix.in',
-    twitter: 'https://x.com/wecanfix_in',
-    instagram: 'https://www.instagram.com/wecanfix.in/',
-    linkedin: 'https://www.linkedin.com/company/wecanfix-in',
-    youtube: 'https://www.youtube.com/@wecanfix-in',
+    facebook: 'https://www.facebook.com/fixbro.in',
+    twitter: 'https://x.com/fixbro_in',
+    instagram: 'https://www.instagram.com/fixbro.in/',
+    linkedin: 'https://www.linkedin.com/company/fixbro-in',
+    youtube: 'https://www.youtube.com/@fixbro-in',
   },
 
   fallbackRatingValue: '4.9',
@@ -139,7 +139,7 @@ cityCategorySeoContentTemplate: `
   <h2>Professional {{categoryName}} Services in {{cityName}}</h2>
 
   <p>
-    Looking for trusted {{categoryName}} services in {{cityName}}? Wecanfix helps homeowners, tenants, businesses, and property managers connect with experienced professionals for quality service solutions. Whether you need installation, repair, maintenance, replacement, assembly, inspection, or support services, our experts are ready to help.
+    Looking for trusted {{categoryName}} services in {{cityName}}? FixBro helps homeowners, tenants, businesses, and property managers connect with experienced professionals for quality service solutions. Whether you need installation, repair, maintenance, replacement, assembly, inspection, or support services, our experts are ready to help.
   </p>
 
   <p>
@@ -170,7 +170,7 @@ cityCategorySeoContentTemplate: `
 
   </div>
 
-  <h3>Why Choose Wecanfix for {{categoryName}} in {{cityName}}?</h3>
+  <h3>Why Choose FixBro for {{categoryName}} in {{cityName}}?</h3>
 
   <ul>
     <li>Experienced local professionals</li>
@@ -188,7 +188,7 @@ cityCategorySeoContentTemplate: `
   </p>
 
   <p>
-    Book trusted {{categoryName}} services near you in {{cityName}} and get professional assistance from experienced experts through Wecanfix.
+    Book trusted {{categoryName}} services near you in {{cityName}} and get professional assistance from experienced experts through FixBro.
   </p>
 
 </section>
@@ -197,7 +197,7 @@ cityCategorySeoContentTemplate: `
 cityCategoryFaqsTemplate: [
   {
     question: "What {{categoryName}} services are available in {{cityName}}?",
-    answer: "Wecanfix offers installation, repair, maintenance, replacement, inspection, assembly, and other professional {{categoryName}} services across {{cityName}}."
+    answer: "FixBro offers installation, repair, maintenance, replacement, inspection, assembly, and other professional {{categoryName}} services across {{cityName}}."
   },
   {
     question: "How do I book {{categoryName}} services in {{cityName}}?",
@@ -205,7 +205,7 @@ cityCategoryFaqsTemplate: [
   },
   {
     question: "Are your {{categoryName}} professionals verified?",
-    answer: "Yes. All service professionals undergo verification and quality assessment before joining the Wecanfix platform."
+    answer: "Yes. All service professionals undergo verification and quality assessment before joining the FixBro platform."
   },
   {
     question: "Do you provide same-day {{categoryName}} services in {{cityName}}?",
@@ -227,7 +227,7 @@ areaCategorySeoContentTemplate: `
   <h2>{{categoryName}} Services in {{areaName}}, {{cityName}}</h2>
 
   <p>
-    Need professional {{categoryName}} services in {{areaName}}? Wecanfix connects customers with trusted local experts who provide reliable service solutions for homes, apartments, offices, retail shops, and commercial properties throughout {{areaName}}.
+    Need professional {{categoryName}} services in {{areaName}}? FixBro connects customers with trusted local experts who provide reliable service solutions for homes, apartments, offices, retail shops, and commercial properties throughout {{areaName}}.
   </p>
 
   <p>
@@ -271,7 +271,7 @@ areaCategorySeoContentTemplate: `
   </p>
 
   <p>
-    If you are searching for trusted {{categoryName}} near {{areaName}}, {{cityName}}, Wecanfix helps you connect with experienced professionals for quality service and dependable support.
+    If you are searching for trusted {{categoryName}} near {{areaName}}, {{cityName}}, FixBro helps you connect with experienced professionals for quality service and dependable support.
   </p>
 
 </section>
@@ -280,7 +280,7 @@ areaCategorySeoContentTemplate: `
 areaCategoryFaqsTemplate: [
   {
     question: "Do you provide {{categoryName}} services in {{areaName}}?",
-    answer: "Yes. Wecanfix provides professional {{categoryName}} services throughout {{areaName}} and nearby localities in {{cityName}}."
+    answer: "Yes. FixBro provides professional {{categoryName}} services throughout {{areaName}} and nearby localities in {{cityName}}."
   },
   {
     question: "How quickly can a professional reach {{areaName}}?",
@@ -299,8 +299,8 @@ areaCategoryFaqsTemplate: [
     answer: "Urgent service availability depends on the category and professional availability in your locality."
   },
   {
-    question: "Why choose Wecanfix in {{areaName}}?",
-    answer: "Wecanfix connects customers with experienced professionals, transparent pricing, convenient booking, and reliable service support."
+    question: "Why choose FixBro in {{areaName}}?",
+    answer: "FixBro connects customers with experienced professionals, transparent pricing, convenient booking, and reliable service support."
   }
 ],
 
@@ -310,7 +310,7 @@ areaCategoryFaqsTemplate: [
   <h2>{{serviceName}} in {{areaName}}, {{cityName}}</h2>
 
   <p>
-    Wecanfix offers reliable, top-rated {{serviceName}} in {{areaName}}, {{cityName}}. Whether you need urgent assistance, standard repairs, routine maintenance, or professional installation work, our verified local service experts are ready to handle it for you.
+    FixBro offers reliable, top-rated {{serviceName}} in {{areaName}}, {{cityName}}. Whether you need urgent assistance, standard repairs, routine maintenance, or professional installation work, our verified local service experts are ready to handle it for you.
   </p>
 
   <p>
@@ -331,12 +331,12 @@ areaCategoryFaqsTemplate: [
 
     <div class="p-4 bg-muted/30 rounded-lg">
       <strong>Verified Quality</strong><br>
-      Backed by verified technician reviews and Wecanfix assurance.
+      Backed by verified technician reviews and FixBro assurance.
     </div>
 
   </div>
 
-  <h3>Why Book {{serviceName}} in {{areaName}} with Wecanfix?</h3>
+  <h3>Why Book {{serviceName}} in {{areaName}} with FixBro?</h3>
 
   <ul>
     <li>Dedicated service experts available locally in {{areaName}}</li>
@@ -368,7 +368,7 @@ areaCategoryFaqsTemplate: [
     },
     {
       question: "Is there any warranty on {{serviceName}}?",
-      answer: "Wecanfix stands behind the service quality. If any issues arise from the workmanship, our support team will address it promptly."
+      answer: "FixBro stands behind the service quality. If any issues arise from the workmanship, our support team will address it promptly."
     }
   ],
 };

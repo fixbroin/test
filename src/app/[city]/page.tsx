@@ -61,7 +61,7 @@ export async function generateMetadata(
   const appBaseUrl = getBaseUrl();
   const placeholderData = { cityName: cityData.name };
 
-  const title = replacePlaceholders(cityData.seo_title || cityData.metaTitle || seoSettings.cityPageTitlePattern, placeholderData) || `${cityData.name} Home Services | Wecanfix`;
+  const title = replacePlaceholders(cityData.seo_title || cityData.metaTitle || seoSettings.cityPageTitlePattern, placeholderData) || `${cityData.name} Home Services | FixBro`;
   const description = replacePlaceholders(cityData.seo_description || cityData.metaDescription || seoSettings.cityPageDescriptionPattern, placeholderData) || `Trusted home services in ${cityData.name}.`;
   const keywords = replacePlaceholders(cityData.seo_keywords || cityData.metaKeywords || seoSettings.cityPageKeywordsPattern, placeholderData).split(',').map(k => k.trim()).filter(k => k);
 
@@ -89,9 +89,18 @@ export async function generateMetadata(
   };
 }
 
-export async function generateStaticParams() {
-  return [];
-}
+// export async function generateStaticParams() {
+//    try {
+//     const citiesSnapshot = await adminDb.collection('cities').where('isActive', '==', true).get();
+//     const paths = citiesSnapshot.docs.map(doc => ({
+//       city: (doc.data() as FirestoreCity).slug as string,
+//     }));
+//     return paths.filter(p => p.city && !p.city.includes('.') && !RESERVED_SLUGS.includes(p.city));
+//   } catch (error) {
+//     console.error("Error generating static params for city pages:", error);
+//     return [];
+//   }
+// }
 
 export default async function CityHomePage({ params }: CityPageProps) {
   const { city: citySlug } = await params;
@@ -131,9 +140,9 @@ export default async function CityHomePage({ params }: CityPageProps) {
   const citySchema = {
     "@context": "https://schema.org",
     "@type": "LocalBusiness",
-    "name": `Wecanfix ${cityData.name}`,
+    "name": `FixBro ${cityData.name}`,
     "url": `${appBaseUrl}/${citySlug}`,
-    "description": cityData.seo_description || cityData.metaDescription || `Professional home services in ${cityData.name}. Trusted experts by Wecanfix.`,
+    "description": cityData.seo_description || cityData.metaDescription || `Professional home services in ${cityData.name}. Trusted experts by FixBro.`,
     "telephone": seoSettings.structuredDataTelephone,
     "image": schemaImage,
     "priceRange": "₹₹",

@@ -79,7 +79,7 @@ export default function UserDetailsModal({ user, onClose, onUpdateUser }: UserDe
   const handleWhatsAppClick = (e: React.MouseEvent, mobileNumber?: string | null) => {
     e.stopPropagation();
     if (!mobileNumber) return;
-    const message = "Hi, I'm contacting you from Wecanfix.";
+    const message = "Hi, I'm contacting you from FixBro.";
     openWhatsAppChooser(mobileNumber, message);
   };
 

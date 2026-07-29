@@ -91,9 +91,9 @@ const prompt = ai.definePrompt({
   },
 
   prompt: `
-You are an advanced Local SEO expert for Wecanfix.
+You are an advanced Local SEO expert for FixBro.
 
-Wecanfix provides:
+FixBro provides:
 - Carpenter services
 - Plumbing services
 - Electrician services
@@ -171,7 +171,7 @@ Rules:
   - near you intent
 
 Example:
-"Book trusted carpenter services in Bangalore with Wecanfix experts near you for repair, installation, and furniture work."
+"Book trusted carpenter services in Bangalore with FixBro experts near you for repair, installation, and furniture work."
 
 4. meta_keywords
 Rules:

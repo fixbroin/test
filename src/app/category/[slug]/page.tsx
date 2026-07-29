@@ -97,7 +97,7 @@ export async function generateMetadata(
   const appBaseUrl = getBaseUrl();
   const placeholderData = { categoryName: data.category.name };
 
-  const title = replacePlaceholders(data.category.meta_title || data.category.metaTitle || data.category.seo_title || seoSettings.categoryPageTitlePattern, placeholderData) || `${data.category.name} Services | Wecanfix`;
+  const title = replacePlaceholders(data.category.meta_title || data.category.metaTitle || data.category.seo_title || seoSettings.categoryPageTitlePattern, placeholderData) || `${data.category.name} Services | FixBro`;
   const description = replacePlaceholders(data.category.meta_description || data.category.metaDescription || data.category.seo_description || seoSettings.categoryPageDescriptionPattern, placeholderData) || `Professional ${data.category.name} services near you.`;
   const keywords = replacePlaceholders(data.category.meta_keywords || data.category.metaKeywords || data.category.seo_keywords || seoSettings.categoryPageKeywordsPattern, placeholderData).split(',').map(k => k.trim()).filter(k => k);
 
@@ -125,9 +125,17 @@ export async function generateMetadata(
   };
 }
 
-export async function generateStaticParams() {
-  return [];
-}
+// export async function generateStaticParams() {
+//   try {
+//     const categoriesSnapshot = await adminDb.collection('adminCategories').where('isActive', '==', true).get();
+//     return categoriesSnapshot.docs
+//       .map(doc => ({ slug: (doc.data() as FirestoreCategory).slug }))
+//       .filter(p => p.slug);
+//   } catch (error) {
+//     console.error("[CategoryPage] Error generating static params:", error);
+//     return [];
+//   }
+// }
 
 export default async function CategoryPage({ params }: CategoryPageProps) {
   const { slug } = await params;
@@ -165,7 +173,7 @@ export default async function CategoryPage({ params }: CategoryPageProps) {
       "image": schemaImage,
       "brand": {
         "@type": "Brand",
-        "name": "Wecanfix"
+        "name": "FixBro"
       },
       "sku": data.category.id,
       "mpn": data.category.id,

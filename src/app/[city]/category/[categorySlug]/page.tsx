@@ -15,9 +15,33 @@ import { generateBreadcrumbSchema } from '@/lib/seoAdvancedUtils';
 
 export const revalidate = false;
 
-export async function generateStaticParams() {
-  return [];
-}
+// export async function generateStaticParams() {
+//   try {
+//     const citiesSnapshot = await adminDb.collection('cities').where('isActive', '==', true).get();
+//     const categoriesSnapshot = await adminDb.collection('adminCategories').where('isActive', '==', true).get();
+// 
+//     const params: Array<{ city: string; categorySlug: string }> = [];
+// 
+//     for (const cityDoc of citiesSnapshot.docs) {
+//       const cityData = cityDoc.data() as FirestoreCity;
+//       if (!cityData.slug) continue;
+// 
+//       for (const catDoc of categoriesSnapshot.docs) {
+//         const catData = catDoc.data() as FirestoreCategory;
+//         if (!catData.slug) continue;
+// 
+//         params.push({
+//           city: cityData.slug,
+//           categorySlug: catData.slug
+//         });
+//       }
+//     }
+//     return params;
+//   } catch (error) {
+//     console.error("Error generating static params for city-category pages:", error);
+//     return [];
+//   }
+// }
  // Persistent Cache
 
 interface PageProps {
@@ -195,7 +219,7 @@ export default async function CityCategoryPage({ params }: PageProps) {
     "@context": "https://schema.org",
     "@type": "LocalBusiness",
     "name": `${categoryData.name} in ${cityData.name}`,
-    "description": seoOverride?.meta_description || categoryData.metaDescription || `Professional ${categoryData.name} services in ${cityData.name}. Trusted home maintenance and repairs by Wecanfix.`,
+    "description": seoOverride?.meta_description || categoryData.metaDescription || `Professional ${categoryData.name} services in ${cityData.name}. Trusted home maintenance and repairs by FixBro.`,
     "image": schemaImage,
     "telephone": seoSettings.structuredDataTelephone,
     "priceRange": "₹₹",

@@ -14,7 +14,7 @@ import { db } from '@/lib/firebase';
 import { triggerPushNotification } from '@/lib/fcmUtils';
 import { 
   collection, 
- query, orderBy, onSnapshot, doc, updateDoc, Timestamp, deleteDoc, where, getDocs, deleteField, addDoc, getDoc, runTransaction, limit, startAfter, type QueryDocumentSnapshot } from '@/lib/mysqlDb';
+ query, orderBy, onSnapshot, doc, updateDoc, Timestamp, deleteDoc, where, getDocs, deleteField, addDoc, getDoc, runTransaction, limit, startAfter, type QueryDocumentSnapshot } from "firebase/firestore";
 import { useToast } from "@/hooks/use-toast";
 import BookingDetailsModalContent from '@/components/admin/BookingDetailsModalContent';
 import EditBookingModal from '@/components/admin/EditBookingModal';
@@ -103,59 +103,36 @@ const getPaymentLabel = (method: string | undefined, status: string) => {
 
 const PAGE_SIZE = 10;
 
-function getBookingTimestampMillis(b: FirestoreBooking): number {
-  const dateStr = b.scheduledDate || (b as any).bookingDate;
-  const timeStr = b.scheduledTimeSlot || (b as any).bookingTime;
-
-  if (dateStr) {
-    try {
-      const dateParts = dateStr.split('-').map(Number);
-      if (dateParts.length === 3) {
-        let timeHours = 12;
-        let timeMinutes = 0;
-        if (timeStr) {
-          const match = timeStr.match(/(\d+):(\d+)\s*(AM|PM)?/i);
-          if (match) {
-            let h = parseInt(match[1], 10);
-            const m = parseInt(match[2], 10);
-            const ampm = match[3]?.toUpperCase();
-            if (ampm === 'PM' && h < 12) h += 12;
-            if (ampm === 'AM' && h === 12) h = 0;
-            timeHours = h;
-            timeMinutes = m;
-          }
-        }
-        return new Date(dateParts[0], dateParts[1] - 1, dateParts[2], timeHours, timeMinutes).getTime();
-      }
-    } catch (e) {}
-  }
-  if (b.createdAt) {
-    if (typeof (b.createdAt as any)._seconds === 'number') {
-      return (b.createdAt as any)._seconds * 1000;
-    }
-    if (b.createdAt instanceof Date) {
-      return (b.createdAt as Date).getTime();
-    }
-  }
-  return 0;
-}
-
 export default function AdminBookingsPage() {
   const { stats } = useAdminStats();
   const { adminPermissions } = useAuth();
   const [bookings, setBookings] = useState<FirestoreBooking[]>([]);
-  const [displayLimit, setDisplayLimit] = useState(50);
   const [lastDoc, setLastDoc] = useState<QueryDocumentSnapshot | null>(null);
   const [hasMore, setHasMore] = useState(true);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
-  const [refreshTrigger, setRefreshTrigger] = useState(0);
   const [isUpdatingStatus, setIsUpdatingStatus] = useState<string | null>(null);
   const [isDeleting, setIsDeleting] = useState<string | null>(null);
   const [isInitializing, setIsInitializing] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
   const [filterStatus, setFilterStatus] = useState<BookingStatus | "All">("All");
 
+  const handleSyncIDs = async () => {
+    setIsSyncing(true);
+    try {
+      const result = await resequenceBookingNumbers();
+      if (result.success) {
+        toast({ title: "Sync Complete", description: `Successfully re-sequenced ${result.count} bookings.` });
+        window.location.reload(); 
+      } else {
+        toast({ title: "Sync Failed", description: result.error, variant: "destructive" });
+      }
+    } catch (err) {
+      toast({ title: "Error", description: "An unexpected error occurred.", variant: "destructive" });
+    } finally {
+      setIsSyncing(false);
+    }
+  };
   const [searchTerm, setSearchTerm] = useState("");
   const { toast } = useToast();
   const router = useRouter();
@@ -187,24 +164,7 @@ export default function AdminBookingsPage() {
   const [isFilterStatusPickerOpen, setIsFilterStatusPickerOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [bookingToEditId, setBookingToEditId] = useState<string | null>(null);
-
-  const handleSyncIDs = async () => {
-    setIsSyncing(true);
-    try {
-      const result = await resequenceBookingNumbers();
-      if (result.success) {
-        toast({ title: "Sync Complete", description: `Successfully re-sequenced ${result.count} bookings.` });
-        await triggerRefresh('global-cache');
-        setRefreshTrigger(prev => prev + 1);
-      } else {
-        toast({ title: "Sync Failed", description: result.error, variant: "destructive" });
-      }
-    } catch (err) {
-      toast({ title: "Error", description: "An unexpected error occurred.", variant: "destructive" });
-    } finally {
-      setIsSyncing(false);
-    }
-  };
+  const [refreshTrigger, setRefreshTrigger] = useState(0);
 
   const handleInitialize = async () => {
     setIsInitializing(true);
@@ -212,8 +172,7 @@ export default function AdminBookingsPage() {
       const result = await initializeBookingNumbers();
       if (result.success) {
         toast({ title: "Initialization Complete", description: `Successfully assigned Booking IDs to ${result.count} bookings.` });
-        await triggerRefresh('global-cache');
-        setRefreshTrigger(prev => prev + 1);
+        window.location.reload(); 
       } else {
         toast({ title: "Initialization Failed", description: result.error, variant: "destructive" });
       }
@@ -226,13 +185,12 @@ export default function AdminBookingsPage() {
 
   const handleWhatsAppClick = (booking: FirestoreBooking) => {
     if (booking.customerPhone) {
-      const message = `Hi ${booking.customerName}, I'm contacting you from Wecanfix regarding your booking #${booking.bookingId}.`;
+      const message = `Hi ${booking.customerName}, I'm contacting you from FixBro regarding your booking #${booking.bookingId}.`;
       openWhatsAppChooser(booking.customerPhone, message);
     }
   };
 
   useEffect(() => {
-    setDisplayLimit(50);
     if (searchTerm.trim().length > 0) {
       const delayDebounceFn = setTimeout(async () => {
         setIsLoading(true);
@@ -293,10 +251,11 @@ export default function AdminBookingsPage() {
       const fetchInitialBookings = async () => {
         setIsLoading(true);
         try {
-          const q = query(collection(db, "bookings"), orderBy("bookingNumber", "desc"));
+          const q = query(collection(db, "bookings"), orderBy("createdAt", "desc"), limit(PAGE_SIZE));
           const snapshot = await getDocs(q);
           setBookings(snapshot.docs.map(docSnap => ({ ...docSnap.data(), id: docSnap.id } as FirestoreBooking)));
-          setHasMore(false);
+          setLastDoc(snapshot.docs[snapshot.docs.length - 1] || null);
+          setHasMore(snapshot.docs.length === PAGE_SIZE);
         } catch (error) {
           console.error("Error fetching bookings:", error);
           toast({ title: "Error", description: "Failed to load bookings.", variant: "destructive" });
@@ -367,12 +326,7 @@ export default function AdminBookingsPage() {
       });
     }
     
-    return [...filtered].sort((a, b) => {
-      const numA = Number(a.bookingNumber) || 0;
-      const numB = Number(b.bookingNumber) || 0;
-      if (numA !== numB) return numB - numA;
-      return getBookingTimestampMillis(b) - getBookingTimestampMillis(a);
-    });
+    return filtered;
   }, [bookings, filterStatus, searchTerm]);
 
   const handleStatusChange = async (booking: FirestoreBooking, newStatus: BookingStatus, additionalCharges?: {name: string, amount: number}[], finalizedPaymentMethod?: string) => {
@@ -397,9 +351,6 @@ export default function AdminBookingsPage() {
         updateData.isProviderNotified = false; // Force re-notification
       }
       if (newStatus === "Completed") {
-        if (booking.status !== "Completed") {
-          updateData.isReviewedByCustomer = false;
-        }
         if (additionalCharges && additionalCharges.length > 0) {
             updateData.additionalCharges = additionalCharges;
             const extraTotal = additionalCharges.reduce((sum, c) => sum + c.amount, 0);
@@ -744,7 +695,7 @@ export default function AdminBookingsPage() {
             <><div className="hidden md:block">
                 <Table><TableHeader><TableRow><TableHead className="w-[50px]">No.</TableHead><TableHead className="w-[120px]">ID</TableHead><TableHead>Customer</TableHead><TableHead>Date & Time</TableHead><TableHead>Payment</TableHead><TableHead>Services</TableHead><TableHead className="text-right">Amount (₹)</TableHead></TableRow></TableHeader>
                 <TableBody>
-                  {filteredBookings.slice(0, displayLimit).map((b, index) => {
+                  {filteredBookings.map((b, index) => {
                     return (
                       <React.Fragment key={b.id}>
                         <TableRow className="hover:bg-transparent border-b-0">
@@ -788,7 +739,7 @@ export default function AdminBookingsPage() {
                             </div>
                           </TableCell>
                         </TableRow>
-                        <TableRow className="hover:bg-transparent border-t-0">
+                        <TableRow className="bg-muted/5 border-b-2">
                           <TableCell colSpan={7} className="py-3 px-4">
                             <div className="flex flex-wrap items-center gap-3">
                               <PermissionGuard moduleId="bookings" action="write" fallback={
@@ -844,21 +795,20 @@ export default function AdminBookingsPage() {
                 </TableBody></Table>
                 </div>
                 <div className="md:hidden p-4 space-y-4">
-                {filteredBookings.slice(0, displayLimit).map((b) => renderBookingCard(b))}
+                {filteredBookings.map((b) => renderBookingCard(b))}
               </div>
-              {filteredBookings.length > displayLimit && (
-                <div className="p-8 text-center border-t border-muted/40 flex flex-col sm:flex-row justify-between items-center gap-4 text-sm text-muted-foreground">
-                  <div>
-                    Showing first {Math.min(displayLimit, filteredBookings.length)} of {filteredBookings.length} bookings.
-                  </div>
-                  <div className="flex gap-2">
-                    <Button variant="outline" size="sm" onClick={() => setDisplayLimit((prev: number) => prev + 50)}>
-                      Load More (+50)
-                    </Button>
-                    <Button variant="outline" size="sm" onClick={() => setDisplayLimit(filteredBookings.length)}>
-                      Load All ({filteredBookings.length})
-                    </Button>
-                  </div>
+              {hasMore && !searchTerm && (
+                <div className="p-8 text-center border-t border-muted/40">
+                  <Button
+                    variant="outline"
+                    size="lg"
+                    onClick={loadMoreBookings}
+                    disabled={isLoadingMore}
+                    className="min-w-[200px] rounded-2xl border-2 border-primary/20 hover:bg-primary hover:text-primary-foreground transition-all duration-300 shadow-sm font-black uppercase text-xs tracking-widest h-12"
+                  >
+                    {isLoadingMore ? <Loader2 className="h-5 w-5 animate-spin mr-2" /> : <ChevronDown className="h-5 w-5 mr-2" />}
+                    Load More Bookings
+                  </Button>
                 </div>
               )}
             </>

@@ -6,7 +6,7 @@ import { getCategorySearchTerm, generateBreadcrumbSchema } from '@/lib/seoAdvanc
 import { Metadata, ResolvingMetadata } from 'next';
 import NearMeLocationDetector from '@/components/category/NearMeLocationDetector';
 import { Badge } from '@/components/ui/badge';
-import Link from '@/components/shared/TransitionLink';
+import Link from 'next/link';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import JsonLdScript from '@/components/shared/JsonLdScript';
 import { MapPin, ShieldCheck, Clock, CheckCircle2 } from 'lucide-react';
@@ -23,15 +23,15 @@ export async function generateMetadata(
   const { slug } = await params;
   const categorySnapshot = await adminDb.collection('adminCategories').where('slug', '==', slug).limit(1).get();
   
-  if (categorySnapshot.empty) return { title: "Service Near Me | Wecanfix" };
+  if (categorySnapshot.empty) return { title: "Service Near Me | FixBro" };
   
   const category = categorySnapshot.docs[0].data() as FirestoreCategory;
   const searchTerm = getCategorySearchTerm(category.name);
   const appBaseUrl = getBaseUrl();
 
   return {
-    title: `${searchTerm} Near Me | Local ${searchTerm} Services in Bangalore | Wecanfix`,
-    description: `Looking for a ${searchTerm.toLowerCase()} near me? Wecanfix provides verified, high-quality ${category.name.toLowerCase()} experts across Bangalore. Book same-day service now.`,
+    title: `${searchTerm} Near Me | Local ${searchTerm} Services in Bangalore | FixBro`,
+    description: `Looking for a ${searchTerm.toLowerCase()} near me? FixBro provides verified, high-quality ${category.name.toLowerCase()} experts across Bangalore. Book same-day service now.`,
     alternates: {
       canonical: `${appBaseUrl}/near-me/${slug}`,
     }
@@ -56,13 +56,7 @@ const getNearMePageData = cache(async (slug: string) => {
           .orderBy('name', 'asc')
           .get();
         
-        const areas = areasSnap.docs.map(doc => ({ 
-          id: doc.id, 
-          name: doc.data().name, 
-          slug: doc.data().slug,
-          latitude: doc.data().latitude,
-          longitude: doc.data().longitude
-        } as FirestoreArea));
+        const areas = areasSnap.docs.map(doc => ({ id: doc.id, name: doc.data().name, slug: doc.data().slug } as FirestoreArea));
 
         return { category, city, areas };
       } catch (error) {
@@ -87,11 +81,11 @@ export default async function NearMeCategoryPage({ params }: NearMeCategoryPageP
   const faqs = [
     {
         question: `How soon can a ${searchTerm.toLowerCase()} reach me in Bangalore?`,
-        answer: `Wecanfix offers same-day service. Once you book, a verified ${searchTerm.toLowerCase()} near you will be assigned, typically reaching your location within 60-90 minutes.`
+        answer: `FixBro offers same-day service. Once you book, a verified ${searchTerm.toLowerCase()} near you will be assigned, typically reaching your location within 60-90 minutes.`
     },
     {
         question: `Are the ${searchTerm.toLowerCase()} experts verified?`,
-        answer: `Yes, every professional on Wecanfix undergoes a rigorous multi-level background check and skill verification process to ensure safety and quality.`
+        answer: `Yes, every professional on FixBro undergoes a rigorous multi-level background check and skill verification process to ensure safety and quality.`
     },
     {
         question: `What are the charges for ${searchTerm.toLowerCase()} services near me?`,
@@ -179,7 +173,7 @@ export default async function NearMeCategoryPage({ params }: NearMeCategoryPageP
           <div className="prose prose-sm md:prose-base max-w-none text-muted-foreground bg-muted/30 p-8 md:p-12 rounded-3xl">
              <h3 className="text-foreground">Dominating Local {searchTerm} Needs in Bangalore</h3>
              <p>
-                Searching for a <strong>{searchTerm.toLowerCase()} near me</strong> usually means you have an urgent repair or installation need. Wecanfix has optimized its entire platform to ensure that whether you are in Electronic City, Whitefield, or Jayanagar, you are never more than a few clicks away from a professional. 
+                Searching for a <strong>{searchTerm.toLowerCase()} near me</strong> usually means you have an urgent repair or installation need. FixBro has optimized its entire platform to ensure that whether you are in Electronic City, Whitefield, or Jayanagar, you are never more than a few clicks away from a professional. 
              </p>
              <p>
                 Our <strong>local {searchTerm.toLowerCase()} services</strong> include everything from minor repairs to major renovations. By focusing on hyper-local availability, we reduce travel time for our providers, which translates to faster service and better prices for you.

@@ -30,9 +30,9 @@ const roboto = Roboto({
 export async function generateMetadata(): Promise<Metadata> {
   const seoSettings = await getGlobalSEOSettings();
   const appBaseUrl = getBaseUrl();
-  const siteName = seoSettings.siteName || 'Wecanfix';
+  const siteName = seoSettings.siteName || 'FixBro';
   const defaultSuffix = seoSettings.defaultMetaTitleSuffix || ` - ${siteName}`;
-  const defaultDescription = seoSettings.defaultMetaDescription || 'Book home services easily with Wecanfix.';
+  const defaultDescription = seoSettings.defaultMetaDescription || 'Book home services easily with FixBro.';
   const defaultKeywords = (seoSettings.defaultMetaKeywords || '').split(',').map(k => k.trim()).filter(k => k);
   const defaultOgImage = `/default-image.png`;
   const ogImage = seoSettings.structuredDataImage || defaultOgImage;
@@ -125,20 +125,20 @@ export default async function RootLayout({
     <html lang="en" className={`${roboto.variable}`} suppressHydrationWarning>
       <body className="font-body antialiased no-select">
         <style 
-          id="wecanfix-dynamic-theme-styles" 
+          id="fixbro-dynamic-theme-styles" 
           precedence="high"
-          href="wecanfix-dynamic-theme-styles"
+          href="fixbro-dynamic-theme-styles"
           dangerouslySetInnerHTML={{ __html: serverThemeStyles }} 
         />
         <Script
-          id="wecanfix-initial-theme"
+          id="fixbro-initial-theme"
           strategy="beforeInteractive"
           dangerouslySetInnerHTML={{
             __html: `
               (function() {
                 const theme = (function() { 
                   try {
-                    const storedTheme = localStorage.getItem('wecanfix-theme');
+                    const storedTheme = localStorage.getItem('fixbro-theme');
                     if (storedTheme === 'light' || storedTheme === 'dark') return storedTheme;
                     return 'light';
                   } catch (e) { return 'light'; }
@@ -149,8 +149,8 @@ export default async function RootLayout({
                   document.documentElement.classList.remove('dark');
                 }
                 try {
-                    if (localStorage.getItem('wecanfix-theme') !== theme) {
-                        localStorage.setItem('wecanfix-theme', theme);
+                    if (localStorage.getItem('fixbro-theme') !== theme) {
+                        localStorage.setItem('fixbro-theme', theme);
                     }
                 } catch (e) { }
               })();

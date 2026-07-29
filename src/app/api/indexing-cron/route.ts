@@ -3,7 +3,7 @@ import { type NextRequest, NextResponse } from 'next/server';
 import { adminDb } from '@/lib/firebaseAdmin';
 import { getBaseUrl } from '@/lib/config';
 import { notifyGoogleIndexing } from '@/lib/googleIndexing';
-import { Timestamp } from '@/lib/mysqlDbAdmin';
+import { Timestamp } from 'firebase-admin/firestore';
 
 export async function GET(req: NextRequest) {
   const secret = new URL(req.url).searchParams.get('secret');
@@ -22,7 +22,7 @@ export async function GET(req: NextRequest) {
       });
     }
 
-    const baseUrl = getBaseUrl() || 'https://wecanfix.in';
+    const baseUrl = getBaseUrl() || 'https://fixbro.in';
     const urls: string[] = [];
 
     console.log("[Indexing Cron] Compiling all site URLs...");

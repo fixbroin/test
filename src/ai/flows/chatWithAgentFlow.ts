@@ -3,7 +3,7 @@
 /**
  * src/ai/flows/chatWithAgentFlow.ts
  *
- * Enhanced production-ready AI chat flow for Wecanfix.
+ * Enhanced production-ready AI chat flow for FixBro.
  * Now location-aware, website-knowledgeable, and respects admin takeover.
  */
 
@@ -260,7 +260,7 @@ async function getUserAndBookings(userId?: string): Promise<{ name: string; emai
   });
   
   // Find the primary admin UID for chat session lookup
-  const adminQuery = await adminDb.collection("users").where("email", "==", "wecanfix.in@gmail.com").limit(1).get();
+  const adminQuery = await adminDb.collection("users").where("email", "==", "fixbro.in@gmail.com").limit(1).get();
   if (!adminQuery.empty) {
     adminId = adminQuery.docs[0].id;
   }
@@ -300,7 +300,7 @@ function buildSystemPrompt(params: {
   }
 
   return `
-You are the official Wecanfix AI Support Specialist. Your goal is to provide accurate, helpful, and concise information about Wecanfix's services, locations, and policies.
+You are the official FixBro AI Support Specialist. Your goal is to provide accurate, helpful, and concise information about FixBro's services, locations, and policies.
 
 Current User: ${name}
 
@@ -385,13 +385,13 @@ const chatAgentFlow = ai.defineFlow(
             smtpUser: appConfig?.smtpUser,
             smtpPass: appConfig?.smtpPass,
             senderEmail: appConfig?.senderEmail,
-            siteName: "Wecanfix Support Alert",
+            siteName: "FixBro Support Alert",
         });
     };
 
     // 1) Greeting
     if (isGreeting(message)) {
-      return { response: `Hi ${name}! I'm your Wecanfix assistant. How can I help you with our services or your bookings today?` };
+      return { response: `Hi ${name}! I'm your FixBro assistant. How can I help you with our services or your bookings today?` };
     }
 
     // 2) Human Support Explicit Intent
@@ -443,7 +443,7 @@ const chatAgentFlow = ai.defineFlow(
         }
         if (msg.includes('where') || msg.includes('city') || msg.includes('area')) {
             const cityNames = locations.cities.map(c => c.name).join(', ');
-            return { response: `Wecanfix currently operates in ${cityNames}. We cover many areas including ${locations.areas.slice(0, 5).map(a => a.name).join(', ')}, and more!` };
+            return { response: `FixBro currently operates in ${cityNames}. We cover many areas including ${locations.areas.slice(0, 5).map(a => a.name).join(', ')}, and more!` };
         }
     }
 

@@ -11,7 +11,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Badge } from '@/components/ui/badge';
 import { Mail, MessageCircle, Phone, User, Edit, Trash2, CheckCircle, PackageSearch, Loader2, Send, AlertTriangle, Eye, MoreHorizontal, CheckCircle2 } from 'lucide-react';
 import { db } from '@/lib/firebase';
-import { collection, query, orderBy, onSnapshot, doc, updateDoc, deleteDoc, Timestamp, addDoc, limit } from '@/lib/mysqlDb';
+import { collection, query, orderBy, onSnapshot, doc, updateDoc, deleteDoc, Timestamp, addDoc, limit } from 'firebase/firestore';
 import type { FirestoreContactUsInquiry, FirestorePopupInquiry, InquiryStatus, AppSettings, FirestoreNotification } from '@/types/firestore';
 import { useToast } from "@/hooks/use-toast";
 import PermissionGuard from '@/components/admin/PermissionGuard';
@@ -115,7 +115,7 @@ export default function AdminInquiriesPage() {
         userEmail: selectedInquiryForReply.email,
         originalMessage: originalMessageSummary,
         replyMessage: replyMessage,
-        adminName: adminUser.displayName || "Wecanfix Support",
+        adminName: adminUser.displayName || "FixBro Support",
         smtpHost: appConfig.smtpHost,
         smtpPort: appConfig.smtpPort,
         smtpUser: appConfig.smtpUser,
@@ -136,7 +136,7 @@ export default function AdminInquiriesPage() {
           const userNotification: Omit<FirestoreNotification, 'id'> = {
             userId: inquiryWithUserId.userId,
             title: "Reply to Your Inquiry",
-            message: `Wecanfix Support replied to your inquiry: "${replyMessage.substring(0, 50)}${replyMessage.length > 50 ? '...' : ''}"`,
+            message: `FixBro Support replied to your inquiry: "${replyMessage.substring(0, 50)}${replyMessage.length > 50 ? '...' : ''}"`,
             type: 'info',
             href: '/', // Or a specific inquiries page if it exists for users
             read: false,

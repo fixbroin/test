@@ -18,7 +18,7 @@ import { Loader2, Image as ImageIconLucide, Trash2, Check, ChevronsUpDown, Searc
 import NextImage from 'next/image';
 import { useToast } from "@/hooks/use-toast";
 import { storage } from '@/lib/firebase';
-import { ref as storageRef, uploadBytesResumable, getDownloadURL, deleteObject } from '@/lib/mysqlStorage';
+import { ref as storageRef, uploadBytesResumable, getDownloadURL, deleteObject } from "firebase/storage";
 import { Progress } from "@/components/ui/progress";
 import { compressImage } from "@/lib/imageCompressor";
 
@@ -54,9 +54,9 @@ interface SlideshowFormProps {
   isSubmitting?: boolean;
 }
 
-const isFirebaseStorageUrl = (url: string | null | undefined): boolean => {
+const isFirebaseStorageUrl = (url: string): boolean => {
   if (!url) return false;
-  return typeof url === 'string' && url.trim().length > 0;
+  return typeof url === 'string' && url.includes("firebasestorage.googleapis.com");
 };
 
 const generateRandomHexString = (length: number) => {
@@ -201,12 +201,12 @@ export default function SlideshowForm({
       if (selectedFile) {
         setStatusMessage("Uploading image...");
         setUploadProgress(0);
-        if (originalImageUrlFromInitialData) {
+        if (originalImageUrlFromInitialData && isFirebaseStorageUrl(originalImageUrlFromInitialData)) {
           try {
             const oldImageRef = storageRef(storage, originalImageUrlFromInitialData);
             await deleteObject(oldImageRef);
           } catch (error) {
-            console.warn("Error deleting old image: ", error);
+            console.warn("Error deleting old image from Firebase Storage: ", error);
           }
         }
         const timestamp = Math.floor(Date.now() / 1000);
@@ -235,23 +235,24 @@ export default function SlideshowForm({
         setStatusMessage("Image uploaded. Saving...");
       } else {
          finalImageUrl = formData.imageUrl || "";
-         if (!finalImageUrl && originalImageUrlFromInitialData) {
+         if (!finalImageUrl && originalImageUrlFromInitialData && isFirebaseStorageUrl(originalImageUrlFromInitialData)) {
             setStatusMessage("Removing image...");
             try {
                 const oldImageRef = storageRef(storage, originalImageUrlFromInitialData);
                 await deleteObject(oldImageRef);
             } catch (error: any) {
-                console.error("Error deleting image: ", error);
+                console.error("Error deleting image from Firebase Storage: ", error);
+                throw new Error(`Failed to delete previous image from storage. Slide not saved.`);
             }
             setStatusMessage("Image removed. Saving...");
          }
-         else if (finalImageUrl && originalImageUrlFromInitialData && finalImageUrl !== originalImageUrlFromInitialData) {
+         else if (finalImageUrl && originalImageUrlFromInitialData && isFirebaseStorageUrl(originalImageUrlFromInitialData) && finalImageUrl !== originalImageUrlFromInitialData) {
              setStatusMessage("Replacing image URL...");
              try {
                 const oldImageRef = storageRef(storage, originalImageUrlFromInitialData);
                 await deleteObject(oldImageRef);
-             } catch (error: any) {
-                console.warn("Could not delete old image: ", error);
+             } catch (error) {
+                 console.warn("Error deleting old image for URL replacement:", error);
              }
              setStatusMessage("Old image removed (if existed). Saving...");
          } else {

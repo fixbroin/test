@@ -63,7 +63,7 @@ export default function LocalitiesInterlinking({
       </div>
       
       <p className="mt-4 text-xs text-muted-foreground italic">
-        Wecanfix provides verified {searchTerm.toLowerCase()} experts across all major localities in {cityName}.
+        FixBro provides verified {searchTerm.toLowerCase()} experts across all major localities in {cityName}.
       </p>
     </div>
   );

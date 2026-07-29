@@ -1,7 +1,7 @@
 // src/app/api/bookings/post-process/route.ts
 import { NextResponse } from 'next/server';
 import { adminDb } from '@/lib/firebaseAdmin';
-import { Timestamp } from '@/lib/mysqlDbAdmin';
+import { Timestamp } from 'firebase-admin/firestore';
 import { incrementSystemStats } from '@/lib/systemStatsUtils';
 import { sendBookingConfirmationEmail } from '@/ai/flows/sendBookingEmailFlow';
 import { sendProviderBookingAssignmentEmail } from '@/ai/flows/sendProviderBookingAssignmentFlow';
@@ -12,7 +12,7 @@ import { getZonedDate, formatScheduledDate } from '@/lib/utils';
 import { getHaversineDistance } from '@/lib/locationUtils';
 
 // Define ADMIN_EMAIL - should match your AuthContext
-const ADMIN_EMAIL = "wecanfix.in@gmail.com"; 
+const ADMIN_EMAIL = "fixbro.in@gmail.com"; 
 
 export async function POST(request: Request) {
   try {
@@ -253,7 +253,7 @@ export async function POST(request: Request) {
                         smtpUser: appConfig.smtpUser,
                         smtpPass: appConfig.smtpPass,
                         senderEmail: appConfig.senderEmail,
-                        siteName: seoSettings?.websiteName || "Wecanfix",
+                        siteName: seoSettings?.websiteName || "FixBro",
                         logoUrl: seoSettings?.logoUrl,
                     });
                 } catch (emailErr) {
@@ -449,9 +449,9 @@ export async function POST(request: Request) {
     if (isCompleted) {
         try {
             const companyDetails = {
-                name: seoSettings?.websiteName || "Wecanfix",
+                name: seoSettings?.websiteName || "FixBro",
                 address: appConfig?.companyAddress || "#44 G S Palya Road Konappana Agrahara Electronic City Phase 2 -560100",
-                contactEmail: appConfig?.companyEmail || 'support@wecanfix.in',
+                contactEmail: appConfig?.companyEmail || 'support@fixbro.in',
                 contactMobile: appConfig?.companyPhone || '+91-7353113455',
                 timezone: appConfig?.timezone || 'Asia/Kolkata',
             };
@@ -490,7 +490,7 @@ export async function POST(request: Request) {
         totalAmount: booking.totalAmount,
         paymentMethod: booking.paymentMethod,
         status: booking.status,
-        siteName: seoSettings?.websiteName || "Wecanfix",
+        siteName: seoSettings?.websiteName || "FixBro",
         logoUrl: seoSettings?.logoUrl,
         smtpHost: appConfig.smtpHost,
         smtpPort: appConfig.smtpPort,

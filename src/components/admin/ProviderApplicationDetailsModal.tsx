@@ -20,7 +20,7 @@ import { useGlobalSettings } from '@/hooks/useGlobalSettings';
 import { Separator } from "@/components/ui/separator";
 import { cn, getTimestampMillis } from "@/lib/utils";
 import { db } from '@/lib/firebase';
-import { doc, updateDoc, Timestamp } from '@/lib/mysqlDb';
+import { doc, updateDoc, Timestamp } from 'firebase/firestore';
 import { useRouter } from 'next/navigation';
 
 const PROVIDER_APPLICATION_COLLECTION = "providerApplications";
@@ -234,7 +234,7 @@ export default function ProviderApplicationDetailsModal({
     setIsDownloadingPdf(true);
     try {
       const companyInfo = {
-        name: globalCompanySettings?.websiteName || "Wecanfix.in",
+        name: globalCompanySettings?.websiteName || "FixBro.in",
         address: globalCompanySettings?.address || "Company Address Placeholder",
         contactEmail: globalCompanySettings?.contactEmail || 'support@example.com',
         contactMobile: globalCompanySettings?.contactMobile || '+91-XXXXXXXXXX',

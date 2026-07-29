@@ -16,13 +16,13 @@ import { useEffect, useRef, useState, useMemo } from "react";
 import NextImage from 'next/image';
 import { useToast } from "@/hooks/use-toast";
 import { storage } from '@/lib/firebase';
-import { ref as storageRefStandard, uploadBytesResumable, getDownloadURL, deleteObject } from '@/lib/mysqlStorage';
+import { ref as storageRefStandard, uploadBytesResumable, getDownloadURL, deleteObject } from "firebase/storage";
 import { Progress } from "@/components/ui/progress";
 import { compressImage } from "@/lib/imageCompressor";
 import { nanoid } from 'nanoid';
 import { cn } from "@/lib/utils";
 
-const STORAGE_KEY = 'wecanfix_reg_step3';
+const STORAGE_KEY = 'fixbro_reg_step3';
 
 const generateRandomHexString = (length: number) => Array.from({ length }, () => Math.floor(Math.random() * 16).toString(16)).join('');
 const isFirebaseStorageUrl = (url: string | null | undefined): boolean => !!url && typeof url === 'string' && url.includes("firebasestorage.googleapis.com");

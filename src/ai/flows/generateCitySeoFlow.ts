@@ -1,7 +1,7 @@
 'use server';
 /**
  * @fileOverview AI flow to generate highly optimized city SEO
- * content for Wecanfix city pages.
+ * content for FixBro city pages.
  */
 
 import { ai } from '@/ai/genkit';
@@ -62,9 +62,9 @@ const prompt = ai.definePrompt({
   },
 
   prompt: `
-You are an advanced Local SEO expert for Wecanfix.
+You are an advanced Local SEO expert for FixBro.
 
-Wecanfix provides:
+FixBro provides:
 - Carpenter services
 - Plumbing services
 - Electrician services
@@ -133,7 +133,7 @@ Rules:
   - tv installation
 
 Example:
-"Book trusted carpenter, plumber, electrician & TV installation services in Bangalore by Wecanfix experts near you."
+"Book trusted carpenter, plumber, electrician & TV installation services in Bangalore by FixBro experts near you."
 
 4. seo_keywords
 Rules:

@@ -20,7 +20,7 @@ export default function CheckoutLayout({ children }: CheckoutLayoutProps) {
         {children}
       </main>
       <footer className="py-4 text-center text-sm text-muted-foreground">
-        <p>&copy; {new Date().getFullYear()} Wecanfix. All rights reserved.</p>
+        <p>&copy; {new Date().getFullYear()} FixBro. All rights reserved.</p>
       </footer>
     </div>
   );

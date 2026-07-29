@@ -17,7 +17,7 @@ const EmailBookingServiceItemSchema = z.object({
   quantity: z.number(),
   pricePerUnit: z.number(),
   discountedPricePerUnit: z.number().optional(),
-  imageUrl: z.string().optional().nullable(),
+  imageUrl: z.string().url().optional().nullable(),
   total: z.number().optional(),
 });
 
@@ -57,14 +57,14 @@ const BookingConfirmationEmailInputSchema = z.object({
   smtpPort: z.string().optional(),
   smtpUser: z.string().optional(),
   smtpPass: z.string().optional(),
-  senderEmail: z.string().optional(),
+  senderEmail: z.string().email().optional(),
   emailType: z.enum(['booking_confirmation', 'booking_completion', 'booking_rescheduled', 'booking_cancelled_by_admin', 'booking_cancelled_by_user', 'booking_status_update']).optional().default('booking_confirmation'),
   invoicePdfBase64: z.string().optional(),
   previousScheduledDate: z.string().optional(),
   previousScheduledTimeSlot: z.string().optional(),
   cancellationReason: z.string().optional(),
   siteName: z.string().optional(),
-  logoUrl: z.string().optional(),
+  logoUrl: z.string().url().optional(),
 });
 
 export type BookingConfirmationEmailInput = z.infer<typeof BookingConfirmationEmailInputSchema>;
@@ -80,10 +80,7 @@ export async function sendBookingConfirmationEmail(input: BookingConfirmationEma
 }
 
 const createHtmlTemplate = (title: string, bodyContent: string, siteName: string, logoUrl?: string) => {
-    let finalLogoUrl = logoUrl || `${getBaseUrl()}/default-image.png`;
-    if (finalLogoUrl.startsWith('/')) {
-        finalLogoUrl = getBaseUrl() + finalLogoUrl;
-    }
+    const finalLogoUrl = logoUrl || `${getBaseUrl()}/default-image.png`;
     return `
 <!DOCTYPE html>
 <html lang="en">
@@ -171,7 +168,7 @@ const bookingEmailFlow = ai.defineFlow(
         invoicePdfBase64,
         previousScheduledDate,
         previousScheduledTimeSlot,
-        siteName = "Wecanfix",
+        siteName = "FixBro",
         cancellationReason,
         logoUrl,
       } = bookingDetails;
@@ -205,14 +202,10 @@ const bookingEmailFlow = ai.defineFlow(
           ${bookingDetails.services.map(s => {
             const itemTotal = (typeof s.total === 'number') ? s.total : (s.pricePerUnit * s.quantity);
             const avgPrice = s.quantity > 0 ? itemTotal / s.quantity : 0;
-            let absoluteImgUrl = s.imageUrl || '/default-image.png';
-            if (absoluteImgUrl.startsWith('/')) {
-              absoluteImgUrl = getBaseUrl() + absoluteImgUrl;
-            }
             return `
             <tr class="service-row">
               <td class="service-img-cell">
-                <img src="${absoluteImgUrl}" alt="${s.name}">
+                <img src="${s.imageUrl || (getBaseUrl() + '/default-image.png')}" alt="${s.name}">
               </td>
               <td class="service-info-cell">
                 <div class="service-name">${s.name} (x${s.quantity})</div>
@@ -228,7 +221,7 @@ const bookingEmailFlow = ai.defineFlow(
 
       let customerEmailSubject = "";
       let customerEmailBody = "";
-      const adminEmail = "wecanfix.in@gmail.com"; 
+      const adminEmail = "fixbro.in@gmail.com"; 
       let adminEmailSubject = "";
       let adminEmailBody = "";
       const attachments: any[] = [];

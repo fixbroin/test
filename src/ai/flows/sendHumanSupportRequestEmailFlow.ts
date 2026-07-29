@@ -14,15 +14,15 @@ const HumanSupportRequestEmailInputSchema = z.object({
   userEmail: z.string().email().describe("The email of the user."),
   userId: z.string().describe("The UID of the user."),
   lastMessage: z.string().describe("The last message sent by the user."),
-  chatUrl: z.string().describe("Direct URL to the chat in the admin panel."),
+  chatUrl: z.string().url().describe("Direct URL to the chat in the admin panel."),
   // SMTP Settings
   smtpHost: z.string().optional().describe("SMTP host for sending emails."),
   smtpPort: z.string().optional().describe("SMTP port (e.g., '587', '465')."),
   smtpUser: z.string().optional().describe("SMTP username."),
   smtpPass: z.string().optional().describe("SMTP password."),
-  senderEmail: z.string().optional().describe("The email address to send from."),
+  senderEmail: z.string().email().optional().describe("The email address to send from."),
   siteName: z.string().optional(),
-  logoUrl: z.string().optional(),
+  logoUrl: z.string().url().optional(),
 });
 
 export type HumanSupportRequestEmailInput = z.infer<typeof HumanSupportRequestEmailInputSchema>;
@@ -37,10 +37,7 @@ export async function sendHumanSupportRequestEmail(input: HumanSupportRequestEma
 }
 
 const createHtmlTemplate = (title: string, bodyContent: string, siteName: string, logoUrl?: string) => {
-    let finalLogoUrl = logoUrl || `${getBaseUrl()}/default-image.png`;
-    if (finalLogoUrl.startsWith('/')) {
-        finalLogoUrl = getBaseUrl() + finalLogoUrl;
-    }
+    const finalLogoUrl = logoUrl || `${getBaseUrl()}/default-image.png`;
     return `
 <!DOCTYPE html>
 <html lang="en">
@@ -108,10 +105,10 @@ const humanSupportRequestEmailFlow = ai.defineFlow(
   },
   async (details) => {
     try {
-      const { smtpHost, smtpPort, smtpUser, smtpPass, senderEmail, siteName = "Wecanfix", logoUrl, ...requestDetails } = details;
+      const { smtpHost, smtpPort, smtpUser, smtpPass, senderEmail, siteName = "FixBro", logoUrl, ...requestDetails } = details;
 
       // Primary Admin Email
-      const adminEmail = "wecanfix.in@gmail.com"; 
+      const adminEmail = "fixbro.in@gmail.com"; 
       const canAttemptRealEmail = smtpHost && smtpPort && smtpUser && smtpPass && senderEmail;
 
       const emailSubject = `🚨 Human Support Required: ${requestDetails.userName}`;
@@ -144,7 +141,7 @@ const humanSupportRequestEmailFlow = ai.defineFlow(
       });
       
       await transporter.sendMail({
-        from: `Wecanfix Support <${senderEmail}>`,
+        from: `FixBro Support <${senderEmail}>`,
         to: adminEmail,
         subject: emailSubject,
         html: htmlBody,

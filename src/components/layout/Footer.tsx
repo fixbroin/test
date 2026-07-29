@@ -7,7 +7,7 @@ import { Facebook, Twitter, Instagram, Linkedin, Youtube, Phone, MapPin, Mail, A
 import { useGlobalSettings } from '@/hooks/useGlobalSettings'; 
 import { Skeleton } from '@/components/ui/skeleton'; 
 import { db } from '@/lib/firebase';
-import { collection, getDocs, orderBy, query, limit as firestoreLimit, addDoc, Timestamp, where, limit } from '@/lib/mysqlDb';
+import { collection, getDocs, orderBy, query, limit as firestoreLimit, addDoc, Timestamp, where, limit } from 'firebase/firestore';
 import { useAuth } from '@/hooks/useAuth';
 import { useRouter, usePathname } from 'next/navigation';
 import { useLoading } from '@/contexts/LoadingContext'; 
@@ -66,8 +66,8 @@ const Footer = () => {
   const [isSubscribing, setIsSubscribing] = useState(false);
   const { toast } = useToast();
 
-  const websiteName = settings?.websiteName || "Wecanfix";
-  const contactEmail = settings?.contactEmail || "support@wecanfix.in"; 
+  const websiteName = settings?.websiteName || "FixBro";
+  const contactEmail = settings?.contactEmail || "support@fixbro.in"; 
   const socialLinks = settings?.socialMediaLinks;
 
   useEffect(() => {

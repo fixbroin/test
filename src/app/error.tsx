@@ -67,7 +67,7 @@ export default function Error({
       <div className="mt-12 text-xs text-muted-foreground flex flex-col items-center gap-2">
         <p>If the problem persists, please contact our support.</p>
         <div className="flex items-center gap-4 opacity-50">
-           <span>Wecanfix Support</span>
+           <span>FixBro Support</span>
            <span className="w-1 h-1 bg-muted-foreground rounded-full"></span>
            <span>Help Center</span>
         </div>

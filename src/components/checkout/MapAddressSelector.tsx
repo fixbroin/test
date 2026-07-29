@@ -32,8 +32,8 @@ const DEFAULT_CENTER = { lat: 12.9716, lng: 77.5946 }; // Bangalore
 const DEFAULT_ZOOM = 10;
 const DETAILED_ZOOM = 17;
 
-const GOOGLE_MAPS_SCRIPT_ID = "wecanfix-google-maps-places-script";
-const GOOGLE_MAPS_CALLBACK_NAME = `initWecanfixMapAddressSelectorCallback_${Math.random().toString(36).substring(2, 15)}`;
+const GOOGLE_MAPS_SCRIPT_ID = "fixbro-google-maps-places-script";
+const GOOGLE_MAPS_CALLBACK_NAME = `initFixBroMapAddressSelectorCallback_${Math.random().toString(36).substring(2, 15)}`;
 
 
 const MapAddressSelector: React.FC<MapAddressSelectorProps> = ({ apiKey, onAddressSelect, onClose, initialCenter, serviceZones, onManualSearchClick, onOutOfCoverage }) => {

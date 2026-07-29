@@ -12,7 +12,7 @@ import { useRouter, usePathname } from 'next/navigation';
 import Link from 'next/link';
 import JsonLdScript from '@/components/shared/JsonLdScript';
 import { replacePlaceholders } from '@/lib/seoUtils';
-import { doc, getDoc, collection, query, where, limit, getDocs, orderBy, Timestamp, documentId, onSnapshot } from '@/lib/mysqlDb';
+import { doc, getDoc, collection, query, where, limit, getDocs, orderBy, Timestamp, documentId, onSnapshot } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import type { GlobalWebSettings, FirestoreSEOSettings, FirestoreCity, FirestoreArea, FeaturesConfiguration, FirestoreService, FirestoreCategory, HomepageAd, AdPlacement } from '@/types/firestore';
 import Breadcrumbs from '@/components/shared/Breadcrumbs';
@@ -228,7 +228,7 @@ const HomepageServiceCard: React.FC<{ service: FirestoreService }> = ({ service 
     syncQuantity();
 
     const handleStorageChange = (event: StorageEvent) => {
-      if (event.key === 'wecanfixUserCart' || event.key === null) {
+      if (event.key === 'fixbroUserCart' || event.key === null) {
         syncQuantity();
       }
     };
@@ -257,7 +257,7 @@ const HomepageServiceCard: React.FC<{ service: FirestoreService }> = ({ service 
     saveCartEntries(cartEntries);
     if(user?.uid) syncCartToFirestore(user.uid, cartEntries);
 
-    window.dispatchEvent(new StorageEvent('storage', { key: 'wecanfixUserCart' }));
+    window.dispatchEvent(new StorageEvent('storage', { key: 'fixbroUserCart' }));
   };
 
   const handleQuantityChange = (newQuantity: number) => {
@@ -477,7 +477,7 @@ export default function HomePageClient({ citySlug, areaSlug, breadcrumbItems, in
             const citySnap = await getDocs(cityQuery);
             if (!citySnap.empty) {
                 fetchedCityData = {id: citySnap.docs[0].id, ...(citySnap.docs[0].data() as Omit<FirestoreCity, 'id'>)} as FirestoreCity;
-                currentH1 = initialH1Title || fetchedCityData.h1_title || fetchedSeoSettings.homepageH1?.replace("Wecanfix", fetchedCityData.name) || `Services in ${fetchedCityData.name}`;
+                currentH1 = initialH1Title || fetchedCityData.h1_title || fetchedSeoSettings.homepageH1?.replace("Fixbro", fetchedCityData.name) || `Services in ${fetchedCityData.name}`;
                 currentCityNameForLd = fetchedCityData.name;
             }
         } catch (e) { console.error("Error fetching city data for H1/LD:", e); }
@@ -496,8 +496,8 @@ export default function HomePageClient({ citySlug, areaSlug, breadcrumbItems, in
       setPageH1(currentH1);
       setCache('pageH1', currentH1);
 
-      const siteName = fetchedSeoSettings.siteName || 'Wecanfix';
-      const defaultOgImage = (process.env.NEXT_PUBLIC_BASE_URL || 'https://wecanfix.in') + '/android-chrome-512x512.png';
+      const siteName = fetchedSeoSettings.siteName || 'Fixbro';
+      const defaultOgImage = (process.env.NEXT_PUBLIC_BASE_URL || 'https://fixbro.in') + '/android-chrome-512x512.png';
 
       let webSettingsData: GlobalWebSettings | null = null;
       try {
@@ -509,7 +509,7 @@ export default function HomePageClient({ citySlug, areaSlug, breadcrumbItems, in
       } catch (e) { console.error("Error fetching webSettings for LD+JSON:", e); }
 
       const ogImage = webSettingsData?.websiteIconUrl || webSettingsData?.logoUrl || fetchedSeoSettings.structuredDataImage || defaultOgImage;
-      const pageUrl = process.env.NEXT_PUBLIC_BASE_URL || 'https://wecanfix.in';
+      const pageUrl = process.env.NEXT_PUBLIC_BASE_URL || 'https://fixbro.in';
       let specificPageUrl = pageUrl;
       if (citySlug && areaSlug) specificPageUrl = `${pageUrl}/${citySlug}/${areaSlug}`;
       else if (citySlug) specificPageUrl = `${pageUrl}/${citySlug}`;
@@ -851,7 +851,7 @@ export default function HomePageClient({ citySlug, areaSlug, breadcrumbItems, in
         <LazySection>
             <section className="py-8 md:py-10">
             <div className="container mx-auto px-4">
-                <SectionHeader title="Why Choose Wecanfix?" />
+                <SectionHeader title="Why Choose Fixbro?" />
                 <WhyChooseUs />
             </div>
             </section>
@@ -889,10 +889,10 @@ export default function HomePageClient({ citySlug, areaSlug, breadcrumbItems, in
                         </h2>
                         <div className="prose prose-sm md:prose-base max-w-none text-muted-foreground">
                             <p>
-                                Wecanfix is your one-stop solution for all <strong>home services in Bangalore</strong>. Whether you are looking for a <strong>carpenter near me</strong>, a professional <strong>plumber in Bangalore</strong>, or an <strong>electrician in Whitefield</strong>, we have you covered. Our platform connects you with verified, background-checked experts for over 50+ services including AC repair, house cleaning, painting, and appliance maintenance.
+                                FixBro is your one-stop solution for all <strong>home services in Bangalore</strong>. Whether you are looking for a <strong>carpenter near me</strong>, a professional <strong>plumber in Bangalore</strong>, or an <strong>electrician in Whitefield</strong>, we have you covered. Our platform connects you with verified, background-checked experts for over 50+ services including AC repair, house cleaning, painting, and appliance maintenance.
                             </p>
                             <p>
-                                We currently serve all major localities in Bangalore, including <strong>Whitefield, HSR Layout, Koramangala, Indiranagar, Electronic City, and Jayanagar</strong>. With upfront pricing, same-day service availability, and a 99.9% satisfaction guarantee, Wecanfix is Bangalore's most trusted home maintenance partner.
+                                We currently serve all major localities in Bangalore, including <strong>Whitefield, HSR Layout, Koramangala, Indiranagar, Electronic City, and Jayanagar</strong>. With upfront pricing, same-day service availability, and a 99.9% satisfaction guarantee, FixBro is Bangalore's most trusted home maintenance partner.
                             </p>
                         </div>
                     </div>
@@ -907,7 +907,7 @@ export default function HomePageClient({ citySlug, areaSlug, breadcrumbItems, in
               {settings.homepageContent?.footerCTA?.title || "Ready to get started?"}
             </h2>
             <p className="text-lg mb-6 max-w-xl mx-auto">
-              {settings.homepageContent?.footerCTA?.subtitle || "Book your service today and experience the Wecanfix difference."}
+              {settings.homepageContent?.footerCTA?.subtitle || "Book your service today and experience the Fixbro difference."}
             </p>
             <Button
               size="lg"

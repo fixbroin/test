@@ -1,4 +1,4 @@
-# **App Name**: Wecanfix
+# **App Name**: FixBro
 
 ## Core Features:
 

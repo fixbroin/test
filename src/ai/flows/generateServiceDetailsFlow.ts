@@ -56,7 +56,7 @@ const prompt = ai.definePrompt({
   name: 'generateServiceDetailsPrompt',
   input: { schema: GenerateServiceDetailsInputSchema },
   output: { schema: GenerateServiceDetailsOutputSchema },
-  prompt: `You are an expert Local SEO copywriter for "Wecanfix", Bangalore's leading home services company.
+  prompt: `You are an expert Local SEO copywriter for "FixBro", Bangalore's leading home services company.
 Your goal is to generate high-conversion content and SEO metadata for a specific service.
 
 Service Name: {{serviceName}}

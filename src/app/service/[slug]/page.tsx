@@ -1,7 +1,7 @@
 import ServiceDetailPageClient from '@/components/service/ServiceDetailPageClient';
 import { adminDb } from '@/lib/firebaseAdmin';
 import type { FirestoreService, ClientServiceData, FirestoreCategory, FirestoreSubCategory } from '@/types/firestore';
-import { Timestamp } from '@/lib/mysqlDbAdmin';
+import { Timestamp } from 'firebase-admin/firestore';
 import JsonLdScript from '@/components/shared/JsonLdScript';
 import { getBaseUrl } from '@/lib/config';
 import type { Metadata, ResolvingMetadata } from 'next';
@@ -15,9 +15,21 @@ import { generateBreadcrumbSchema } from '@/lib/seoAdvancedUtils';
 
 export const revalidate = false; // Persistent Cache (Smart Revalidation Only)
 
-export async function generateStaticParams() {
-  return [];
-}
+// export async function generateStaticParams() {
+//   try {
+//     const servicesSnapshot = await adminDb
+//       .collection('adminServices')
+//       .where('isActive', '==', true)
+//       .get();
+//     
+//     return servicesSnapshot.docs.map(doc => ({
+//       slug: (doc.data() as FirestoreService).slug,
+//     })).filter(p => p.slug);
+//   } catch (error) {
+//     console.error("Error generating static params for service detail pages:", error);
+//     return [];
+//   }
+// }
 
 /**
  * Server-side helper to safely get milliseconds from various timestamp formats.
@@ -148,8 +160,8 @@ export async function generateMetadata(
     cityName: cityName
   };
 
-  const title = replacePlaceholders(serviceData.seo_title || seoSettings.servicePageTitlePattern, placeholderData) || `${serviceData.name} in ${cityName} | Wecanfix`;
-  const description = replacePlaceholders(serviceData.seo_description || seoSettings.servicePageDescriptionPattern, placeholderData) || `${serviceData.name} in ${cityName}. Trusted experts, transparent pricing, and quality home solutions by Wecanfix.`;
+  const title = replacePlaceholders(serviceData.seo_title || seoSettings.servicePageTitlePattern, placeholderData) || `${serviceData.name} in ${cityName} | FixBro`;
+  const description = replacePlaceholders(serviceData.seo_description || seoSettings.servicePageDescriptionPattern, placeholderData) || `${serviceData.name} in ${cityName}. Trusted experts, transparent pricing, and quality home solutions by FixBro.`;
   const keywords = (replacePlaceholders(serviceData.seo_keywords || seoSettings.servicePageKeywordsPattern, placeholderData) || `${serviceData.name}, best ${serviceData.name} near me`).split(',').map(k => k.trim()).filter(k => k);
 
   const rawOgImage = serviceData.imageUrl || seoSettings.structuredDataImage || `/default-image.png`;
@@ -220,7 +232,7 @@ export default async function ServiceDetailPage({ params }: ServicePageProps) {
     "image": schemaImage,
     "provider": {
       "@type": "LocalBusiness",
-      "name": "Wecanfix",
+      "name": "FixBro",
       "telephone": seoSettings.structuredDataTelephone,
       "priceRange": "₹₹",
       "image": schemaImage,
@@ -246,7 +258,7 @@ export default async function ServiceDetailPage({ params }: ServicePageProps) {
     "image": schemaImage,
     "brand": {
       "@type": "Brand",
-      "name": "Wecanfix"
+      "name": "FixBro"
     },
     "sku": serviceData.id,
     "mpn": serviceData.id,

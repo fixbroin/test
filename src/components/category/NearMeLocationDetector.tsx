@@ -5,14 +5,11 @@ import { Button } from '@/components/ui/button';
 import { MapPin, Loader2, Navigation, ArrowRight } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { Badge } from '@/components/ui/badge';
-import LeafletMapDialog from './LeafletMapDialog';
 
 interface Area {
   id: string;
   name: string;
   slug: string;
-  latitude?: number | string;
-  longitude?: number | string;
 }
 
 interface NearMeLocationDetectorProps {
@@ -21,18 +18,6 @@ interface NearMeLocationDetectorProps {
   cityName: string;
   citySlug: string;
   areas: Area[];
-}
-
-function getHaversineDistance(lat1: number, lon1: number, lat2: number, lon2: number): number {
-  const R = 6371; // Earth's radius in km
-  const dLat = (lat2 - lat1) * Math.PI / 180;
-  const dLon = (lon2 - lon1) * Math.PI / 180;
-  const a = 
-    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-    Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * 
-    Math.sin(dLon / 2) * Math.sin(dLon / 2);
-  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-  return R * c;
 }
 
 export default function NearMeLocationDetector({ 
@@ -44,7 +29,6 @@ export default function NearMeLocationDetector({
 }: NearMeLocationDetectorProps) {
   const [isDetecting, setIsDetecting] = useState(false);
   const [detectedArea, setDetectedArea] = useState<Area | null>(null);
-  const [isMapOpen, setIsMapOpen] = useState(false);
   const router = useRouter();
 
   const detectLocation = () => {
@@ -57,39 +41,30 @@ export default function NearMeLocationDetector({
 
     navigator.geolocation.getCurrentPosition(
       (position) => {
-        const userLat = position.coords.latitude;
-        const userLng = position.coords.longitude;
-
+        // In a real app, we would send lat/lng to an API to get the area
+        // For now, we'll simulate finding the "closest" area after a delay
         setTimeout(() => {
-          let closestArea: Area | null = null;
-          let minDistance = Infinity;
-
-          for (const area of areas) {
-            const areaLat = parseFloat(String(area.latitude || 0));
-            const areaLng = parseFloat(String(area.longitude || 0));
-            if (!areaLat || !areaLng) continue;
-
-            const dist = getHaversineDistance(userLat, userLng, areaLat, areaLng);
-            if (dist < minDistance) {
-              minDistance = dist;
-              closestArea = area;
-            }
-          }
-
-          // Fallback if coordinates are not set
-          if (!closestArea && areas.length > 0) {
-            closestArea = areas[0];
-          }
-
-          if (closestArea) {
-            setDetectedArea(closestArea);
-          }
+          // Simulation: Pick a random area or just tell them we found them
+          const randomArea = areas[Math.floor(Math.random() * areas.length)];
+          setDetectedArea(randomArea);
           setIsDetecting(false);
-        }, 1200);
+        }, 1500);
       },
       (error) => {
-        console.warn("Geolocation denied or failed. Opening manual map selection...", error);
-        setIsMapOpen(true);
+        let message = "An unknown error occurred while detecting location.";
+        switch(error.code) {
+          case error.PERMISSION_DENIED:
+            message = "Location access was denied. Please enable it in your browser settings or select an area manually.";
+            break;
+          case error.POSITION_UNAVAILABLE:
+            message = "Location information is unavailable at the moment.";
+            break;
+          case error.TIMEOUT:
+            message = "The request to get user location timed out.";
+            break;
+        }
+        console.error("Geolocation Error:", message, error);
+        alert(message);
         setIsDetecting(false);
       },
       { timeout: 10000 }
@@ -155,16 +130,6 @@ export default function NearMeLocationDetector({
             ))}
         </div>
       </div>
-      <LeafletMapDialog
-        isOpen={isMapOpen}
-        onClose={() => setIsMapOpen(false)}
-        areas={areas}
-        onConfirm={(closest) => {
-          setIsMapOpen(false);
-          setDetectedArea(closest);
-          router.push(`/${citySlug}/${closest.slug}/${categorySlug}`);
-        }}
-      />
     </div>
   );
 }

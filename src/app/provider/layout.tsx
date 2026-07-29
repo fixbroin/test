@@ -33,7 +33,7 @@ import { useToast } from '@/hooks/use-toast';
 import Link from 'next/link';
 import { useLoading } from '@/contexts/LoadingContext';
 import ThemeToggle from '@/components/shared/ThemeToggle';
-import { doc, getDoc, collection, query, where, onSnapshot, orderBy, limit, Timestamp, updateDoc } from '@/lib/mysqlDb';
+import { doc, getDoc, collection, query, where, onSnapshot, orderBy, limit, Timestamp, updateDoc } from 'firebase/firestore';
 import type { ProviderApplication, FirestoreNotification } from '@/types/firestore';
 import { useUnreadNotificationsCount } from '@/hooks/useUnreadNotificationsCount'; 
 import { useGlobalSettings } from '@/hooks/useGlobalSettings'; 
@@ -50,7 +50,7 @@ const ProviderPageLoader = () => (
 );
 
 const PROVIDER_APPLICATION_COLLECTION = "providerApplications";
-const PROCESSED_JOB_NOTIFICATIONS_KEY = 'wecanfix_processedJobNotifications';
+const PROCESSED_JOB_NOTIFICATIONS_KEY = 'fixbro_processedJobNotifications';
 
 export default function ProviderLayout({ children }: PropsWithChildren) {
   const { user: providerUser, isLoading: authIsLoading, logOut: handleLogoutAuth } = useAuth();

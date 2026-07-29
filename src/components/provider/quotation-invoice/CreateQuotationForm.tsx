@@ -17,7 +17,7 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { Loader2, FileText, UserPlus, PlusCircle, Trash2, CalendarIcon, Save, Send, Download, UserCircle as UserIcon, XCircle, Check, ChevronsUpDown } from "lucide-react";
 import type { FirestoreUser, QuotationItem, FirestoreQuotation, QuotationStatus, CompanyDetailsForPdf } from '@/types/firestore';
 import { db } from '@/lib/firebase';
-import { collection, getDocs, addDoc, Timestamp, query, orderBy, doc, setDoc, updateDoc, getDoc, where, documentId, limit } from '@/lib/mysqlDb';
+import { collection, getDocs, addDoc, Timestamp, query, orderBy, doc, setDoc, updateDoc, getDoc, where, documentId } from "firebase/firestore";
 import { useToast } from "@/hooks/use-toast";
 import { nanoid } from 'nanoid';
 import { cn } from '@/lib/utils';
@@ -27,7 +27,6 @@ import { useGlobalSettings } from '@/hooks/useGlobalSettings';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useAuth } from '@/hooks/useAuth';
 import { getTimestampMillis } from '@/lib/utils';
-import { ADMIN_EMAIL } from '@/contexts/AuthContext';
 
 const quotationItemSchema = z.object({
   id: z.string().optional(),
@@ -258,28 +257,6 @@ export default function CreateQuotationForm({ initialData, onSaveSuccess }: Crea
         const docRef = await addDoc(collection(db, "quotations"), quotationDataForFirestore as Omit<FirestoreQuotation, 'id'>);
         savedItem = { ...quotationDataForFirestore, id: docRef.id } as FirestoreQuotation;
         toast({ title: "Success", description: "Quotation saved as draft." });
-
-        // Notify admin when provider creates a quotation
-        try {
-          const usersRef = collection(db, "users");
-          const adminQuery = query(usersRef, where("email", "==", ADMIN_EMAIL), limit(1));
-          const adminSnapshot = await getDocs(adminQuery);
-          if (!adminSnapshot.empty) {
-            const adminUid = adminSnapshot.docs[0].id;
-            const adminNotification = {
-              userId: adminUid,
-              title: "New Quotation Created by Provider",
-              message: `Provider "${providerUser?.displayName || providerUser?.email || 'N/A'}" created quotation #${quotationDataForFirestore.quotationNumber} for ${quotationDataForFirestore.customerName}.`,
-              type: 'admin_alert',
-              href: '/admin/quotation-invoice',
-              read: false,
-              createdAt: Timestamp.now()
-            };
-            await addDoc(collection(db, "userNotifications"), adminNotification);
-          }
-        } catch (notifyErr) {
-          console.warn("Could not notify admin about new quotation:", notifyErr);
-        }
       }
       
       if (onSaveSuccess) onSaveSuccess(savedItem);
@@ -302,7 +279,7 @@ export default function CreateQuotationForm({ initialData, onSaveSuccess }: Crea
       if (!quotationSnap.exists()) throw new Error("Quotation not found.");
       const savedQuotation = { id: quotationSnap.id, ...quotationSnap.data() } as FirestoreQuotation;
       const companyInfo: CompanyDetailsForPdf = {
-        name: companySettings?.websiteName || "Wecanfix", address: companySettings?.address || "",
+        name: companySettings?.websiteName || "FixBro", address: companySettings?.address || "",
         contactEmail: companySettings?.contactEmail || "", contactMobile: companySettings?.contactMobile || "",
         logoUrl: companySettings?.logoUrl || undefined,
       };
@@ -313,9 +290,9 @@ export default function CreateQuotationForm({ initialData, onSaveSuccess }: Crea
         const pdfBlob = dataUriToBlob(pdfDataUri); if (!pdfBlob) throw new Error("Failed to generate PDF blob.");
         const storagePath = `quotations_pdf/${currentInitialData.id}_${savedQuotation.quotationNumber}.pdf`;
         const downloadUrl = await uploadPdfToStorage(pdfBlob, storagePath);
-        await updateDoc(doc(db, "quotations", currentInitialData.id), { status: 'Sent', pdfUrl: downloadUrl, updatedAt: Timestamp.now() });
+        await updateDoc(doc(db, "quotations", currentInitialData.id), { status: 'Sent', updatedAt: Timestamp.now() });
         form.setValue('status', 'Sent'); 
-        if (onSaveSuccess) onSaveSuccess({ ...savedQuotation, status: 'Sent', pdfUrl: downloadUrl, updatedAt: Timestamp.now() });
+        if (onSaveSuccess) onSaveSuccess({ ...savedQuotation, status: 'Sent', updatedAt: Timestamp.now() });
         toast({
           duration: 10000, title: "Quotation Ready to Share",
           description: (<div><p>URL: <a href={downloadUrl} target="_blank" rel="noopener noreferrer" className="text-blue-600 underline break-all">{downloadUrl}</a></p><Button size="sm" variant="outline" className="mt-2" onClick={() => navigator.clipboard.writeText(downloadUrl).then(() => toast({description: "URL Copied!"}))}>Copy URL</Button></div>),

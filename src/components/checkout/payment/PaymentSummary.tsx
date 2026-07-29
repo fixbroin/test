@@ -11,7 +11,7 @@ import { useLoading } from '@/contexts/LoadingContext';
 import { useApplicationConfig } from '@/hooks/useApplicationConfig';
 import { useGlobalSettings } from '@/hooks/useGlobalSettings';
 import { db, auth } from '@/lib/firebase';
-import { doc, getDoc, collection, query, where, getDocs } from '@/lib/mysqlDb';
+import { doc, getDoc, collection, query, where, getDocs } from "firebase/firestore";
 import type { FirestoreService, AppliedPlatformFeeItem } from '@/types/firestore';
 import { getActiveCheckoutEntries, type CartEntry } from '@/lib/cartManager';
 import TaxBreakdownDisplay from '@/components/shared/TaxBreakdownDisplay';
@@ -86,12 +86,6 @@ export default function PaymentSummary({ paymentMethod, canBook, appliedPromo, o
   const [isLoading, setIsLoading] = useState(true);
   const [isProcessingPayment, setIsProcessingPayment] = useState(false);
 
-  const [categoryOverrides, setCategoryOverrides] = useState<{
-    visitingChargeAmount?: number;
-    minimumBookingAmount?: number;
-    minimumBookingPolicyDescription?: string;
-  } | null>(null);
-
   const [subTotal, setSubTotal] = useState(0); 
   const [visitingCharge, setVisitingCharge] = useState(0); 
   const [taxAmount, setTaxAmount] = useState(0); 
@@ -101,44 +95,9 @@ export default function PaymentSummary({ paymentMethod, canBook, appliedPromo, o
   const [calculatedPlatformFees, setCalculatedPlatformFees] = useState<AppliedPlatformFeeItem[]>([]);
   const [discountAmount, setDiscountAmount] = useState(0);
   const [isTaxBreakdownOpen, setIsTaxBreakdownOpen] = useState(false);
-  const [isVisitingChargeInfoOpen, setIsVisitingChargeInfoOpen] = useState(false);
-  const [isPlatformFeeInfoOpen, setIsPlatformFeeInfoOpen] = useState(false);
   const [taxBreakdownItems, setTaxBreakdownItems] = useState<any[]>([]);
   const [visitingChargeBreakdown, setVisitingChargeBreakdown] = useState<any>(null);
   const [sumOfDisplayedItemPrices, setSumOfDisplayedItemPrices] = useState(0);
-
-  const dynamicVisitingChargePolicy = useMemo(() => {
-    const vcAmount = (categoryOverrides && typeof categoryOverrides.visitingChargeAmount === 'number') ? categoryOverrides.visitingChargeAmount : appConfig.visitingChargeAmount;
-    const minBooking = (categoryOverrides && typeof categoryOverrides.minimumBookingAmount === 'number') ? categoryOverrides.minimumBookingAmount : appConfig.minimumBookingAmount;
-    const policyDesc = (categoryOverrides && categoryOverrides.minimumBookingPolicyDescription) ? categoryOverrides.minimumBookingPolicyDescription : appConfig.minimumBookingPolicyDescription;
-
-    if (!policyDesc || typeof minBooking !== 'number' || typeof vcAmount !== 'number') {
-      return `A visiting charge of ₹${vcAmount || 0} will be applied if your booking total is below ₹${minBooking || 0}.`;
-    }
-    return policyDesc
-      .replace(/{MINIMUM_BOOKING_AMOUNT}/g, minBooking.toString())
-      .replace(/{VISITING_CHARGE}/g, vcAmount.toString())
-      .replace("{MINIMUM_BOOKING_AMOUNT}", minBooking.toString())
-      .replace("{VISITING_CHARGE}", vcAmount.toString());
-  }, [appConfig, categoryOverrides]);
-
-  const dynamicPlatformFeeTitle = useMemo(() => {
-    if (!appConfig?.platformFees) return "Fee Details";
-    const activeNames = appConfig.platformFees.filter(fee => fee.isActive).map(fee => fee.name);
-    return activeNames.length > 0 ? activeNames.join(" & ") : "Fee Details";
-  }, [appConfig]);
-
-  const dynamicPlatformFeeDescription = useMemo(() => {
-    if (!appConfig?.platformFees || appConfig.platformFees.length === 0) return "";
-    return appConfig.platformFees
-      .filter(fee => fee.isActive)
-      .map(fee => {
-        if (fee.description) return fee.description;
-        const rateText = fee.type === 'percentage' ? `${fee.value}% of items total` : `₹${fee.value} flat fee`;
-        return `${fee.name} is a ${rateText} applied to your booking to support secure payments, background checks, and digital infrastructure maintenance.`;
-      })
-      .join("\n\n");
-  }, [appConfig]);
 
   const loadData = useCallback(async () => {
     setIsLoading(true);
@@ -158,21 +117,6 @@ export default function PaymentSummary({ paymentMethod, canBook, appliedPromo, o
       const resolved = (await Promise.all(detailsPromises)).filter(Boolean) as FirestoreService[];
       const map = resolved.reduce((acc, s) => ({ ...acc, [s.id]: s }), {});
       setServiceDetailsMap(map);
-
-      let customCategoryData = null;
-      const activeCatId = localStorage.getItem('wecanfixActiveCheckoutCategory');
-      if (activeCatId) {
-        const catSnap = await getDoc(doc(db, "adminCategories", activeCatId));
-        if (catSnap.exists()) {
-          const cd = catSnap.data();
-          customCategoryData = {
-            visitingChargeAmount: cd.visitingChargeAmount,
-            minimumBookingAmount: cd.minimumBookingAmount,
-            minimumBookingPolicyDescription: cd.minimumBookingPolicyDescription
-          };
-        }
-      }
-      setCategoryOverrides(customCategoryData);
     } catch (error) {
       console.error("Error loading payment data", error);
     } finally {
@@ -235,21 +179,13 @@ export default function PaymentSummary({ paymentMethod, canBook, appliedPromo, o
     let displayedVC = 0;
     let currentPolicy: string | null = null;
 
-    const vcAmount = (categoryOverrides && typeof categoryOverrides.visitingChargeAmount === 'number') ? categoryOverrides.visitingChargeAmount : appConfig.visitingChargeAmount;
-    const minBooking = (categoryOverrides && typeof categoryOverrides.minimumBookingAmount === 'number') ? categoryOverrides.minimumBookingAmount : appConfig.minimumBookingAmount;
-    const policyDesc = (categoryOverrides && categoryOverrides.minimumBookingPolicyDescription) ? categoryOverrides.minimumBookingPolicyDescription : appConfig.minimumBookingPolicyDescription;
-
-    if (appConfig.enableMinimumBookingPolicy && typeof minBooking === 'number' && typeof vcAmount === 'number') {
-      if (netAmount < minBooking) {
-        displayedVC = vcAmount;
-        baseVC = getBasePrice(displayedVC, appConfig.isVisitingChargeTaxInclusive, appConfig.visitingChargeTaxPercent);
-        if (policyDesc) {
-          currentPolicy = policyDesc
-            .replace(/{MINIMUM_BOOKING_AMOUNT}/g, minBooking.toString())
-            .replace(/{VISITING_CHARGE}/g, displayedVC.toString())
-            .replace("{MINIMUM_BOOKING_AMOUNT}", minBooking.toString())
-            .replace("{VISITING_CHARGE}", displayedVC.toString());
-        }
+    if (appConfig.enableMinimumBookingPolicy && netAmount < (appConfig.minimumBookingAmount || 0)) {
+      displayedVC = appConfig.visitingChargeAmount || 0;
+      baseVC = getBasePrice(displayedVC, appConfig.isVisitingChargeTaxInclusive, appConfig.visitingChargeTaxPercent);
+      if (appConfig.minimumBookingPolicyDescription) {
+        currentPolicy = appConfig.minimumBookingPolicyDescription
+          .replace(/{MINIMUM_BOOKING_AMOUNT}/g, (appConfig.minimumBookingAmount || 0).toString())
+          .replace(/{VISITING_CHARGE}/g, displayedVC.toString());
       }
     }
     setVisitingCharge(baseVC);
@@ -259,25 +195,22 @@ export default function PaymentSummary({ paymentMethod, canBook, appliedPromo, o
     let platformFeeTax = 0;
     const newPlatformFees: AppliedPlatformFeeItem[] = [];
 
-    // Only apply platform fees if visiting charge is NOT applied (i.e. baseVC is 0)
-    if (baseVC === 0) {
-      (appConfig.platformFees || []).forEach(fee => {
-        if (fee.isActive) {
-          const feeAmount = fee.type === 'percentage' ? (currentSumOfDisplayed * fee.value) / 100 : fee.value;
-          const feeTax = feeAmount * (fee.feeTaxRatePercent / 100);
-          newPlatformFees.push({
-            name: fee.name,
-            type: fee.type,
-            valueApplied: fee.value,
-            calculatedFeeAmount: feeAmount,
-            taxRatePercentOnFee: fee.feeTaxRatePercent,
-            taxAmountOnFee: feeTax
-          });
-          platformFeeBase += feeAmount;
-          platformFeeTax += feeTax;
-        }
-      });
-    }
+    (appConfig.platformFees || []).forEach(fee => {
+      if (fee.isActive) {
+        const feeAmount = fee.type === 'percentage' ? (currentSumOfDisplayed * fee.value) / 100 : fee.value;
+        const feeTax = feeAmount * (fee.feeTaxRatePercent / 100);
+        newPlatformFees.push({
+          name: fee.name,
+          type: fee.type,
+          valueApplied: fee.value,
+          calculatedFeeAmount: feeAmount,
+          taxRatePercentOnFee: fee.feeTaxRatePercent,
+          taxAmountOnFee: feeTax
+        });
+        platformFeeBase += feeAmount;
+        platformFeeTax += feeTax;
+      }
+    });
     setCalculatedPlatformFees(newPlatformFees);
 
     const itemTaxTotal = newBreakdown.reduce((sum, item) => sum + item.taxAmount, 0);
@@ -315,14 +248,14 @@ export default function PaymentSummary({ paymentMethod, canBook, appliedPromo, o
     const storageMethod = paymentMethod === 'later' ? 'Pay After Service' : 'Online';
 
     if (paymentMethod === 'later') {
-        localStorage.setItem('wecanfixPaymentMethod', storageMethod);
-        localStorage.setItem('wecanfixFinalBookingTotal', totalAmountDue.toString());
+        localStorage.setItem('fixbroPaymentMethod', storageMethod);
+        localStorage.setItem('fixbroFinalBookingTotal', totalAmountDue.toString());
         if (appliedPromo) {
-            localStorage.setItem('wecanfixBookingDiscountCode', appliedPromo.code);
-            localStorage.setItem('wecanfixBookingDiscountAmount', appliedPromo.calculatedDiscount.toString());
-            localStorage.setItem('wecanfixAppliedPromoCodeId', appliedPromo.id);
+            localStorage.setItem('fixbroBookingDiscountCode', appliedPromo.code);
+            localStorage.setItem('fixbroBookingDiscountAmount', appliedPromo.calculatedDiscount.toString());
+            localStorage.setItem('fixbroAppliedPromoCodeId', appliedPromo.id);
         }
-        if (calculatedPlatformFees.length > 0) localStorage.setItem('wecanfixAppliedPlatformFees', JSON.stringify(calculatedPlatformFees));
+        if (calculatedPlatformFees.length > 0) localStorage.setItem('fixbroAppliedPlatformFees', JSON.stringify(calculatedPlatformFees));
         router.push('/checkout/thank-you'); 
         return; 
     }
@@ -347,21 +280,21 @@ export default function PaymentSummary({ paymentMethod, canBook, appliedPromo, o
         key: appConfig.razorpayKeyId,
         amount: orderDetails.amount,
         currency: "INR",
-        name: globalSettings?.websiteName || "Wecanfix",
+        name: globalSettings?.websiteName || "FixBro",
         description: "Service Booking",
         order_id: orderDetails.id,
         handler: (response: any) => {
           localStorage.setItem('razorpayPaymentId', response.razorpay_payment_id);
           localStorage.setItem('razorpayOrderId', response.razorpay_order_id);
           localStorage.setItem('razorpaySignature', response.razorpay_signature);
-          localStorage.setItem('wecanfixPaymentMethod', 'Online');
-          localStorage.setItem('wecanfixFinalBookingTotal', totalAmountDue.toString());
+          localStorage.setItem('fixbroPaymentMethod', 'Online');
+          localStorage.setItem('fixbroFinalBookingTotal', totalAmountDue.toString());
           if (appliedPromo) {
-            localStorage.setItem('wecanfixBookingDiscountCode', appliedPromo.code);
-            localStorage.setItem('wecanfixBookingDiscountAmount', appliedPromo.calculatedDiscount.toString());
-            localStorage.setItem('wecanfixAppliedPromoCodeId', appliedPromo.id);
+            localStorage.setItem('fixbroBookingDiscountCode', appliedPromo.code);
+            localStorage.setItem('fixbroBookingDiscountAmount', appliedPromo.calculatedDiscount.toString());
+            localStorage.setItem('fixbroAppliedPromoCodeId', appliedPromo.id);
           }
-          if (calculatedPlatformFees.length > 0) localStorage.setItem('wecanfixAppliedPlatformFees', JSON.stringify(calculatedPlatformFees));
+          if (calculatedPlatformFees.length > 0) localStorage.setItem('fixbroAppliedPlatformFees', JSON.stringify(calculatedPlatformFees));
           router.push('/checkout/thank-you');
         },
         prefill: {
@@ -402,20 +335,14 @@ export default function PaymentSummary({ paymentMethod, canBook, appliedPromo, o
             </div>
           )}
           {visitingCharge > 0 && (
-            <div className="flex justify-between items-center">
-              <div className="flex items-center gap-1 text-muted-foreground">
-                <span>Visiting Charge</span>
-                <Info className="h-3 w-3 cursor-pointer hover:text-primary transition-colors" onClick={() => setIsVisitingChargeInfoOpen(true)} />
-              </div>
-              <span>₹{(((categoryOverrides && typeof categoryOverrides.visitingChargeAmount === 'number') ? categoryOverrides.visitingChargeAmount : appConfig.visitingChargeAmount) || 0).toLocaleString()}</span>
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">Visiting Charge</span>
+              <span>₹{(appConfig.visitingChargeAmount || 0).toLocaleString()}</span>
             </div>
           )}
           {calculatedPlatformFees.map(fee => (
-            <div key={fee.name} className="flex justify-between items-center">
-              <div className="flex items-center gap-1 text-muted-foreground">
-                <span>{fee.name}</span>
-                <Info className="h-3 w-3 cursor-pointer hover:text-primary transition-colors" onClick={() => setIsPlatformFeeInfoOpen(true)} />
-              </div>
+            <div key={fee.name} className="flex justify-between">
+              <span className="text-muted-foreground">{fee.name}</span>
               <span>₹{(fee.calculatedFeeAmount + fee.taxAmountOnFee).toLocaleString()}</span>
             </div>
           ))}
@@ -423,7 +350,7 @@ export default function PaymentSummary({ paymentMethod, canBook, appliedPromo, o
             <div className="flex justify-between items-center">
               <div className="flex items-center gap-1 text-muted-foreground">
                 Tax
-                <Info className="h-3 w-3 cursor-pointer hover:text-primary transition-colors" onClick={() => setIsTaxBreakdownOpen(true)} />
+                <Info className="h-3 w-3 cursor-pointer" onClick={() => setIsTaxBreakdownOpen(true)} />
               </div>
               <span>₹{taxAmount.toLocaleString()}</span>
             </div>
@@ -453,7 +380,7 @@ export default function PaymentSummary({ paymentMethod, canBook, appliedPromo, o
       </CardFooter>
 
       <Dialog open={isTaxBreakdownOpen} onOpenChange={setIsTaxBreakdownOpen}>
-        <DialogContent className="w-[90vw] sm:max-w-2xl md:max-w-3xl max-h-[85vh] overflow-y-auto">
+        <DialogContent>
           <DialogHeader>
             <DialogTitle>Tax Breakdown</DialogTitle>
             <DialogDescription>
@@ -470,28 +397,6 @@ export default function PaymentSummary({ paymentMethod, canBook, appliedPromo, o
             grandTotal={totalAmountDue}
             defaultTaxRatePercent={appConfig.visitingChargeTaxPercent || 0}
           />
-        </DialogContent>
-      </Dialog>
-
-      <Dialog open={isVisitingChargeInfoOpen} onOpenChange={setIsVisitingChargeInfoOpen}>
-        <DialogContent className="max-w-[90vw] sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>Visiting Charge Details</DialogTitle>
-            <DialogDescription className="pt-2 text-sm leading-relaxed text-foreground whitespace-pre-line">
-              {dynamicVisitingChargePolicy}
-            </DialogDescription>
-          </DialogHeader>
-        </DialogContent>
-      </Dialog>
-
-      <Dialog open={isPlatformFeeInfoOpen} onOpenChange={setIsPlatformFeeInfoOpen}>
-        <DialogContent className="max-w-[90vw] sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>{dynamicPlatformFeeTitle} Details</DialogTitle>
-            <DialogDescription className="pt-2 text-sm leading-relaxed text-foreground whitespace-pre-line">
-              {dynamicPlatformFeeDescription}
-            </DialogDescription>
-          </DialogHeader>
         </DialogContent>
       </Dialog>
     </Card>

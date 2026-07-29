@@ -22,14 +22,13 @@ import { getOverriddenCategoryName } from '@/lib/adminDataOverrides';
 import { Skeleton } from '@/components/ui/skeleton';
 import AppImage from '@/components/ui/AppImage';
 import { db } from '@/lib/firebase';
-import { collection, query, where, getDocs, orderBy, limit, doc, getDoc, onSnapshot } from '@/lib/mysqlDb';
+import { collection, query, where, getDocs, orderBy, limit, doc, getDoc, onSnapshot } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import StickyCartContinueButton from '@/components/category/StickyCartContinueButton';
 import { useAuth } from '@/hooks/useAuth';
 import Breadcrumbs from '@/components/shared/Breadcrumbs';
 import type { BreadcrumbItem } from '@/types/ui';
 import { replacePlaceholders, defaultSeoValues } from '@/lib/seoUtils';
-import { getSpinnedLocalContent } from '@/lib/seoGenerator';
 import { useLoading } from '@/contexts/LoadingContext';
 import { Carousel, CarouselContent, CarouselItem, type CarouselApi, CarouselPrevious, CarouselNext } from "@/components/ui/carousel";
 import { getCache, setCache, getRemoteCacheVersions } from '@/lib/client-cache';
@@ -111,51 +110,30 @@ export default function CategoryPageClient({
   const [displayPageH1, setDisplayPageH1] = useState<string | null>(() => initialH1Title || initialData?.category.h1_title || getCache<CategoryPageCache>(cacheKey, true)?.displayH1 || null);
   
   const [seoContent, setSeoContent] = useState<string | null>(() => {
+    // Merge DB settings with system defaults, but ensure empty strings in DB don't wipe out defaults
+    const sSettings = { ...defaultSeoValues, ...initialData?.seoSettings };
+    const areaTemplate = initialData?.seoSettings?.areaCategorySeoContentTemplate || defaultSeoValues.areaCategorySeoContentTemplate;
+    const cityTemplate = initialData?.seoSettings?.cityCategorySeoContentTemplate || defaultSeoValues.cityCategorySeoContentTemplate;
+
+    // PRIORITY FOR AREA PAGES:
+    // 1. Manual Area Override (The most specific)
+    // 2. Dynamic Area Template (localized to the specific area)
+    // 3. Manual City Override (Backup)
+    // 4. Dynamic City Template (Backup)
+    // 5. Generic Category Content (Last resort)
+    
     let raw: string | null = null;
     
     if (areaSlug) {
-      if (initialData?.areaCategorySeo?.seo_content) {
-        raw = initialData.areaCategorySeo.seo_content;
-      } else {
-        const currentAreaObj = initialData?.availableAreas?.find(a => a.slug === areaSlug);
-        let fallbackNearby: Array<{ id: string; name: string; slug: string }> = [];
-        if (initialData?.areaData?.nearbyAreas && initialData.areaData.nearbyAreas.length > 0) {
-          fallbackNearby = [...initialData.areaData.nearbyAreas];
-        }
-        if (initialData?.availableAreas) {
-          const currentAreaId = currentAreaObj?.id || "";
-          const cityAreas = initialData.availableAreas.filter(a => a.id !== currentAreaId);
-          for (const a of cityAreas) {
-            if (fallbackNearby.length >= 10) break;
-            if (!fallbackNearby.some(existing => existing.id === a.id)) {
-              fallbackNearby.push({ id: a.id, name: a.name, slug: a.slug });
-            }
-          }
-        }
-
-        return getSpinnedLocalContent({
-          cityName: propCityName || initialData?.availableCities?.find(c => c.slug === citySlug)?.name || citySlug?.replace(/-/g, ' ') || "Bangalore",
-          areaName: propAreaName || currentAreaObj?.name || areaSlug?.replace(/-/g, ' ') || "",
-          categoryName: initialData?.category.name || "Services",
-          nearbyAreas: fallbackNearby
-        });
-      }
+        raw = initialData?.areaCategorySeo?.seo_content || 
+              areaTemplate || 
+              initialData?.cityCategorySeo?.seo_content || 
+              cityTemplate || 
+              initialData?.category.seo_content || null;
     } else if (citySlug) {
-      if (initialData?.cityCategorySeo?.seo_content) {
-        raw = initialData.cityCategorySeo.seo_content;
-      } else {
-        const fallbackNearby = initialData?.availableAreas ? initialData.availableAreas.slice(0, 10).map(a => ({
-          id: a.id,
-          name: a.name,
-          slug: a.slug
-        })) : [];
-
-        return getSpinnedLocalContent({
-          cityName: propCityName || initialData?.availableCities?.find(c => c.slug === citySlug)?.name || citySlug?.replace(/-/g, ' ') || "Bangalore",
-          categoryName: initialData?.category.name || "Services",
-          nearbyAreas: fallbackNearby
-        });
-      }
+        raw = initialData?.cityCategorySeo?.seo_content || 
+              cityTemplate || 
+              initialData?.category.seo_content || null;
     } else {
         raw = initialData?.category.seo_content || null;
     }

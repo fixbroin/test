@@ -9,7 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Loader2, ShieldOff } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { db } from '@/lib/firebase';
-import { doc, getDoc, setDoc, Timestamp, collection, getDocs, query, orderBy, where, limit, addDoc } from '@/lib/mysqlDb';
+import { doc, getDoc, setDoc, Timestamp, collection, getDocs, query, orderBy, where, limit, addDoc } from "firebase/firestore";
 import type {
   ProviderApplication,
   ProviderApplicationStatus,
@@ -304,10 +304,10 @@ export default function ProviderRegistrationPage() {
       const appDocRef = doc(db, PROVIDER_APPLICATION_COLLECTION, targetUserIdForSubmit);
       await setDoc(appDocRef, removeUndefined(completeFinalData), { merge: true });
 
-      localStorage.removeItem('wecanfix_reg_step1');
-      localStorage.removeItem('wecanfix_reg_step2');
-      localStorage.removeItem('wecanfix_reg_step3');
-      localStorage.removeItem('wecanfix_reg_step4');
+      localStorage.removeItem('fixbro_reg_step1');
+      localStorage.removeItem('fixbro_reg_step2');
+      localStorage.removeItem('fixbro_reg_step3');
+      localStorage.removeItem('fixbro_reg_step4');
 
       if (isEditModeByAdmin) {
         toast({ title: "Application Updated", description: "Provider application details saved by admin." });
@@ -333,12 +333,12 @@ export default function ProviderRegistrationPage() {
           const emailInput: NewProviderApplicationAdminEmailInput = {
             applicationId: targetUserIdForSubmit,
             providerName: completeFinalData.fullName || user?.displayName || "N/A",
-            providerEmail: completeFinalData.email || user?.email || "no-reply@wecanfix.in",
+            providerEmail: completeFinalData.email || user?.email || "no-reply@fixbro.in",
             providerCategory: completeFinalData.workCategoryName || "N/A",
             applicationUrl: `${getBaseUrl()}/admin/provider-applications?appId=${targetUserIdForSubmit}`,
             smtpHost: appConfig.smtpHost, smtpPort: appConfig.smtpPort,
             smtpUser: appConfig.smtpUser, smtpPass: appConfig.smtpPass, senderEmail: appConfig.senderEmail,
-            siteName: globalSettings.websiteName || "Wecanfix",
+            siteName: globalSettings.websiteName || "FixBro",
             logoUrl: globalSettings.logoUrl,
           };
           try { 
