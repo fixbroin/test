@@ -115,6 +115,7 @@ const ALL_TIMEZONES = generateTimezones();
 export default function AdminSettingsPage() {
   const { toast } = useToast();
   const [settings, setSettings] = useState<AppSettings>(defaultAppSettings);
+  const symbol = settings.currencySymbol || '₹';
   const [isSaving, setIsSaving] = useState(false);
   const [isLoadingSettings, setIsLoadingSettings] = useState(true);
   const [timezoneSearch, setTimezoneSearch] = useState("");
@@ -883,7 +884,7 @@ export default function AdminSettingsPage() {
                 {settings.enableMinimumBookingPolicy && (
                   <div className="space-y-4 pl-4 border-l-2 border-primary ml-2 pt-4">
                     <div className="space-y-2">
-                      <Label htmlFor="minimumBookingAmount">Minimum Booking Amount (₹)</Label>
+                      <Label htmlFor="minimumBookingAmount">Minimum Booking Amount ({settings.currencySymbol || '₹'})</Label>
                       <Input
                         id="minimumBookingAmount"
                         name="minimumBookingAmount"
@@ -895,7 +896,7 @@ export default function AdminSettingsPage() {
                       />
                     </div>
                     <div className="space-y-2">
-                      <Label htmlFor="visitingChargeAmount">Visiting Charge Amount (₹)</Label>
+                      <Label htmlFor="visitingChargeAmount">Visiting Charge Amount ({settings.currencySymbol || '₹'})</Label>
                       <Input
                         id="visitingChargeAmount"
                         name="visitingChargeAmount"
@@ -928,7 +929,7 @@ export default function AdminSettingsPage() {
                         name="minimumBookingPolicyDescription"
                         value={settings.minimumBookingPolicyDescription}
                         onChange={handleInputChange}
-                        placeholder="e.g., A visiting charge of ₹{VISITING_CHARGE} will be applied..."
+                        placeholder={`e.g., A visiting charge of ${symbol}{VISITING_CHARGE} will be applied if your booking total is below ${symbol}{MINIMUM_BOOKING_AMOUNT}.`}
                         rows={3}
                         disabled={isSaving}
                       />
@@ -1418,7 +1419,7 @@ export default function AdminSettingsPage() {
                             <span>
                               {settings.cancellationFeeType === 'percentage'
                                 ? "Percentage (%)"
-                                : "Fixed Amount (₹)"}
+                                : `Fixed Amount (${symbol})`}
                             </span>
                             <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                           </Button>
@@ -1442,7 +1443,7 @@ export default function AdminSettingsPage() {
                                   }}
                                   type="button"
                                 >
-                                  <span className="font-semibold text-sm">Fixed Amount (₹)</span>
+                                  <span className="font-semibold text-sm">Fixed Amount ({symbol})</span>
                                   {settings.cancellationFeeType !== 'percentage' && (
                                     <Check className="absolute right-3 top-3 h-4 w-4 text-green-500" />
                                   )}
@@ -1469,7 +1470,7 @@ export default function AdminSettingsPage() {
                     </div>
                     <div className="space-y-1">
                       <Label htmlFor="cancellationFeeValue">Fee Value</Label>
-                      <Input id="cancellationFeeValue" name="cancellationFeeValue" type="number" min="0" value={settings.cancellationFeeValue ?? 0} onChange={handleInputChange} disabled={isSaving} placeholder={settings.cancellationFeeType === 'percentage' ? "e.g., 10 (for 10%)" : "e.g., 50 (for ₹50)"} />
+                      <Input id="cancellationFeeValue" name="cancellationFeeValue" type="number" min="0" value={settings.cancellationFeeValue ?? 0} onChange={handleInputChange} disabled={isSaving} placeholder={settings.cancellationFeeType === 'percentage' ? "e.g., 10 (for 10%)" : `e.g., 50 (for ${symbol}50)`} />
                     </div>
                   </div>
                    <p className="text-xs text-muted-foreground">If percentage, it's based on the booking's total amount.</p>

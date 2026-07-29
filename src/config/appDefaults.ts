@@ -9,7 +9,7 @@ export const defaultAppSettings: AppSettings = {
   minimumBookingAmount: 500,
   visitingChargeAmount: 100, // This is the DISPLAYED visiting charge
   isVisitingChargeTaxInclusive: false, // Default to exclusive
-  minimumBookingPolicyDescription: "A visiting charge of ₹{VISITING_CHARGE} will be applied if your booking total is below ₹{MINIMUM_BOOKING_AMOUNT}.",
+  minimumBookingPolicyDescription: "A visiting charge of {VISITING_CHARGE} will be applied if your booking total is below {MINIMUM_BOOKING_AMOUNT}.",
   googleMapsApiKey: "",
   smtpHost: "",
   smtpPort: "587", // Default to common non-SSL/TLS port

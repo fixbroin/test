@@ -119,7 +119,15 @@ export default function PaymentSummary({ paymentMethod, canBook, appliedPromo, o
     if (!policyDesc || typeof minBooking !== 'number' || typeof vcAmount !== 'number') {
       return `A visiting charge of ${formatCurrency(vcAmount || 0, symbol, decimals, code)} will be applied if your booking total is below ${formatCurrency(minBooking || 0, symbol, decimals, code)}.`;
     }
-    return policyDesc
+    const escapedSymbol = (symbol || "₹").replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
+    const patternVc = new RegExp(`(?:₹|\\$|${escapedSymbol})?{VISITING_CHARGE}`, 'g');
+    const patternMin = new RegExp(`(?:₹|\\$|${escapedSymbol})?{MINIMUM_BOOKING_AMOUNT}`, 'g');
+
+    const normalizedPolicy = policyDesc
+      .replace(patternMin, "{MINIMUM_BOOKING_AMOUNT}")
+      .replace(patternVc, "{VISITING_CHARGE}");
+
+    return normalizedPolicy
       .replace(/{MINIMUM_BOOKING_AMOUNT}/g, formatCurrency(minBooking, symbol, decimals, code))
       .replace(/{VISITING_CHARGE}/g, formatCurrency(vcAmount, symbol, decimals, code))
       .replace("{MINIMUM_BOOKING_AMOUNT}", formatCurrency(minBooking, symbol, decimals, code))
@@ -248,11 +256,17 @@ export default function PaymentSummary({ paymentMethod, canBook, appliedPromo, o
         displayedVC = vcAmount;
         baseVC = getBasePrice(displayedVC, appConfig.isVisitingChargeTaxInclusive, appConfig.visitingChargeTaxPercent);
         if (policyDesc) {
-          currentPolicy = policyDesc
-            .replace(/{MINIMUM_BOOKING_AMOUNT}/g, minBooking.toString())
-            .replace(/{VISITING_CHARGE}/g, displayedVC.toString())
-            .replace("{MINIMUM_BOOKING_AMOUNT}", minBooking.toString())
-            .replace("{VISITING_CHARGE}", displayedVC.toString());
+          const escapedSymbol = (symbol || "₹").replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
+          const patternVc = new RegExp(`(?:₹|\\$|${escapedSymbol})?{VISITING_CHARGE}`, 'g');
+          const patternMin = new RegExp(`(?:₹|\\$|${escapedSymbol})?{MINIMUM_BOOKING_AMOUNT}`, 'g');
+          const normalizedPolicy = policyDesc
+            .replace(patternMin, "{MINIMUM_BOOKING_AMOUNT}")
+            .replace(patternVc, "{VISITING_CHARGE}");
+          currentPolicy = normalizedPolicy
+            .replace(/{MINIMUM_BOOKING_AMOUNT}/g, `${symbol}${minBooking}`)
+            .replace(/{VISITING_CHARGE}/g, `${symbol}${displayedVC}`)
+            .replace("{MINIMUM_BOOKING_AMOUNT}", `${symbol}${minBooking}`)
+            .replace("{VISITING_CHARGE}", `${symbol}${displayedVC}`);
         }
       }
     }

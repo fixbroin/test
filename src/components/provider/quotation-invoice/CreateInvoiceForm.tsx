@@ -82,6 +82,7 @@ export default function CreateInvoiceForm({ initialData, onSaveSuccess }: Create
   const { user: providerUser } = useAuth();
   const { settings: companySettings, isLoading: isLoadingCompanySettings } = useGlobalSettings();
   const { config: appConfig } = useApplicationConfig();
+  const symbol = appConfig?.currencySymbol || "₹";
   const [isSaving, setIsSaving] = useState(false);
   const [isSending, setIsSending] = useState(false);
   const [isDownloading, setIsDownloading] = useState(false);
@@ -403,19 +404,19 @@ export default function CreateInvoiceForm({ initialData, onSaveSuccess }: Create
             </div>
             <div className="space-y-3 p-4 border rounded-md">
               <h3 className="text-lg font-medium">Items / Services</h3>
-              {fields.map((item, index) => (<div key={item.id} className="p-3 border rounded-md space-y-3 relative"><div className="grid grid-cols-1 sm:grid-cols-itemized-quotation gap-3 items-end"><FormField control={form.control} name={`items.${index}.itemName`} render={({ field }) => (<FormItem><FormLabel className="text-xs">Item Name <span className="text-destructive">*</span></FormLabel><FormControl><Input placeholder="Service or Product" {...field} disabled={isSaving} /></FormControl><FormMessage /></FormItem>)}/><FormField control={form.control} name={`items.${index}.quantity`} render={({ field }) => (<FormItem><FormLabel className="text-xs">Qty <span className="text-destructive">*</span></FormLabel><FormControl><Input type="number" placeholder="1" {...field} disabled={isSaving} /></FormControl><FormMessage /></FormItem>)}/><FormField control={form.control} name={`items.${index}.ratePerUnit`} render={({ field }) => (<FormItem><FormLabel className="text-xs">Rate/Unit (₹) <span className="text-destructive">*</span></FormLabel><FormControl><Input type="number" step="0.01" placeholder="100.00" {...field} disabled={isSaving} /></FormControl><FormMessage /></FormItem>)}/><FormItem><FormLabel className="text-xs">Total (₹)</FormLabel><Input type="text" value={((form.watch(`items.${index}.quantity`) || 0) * (form.watch(`items.${index}.ratePerUnit`) || 0)).toFixed(2)} disabled readOnly className="bg-muted/50"/></FormItem></div>{fields.length > 1 && (<Button type="button" variant="ghost" size="icon" className="absolute top-1 right-1 h-6 w-6 text-destructive" onClick={() => remove(index)} disabled={isSaving}><Trash2 className="h-4 w-4" /></Button>)}</div>))}
+              {fields.map((item, index) => (<div key={item.id} className="p-3 border rounded-md space-y-3 relative"><div className="grid grid-cols-1 sm:grid-cols-itemized-quotation gap-3 items-end"><FormField control={form.control} name={`items.${index}.itemName`} render={({ field }) => (<FormItem><FormLabel className="text-xs">Item Name <span className="text-destructive">*</span></FormLabel><FormControl><Input placeholder="Service or Product" {...field} disabled={isSaving} /></FormControl><FormMessage /></FormItem>)}/><FormField control={form.control} name={`items.${index}.quantity`} render={({ field }) => (<FormItem><FormLabel className="text-xs">Qty <span className="text-destructive">*</span></FormLabel><FormControl><Input type="number" placeholder="1" {...field} disabled={isSaving} /></FormControl><FormMessage /></FormItem>)}/><FormField control={form.control} name={`items.${index}.ratePerUnit`} render={({ field }) => (<FormItem><FormLabel className="text-xs">Rate/Unit ({symbol}) <span className="text-destructive">*</span></FormLabel><FormControl><Input type="number" step="0.01" placeholder="100.00" {...field} disabled={isSaving} /></FormControl><FormMessage /></FormItem>)}/><FormItem><FormLabel className="text-xs">Total ({symbol})</FormLabel><Input type="text" value={((form.watch(`items.${index}.quantity`) || 0) * (form.watch(`items.${index}.ratePerUnit`) || 0)).toFixed(2)} disabled readOnly className="bg-muted/50"/></FormItem></div>{fields.length > 1 && (<Button type="button" variant="ghost" size="icon" className="absolute top-1 right-1 h-6 w-6 text-destructive" onClick={() => remove(index)} disabled={isSaving}><Trash2 className="h-4 w-4" /></Button>)}</div>))}
               <Button type="button" variant="outline" size="sm" onClick={() => append({ id: nanoid(), itemName: "", quantity: 1, ratePerUnit: 0 })} disabled={isSaving}><PlusCircle className="mr-2 h-4 w-4" /> Add Item</Button>
             </div>
             <div className="space-y-3 p-4 border rounded-md">
               <h3 className="text-lg font-medium">Summary & Payment</h3>
               <div className="space-y-1 text-right text-sm">
-                <div>Subtotal: <span className="font-semibold">₹{subtotal.toFixed(2)}</span></div>
+                <div>Subtotal: <span className="font-semibold">{symbol}{subtotal.toFixed(2)}</span></div>
                 <div className="flex items-center justify-end gap-2"><FormLabel htmlFor="discountPercentInput" className="text-sm whitespace-nowrap">Discount (%):</FormLabel><FormField control={form.control} name="discountPercent" render={({ field }) => (<FormItem className="inline-block w-20"><FormControl><Input type="number" id="discountPercentInput" step="0.01" placeholder="0" {...field} disabled={isSaving} className="h-8 text-right" /></FormControl><FormMessage className="text-left text-xs" /></FormItem>)}/></div>
-                <div>Discount Amount: <span className="font-semibold text-green-600">- ₹{discountAmount.toFixed(2)}</span></div>
-                <div>Amount After Discount: <span className="font-semibold">₹{amountAfterDiscount.toFixed(2)}</span></div>
+                <div>Discount Amount: <span className="font-semibold text-green-600">- {symbol}{discountAmount.toFixed(2)}</span></div>
+                <div>Amount After Discount: <span className="font-semibold">{symbol}{amountAfterDiscount.toFixed(2)}</span></div>
                 <div className="flex items-center justify-end gap-2"><FormLabel htmlFor="taxPercentInvoiceInput" className="text-sm whitespace-nowrap">Tax (%):</FormLabel><FormField control={form.control} name="taxPercent" render={({ field }) => (<FormItem className="inline-block w-20"><FormControl><Input type="number" id="taxPercentInvoiceInput" step="0.01" placeholder="0" {...field} disabled={isSaving} className="h-8 text-right" /></FormControl><FormMessage className="text-left text-xs" /></FormItem>)}/></div>
-                <div>Tax Amount: <span className="font-semibold">₹{taxAmount.toFixed(2)}</span></div>
-                <div className="text-lg font-bold text-primary">Grand Total: ₹{grandTotal.toFixed(2)}</div>
+                <div>Tax Amount: <span className="font-semibold">{symbol}{taxAmount.toFixed(2)}</span></div>
+                <div className="text-lg font-bold text-primary">Grand Total: {symbol}{grandTotal.toFixed(2)}</div>
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-3">
                 <FormField control={form.control} name="paymentStatus" render={({ field }) => (
@@ -528,9 +529,9 @@ export default function CreateInvoiceForm({ initialData, onSaveSuccess }: Create
                 )}/>
               </div>
               <FormField control={form.control} name="amountPaid" render={({ field }) => (
-                <FormItem><FormLabel>Amount Paid (₹) (Optional)</FormLabel><FormControl><Input type="number" step="0.01" placeholder="0.00" {...field} value={field.value ?? ""} disabled={isSaving} /></FormControl><FormMessage /></FormItem>
+                <FormItem><FormLabel>Amount Paid ({symbol}) (Optional)</FormLabel><FormControl><Input type="number" step="0.01" placeholder="0.00" {...field} value={field.value ?? ""} disabled={isSaving} /></FormControl><FormMessage /></FormItem>
               )}/>
-              <div className="text-right text-sm font-semibold">Amount Due: <span className="text-destructive">₹{amountDue.toFixed(2)}</span></div>
+              <div className="text-right text-sm font-semibold">Amount Due: <span className="text-destructive">{symbol}{amountDue.toFixed(2)}</span></div>
               <FormField control={form.control} name="paymentNotes" render={({ field }) => (<FormItem><FormLabel>Payment Notes (Optional)</FormLabel><FormControl><Textarea placeholder="e.g., Transaction ID, Partial payment details" {...field} rows={2} disabled={isSaving} /></FormControl><FormMessage /></FormItem>)}/>
               <FormField control={form.control} name="additionalNotes" render={({ field }) => (<FormItem><FormLabel>Additional Invoice Notes (Optional)</FormLabel><FormControl><Textarea placeholder="Terms and conditions, Bank details for transfer, etc." {...field} rows={3} disabled={isSaving} /></FormControl><FormMessage /></FormItem>)}/>
             </div>

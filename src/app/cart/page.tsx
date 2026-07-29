@@ -417,11 +417,18 @@ function CartPageContent() {
                 displayedVisitingChargeAmount = vcAmount;
                 calculatedBaseVisitingCharge = getBasePrice(displayedVisitingChargeAmount, appConfig.isVisitingChargeTaxInclusive, appConfig.visitingChargeTaxPercent);
                 if (policyDesc) {
-                    currentPolicyMessage = policyDesc
-                        .replace(/{MINIMUM_BOOKING_AMOUNT}/g, minBooking.toString())
-                        .replace(/{VISITING_CHARGE}/g, vcAmount.toString())
-                        .replace("{MINIMUM_BOOKING_AMOUNT}", minBooking.toString())
-                        .replace("{VISITING_CHARGE}", vcAmount.toString());
+                    const symbol = appConfig.currencySymbol || "₹";
+                    const escapedSymbol = (symbol || "₹").replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
+                    const patternVc = new RegExp(`(?:₹|\\$|${escapedSymbol})?{VISITING_CHARGE}`, 'g');
+                    const patternMin = new RegExp(`(?:₹|\\$|${escapedSymbol})?{MINIMUM_BOOKING_AMOUNT}`, 'g');
+                    const normalizedPolicy = policyDesc
+                        .replace(patternMin, "{MINIMUM_BOOKING_AMOUNT}")
+                        .replace(patternVc, "{VISITING_CHARGE}");
+                    currentPolicyMessage = normalizedPolicy
+                        .replace(/{MINIMUM_BOOKING_AMOUNT}/g, `${symbol}${minBooking}`)
+                        .replace(/{VISITING_CHARGE}/g, `${symbol}${vcAmount}`)
+                        .replace("{MINIMUM_BOOKING_AMOUNT}", `${symbol}${minBooking}`)
+                        .replace("{VISITING_CHARGE}", `${symbol}${vcAmount}`);
                 }
             }
         }
@@ -559,6 +566,9 @@ function CartPageContent() {
                 <div className="divide-y divide-border/50">
                   {group.items.map(item => {
                     const { mainPrice, priceSuffix, promoText } = getPriceDisplayInfo(item, item.quantity, appConfig.currencySymbol, appConfig.currencyDecimalPoints, appConfig.currencyCode);
+                    const escapedSymbol = (appConfig?.currencySymbol || "₹").replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
+                    const nonPriceRegex = new RegExp(`[^\\d${escapedSymbol}.,]`, 'g');
+                    const priceRegex = new RegExp(`[\\d${escapedSymbol}.,]`, 'g');
                     return (
                       <div key={item.id} className="p-3 sm:p-4 hover:bg-accent/5 transition-colors">
                         
@@ -574,7 +584,7 @@ function CartPageContent() {
                                 <p className="text-lg font-bold">{mainPrice}</p>
                                 {priceSuffix && (
                                   <p className="text-sm text-muted-foreground">
-                                    <span className="line-through">{priceSuffix.replace(/[^\d₹.,]/g, "")}</span>{" "}{priceSuffix.replace(/[\d₹.,]/g, "")}
+                                    <span className="line-through">{priceSuffix.replace(nonPriceRegex, "")}</span>{" "}{priceSuffix.replace(priceRegex, "")}
                                   </p>
                                 )}
                               </div>
@@ -615,7 +625,7 @@ function CartPageContent() {
                               <p className="text-lg font-bold">{mainPrice}</p>
                               {priceSuffix && (
                                 <p className="text-sm text-muted-foreground">
-                                  <span className="line-through">{priceSuffix.replace(/[^\d₹.,]/g, "")}</span>{" "}{priceSuffix.replace(/[\d₹.,]/g, "")}
+                                  <span className="line-through">{priceSuffix.replace(nonPriceRegex, "")}</span>{" "}{priceSuffix.replace(priceRegex, "")}
                                 </p>
                               )}
                               {promoText && (

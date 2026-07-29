@@ -40,6 +40,7 @@ export default function ManageInvoicesTab({ onEditInvoice }: ManageInvoicesTabPr
   const { toast } = useToast();
   const { settings: companySettings, isLoading: isLoadingCompanySettings } = useGlobalSettings();
   const { config: appConfig } = useApplicationConfig();
+  const symbol = appConfig?.currencySymbol || "₹";
 
   useEffect(() => {
     setIsLoading(true);
@@ -194,7 +195,7 @@ export default function ManageInvoicesTab({ onEditInvoice }: ManageInvoicesTabPr
                     <p>{formatDate(invoice.invoiceDate)}</p>
                 </div>
                 <div>
-                    <p className="text-xs text-muted-foreground">Amount (₹)</p>
+                    <p className="text-xs text-muted-foreground">Amount ({symbol})</p>
                     <p>{invoice.totalAmount.toFixed(2)}</p>
                 </div>
             </div>
@@ -275,7 +276,7 @@ export default function ManageInvoicesTab({ onEditInvoice }: ManageInvoicesTabPr
                 <TableHead>Invoice #</TableHead>
                 <TableHead>Customer</TableHead>
                 <TableHead>Date</TableHead>
-                <TableHead className="text-right">Amount (₹)</TableHead>
+                <TableHead className="text-right">Amount ({symbol})</TableHead>
                 <TableHead>Payment Status</TableHead>
                 <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
