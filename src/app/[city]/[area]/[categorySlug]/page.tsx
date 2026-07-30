@@ -12,13 +12,47 @@ import { getCategoryFullData, getAggregateRating } from '@/lib/homepageUtils';
 import { cache } from 'react';
 import { unstable_cache } from 'next/cache';
 import { getCategorySearchTerm, generateBreadcrumbSchema } from '@/lib/seoAdvancedUtils';
-import { getSpinnedLocalContent } from '@/lib/seoGenerator';
 
 export const revalidate = false;
 
-export async function generateStaticParams() {
-  return [];
-}
+// export async function generateStaticParams() {
+//   try {
+//     const citiesSnapshot = await adminDb.collection('cities').where('isActive', '==', true).get();
+//     const categoriesSnapshot = await adminDb.collection('adminCategories').where('isActive', '==', true).get();
+//     
+//     const params: Array<{ city: string; area: string; categorySlug: string }> = [];
+// 
+//     for (const cityDoc of citiesSnapshot.docs) {
+//       const cityData = cityDoc.data() as FirestoreCity;
+//       if (!cityData.slug) continue;
+// 
+//       const areasSnapshot = await adminDb.collection('areas')
+//         .where('cityId', '==', cityDoc.id)
+//         .where('isActive', '==', true)
+//         .get();
+// 
+//       for (const areaDoc of areasSnapshot.docs) {
+//         const areaData = areaDoc.data() as FirestoreArea;
+//         if (!areaData.slug) continue;
+// 
+//         for (const catDoc of categoriesSnapshot.docs) {
+//           const catData = catDoc.data() as FirestoreCategory;
+//           if (!catData.slug) continue;
+// 
+//           params.push({
+//             city: cityData.slug,
+//             area: areaData.slug,
+//             categorySlug: catData.slug
+//           });
+//         }
+//       }
+//     }
+//     return params;
+//   } catch (error) {
+//     console.error("Error generating static params for area-category pages:", error);
+//     return [];
+//   }
+// }
 
 interface AreaCategoryPageProps {
   params: Promise<{ city: string; area: string; categorySlug: string }>;
@@ -44,14 +78,6 @@ const getPageData = cache(async (citySlug: string, areaSlug: string, categorySlu
         if (areaSnapshot.empty) return null;
         const areaData = { id: areaSnapshot.docs[0].id, ...areaSnapshot.docs[0].data() } as FirestoreArea;
 
-        // Get all active areas in the same city to dynamically interlink nearby areas
-        const cityAreasQuery = areasRef.where('cityId', '==', cityData.id).where('isActive', '==', true);
-        const cityAreasSnapshot = await cityAreasQuery.get();
-        const cityAreas = cityAreasSnapshot.docs.map(doc => ({
-          id: doc.id,
-          ...doc.data()
-        })) as FirestoreArea[];
-
         const categoriesRef = adminDb.collection('adminCategories');
         const categoryQuery = categoriesRef.where('slug', '==', categorySlug).limit(1);
         const categorySnapshot = await categoryQuery.get();
@@ -63,7 +89,7 @@ const getPageData = cache(async (citySlug: string, areaSlug: string, categorySlu
           seoOverride = await getAreaCategorySeoOverride(areaData.id, categoryData.id);
         }
 
-        return { cityData, areaData, categoryData, seoOverride, cityAreas };
+        return { cityData, areaData, categoryData, seoOverride };
       } catch (error) {
         console.error(`[AreaCategoryPage] Error fetching page data:`, error);
         return null;

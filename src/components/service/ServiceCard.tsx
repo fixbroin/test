@@ -16,8 +16,6 @@ import { logUserActivity } from '@/lib/activityLogger';
 import { useAuth } from '@/hooks/useAuth';
 import { getGuestId } from '@/lib/guestIdManager';
 import { useLoading } from '@/contexts/LoadingContext';
-import { useApplicationConfig } from '@/hooks/useApplicationConfig';
-import { formatCurrency } from '@/lib/utils';
 
 interface ServiceCardProps {
   service: FirestoreService;
@@ -60,15 +58,15 @@ const getPriceForNthUnit = (service: FirestoreService, n: number): number => {
   return service.discountedPrice ?? service.price;
 };
 
-const getPriceDisplayInfo = (service: FirestoreService, quantity: number, symbol: string = '₹', decimals: number = 2, code: string = 'INR') => {
+const getPriceDisplayInfo = (service: FirestoreService, quantity: number) => {
     if (!service.hasPriceVariants || !service.priceVariants || service.priceVariants.length === 0) {
         const unitSaving = service.discountedPrice && service.discountedPrice < service.price ? service.price - service.discountedPrice : 0;
         const totalSaving = unitSaving * (quantity > 0 ? quantity : 1);
         
         return {
-            mainPrice: formatCurrency(service.discountedPrice ?? service.price, symbol, decimals, code),
-            priceSuffix: unitSaving > 0 ? formatCurrency(service.price, symbol, decimals, code) : null,
-            promoText: unitSaving > 0 ? `Save ${formatCurrency(totalSaving, symbol, decimals, code)}!` : null,
+            mainPrice: `₹${service.discountedPrice ?? service.price}`,
+            priceSuffix: unitSaving > 0 ? `₹${service.price}` : null,
+            promoText: unitSaving > 0 ? `Save ₹${totalSaving.toFixed(0)}!` : null,
         };
     }
 
@@ -80,28 +78,24 @@ const getPriceDisplayInfo = (service: FirestoreService, quantity: number, symbol
     let promoText = null;
     if (nextCheaperTier) {
         const needed = nextCheaperTier.fromQuantity - quantity;
-        promoText = `Add ${needed} more to unlock ${formatCurrency(nextCheaperTier.price, symbol, decimals, code)} price!`;
+        promoText = `Add ${needed} more to unlock ₹${nextCheaperTier.price} price!`;
     } else {
         const finalTier = sortedVariants[sortedVariants.length - 1];
         if (quantity >= finalTier.fromQuantity) {
-            promoText = `Price continues at ${formatCurrency(finalTier.price, symbol, decimals, code)} each.`;
+            promoText = `Price continues at ₹${finalTier.price} each.`;
         }
     }
 
     const displayPrice = getPriceForNthUnit(service, nextQuantity);
 
     return {
-        mainPrice: formatCurrency(displayPrice, symbol, decimals, code),
+        mainPrice: `₹${displayPrice}`,
         priceSuffix: quantity > 0 ? 'per next unit' : 'onwards',
         promoText,
     };
 };
 
 const ServiceCard: React.FC<ServiceCardProps> = ({ service, priority = false }) => {
-  const { config: appConfig } = useApplicationConfig();
-  const symbol = appConfig?.currencySymbol || '₹';
-  const decimals = appConfig?.currencyDecimalPoints !== undefined ? appConfig.currencyDecimalPoints : 2;
-  const code = appConfig?.currencyCode || 'INR';
   const [quantity, setQuantity] = useState(0);
   const { toast } = useToast();
   const router = useRouter();
@@ -215,7 +209,7 @@ const ServiceCard: React.FC<ServiceCardProps> = ({ service, priority = false }) 
   const displayImageUrl = service.imageUrl && service.imageUrl.trim() !== '' ? service.imageUrl : "/default-image.png";
   const aiHintValue = generateAiHint(service.imageHint, service.name);
   
-  const { mainPrice, priceSuffix, promoText } = getPriceDisplayInfo(service, quantity, symbol, decimals, code);
+  const { mainPrice, priceSuffix, promoText } = getPriceDisplayInfo(service, quantity);
   
   const isAvailable = service.maxQuantity === undefined || service.maxQuantity === null || service.maxQuantity > 0;
 
@@ -246,13 +240,9 @@ const ServiceCard: React.FC<ServiceCardProps> = ({ service, priority = false }) 
             <div className="flex flex-wrap items-baseline gap-2 mt-2">
                 <p className="text-lg font-bold text-foreground">{mainPrice}</p>
                 {priceSuffix && (
-                     <p className="text-sm text-muted-foreground">
-                       {priceSuffix.includes(symbol) || /\d/.test(priceSuffix) ? (
-                         <span className="line-through">{priceSuffix}</span>
-                       ) : (
-                         priceSuffix
-                       )}
-                     </p>
+                     <p className="text-sm text-muted-foreground"><span className="line-through">
+                        {priceSuffix.replace(/[^\d₹.,]/g, "")}</span>{" "}{priceSuffix.replace(/[\d₹.,]/g, "")}
+                    </p>
                 )}
                  {promoText && (
                           <Badge 
@@ -319,12 +309,8 @@ const ServiceCard: React.FC<ServiceCardProps> = ({ service, priority = false }) 
                         <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
                             <p className="text-xl font-bold text-foreground">{mainPrice}</p>
                             {priceSuffix && (
-                                <p className="text-base text-muted-foreground">
-                                  {priceSuffix.includes(symbol) || /\d/.test(priceSuffix) ? (
-                                    <span className="line-through">{priceSuffix}</span>
-                                  ) : (
-                                    priceSuffix
-                                  )}
+                                <p className="text-base text-muted-foreground"> <span className="line-through">
+                                  {priceSuffix.replace(/[^\d₹.,]/g, "")}</span>{" "}{priceSuffix.replace(/[\d₹.,]/g, "")}
                                 </p>
                             )}
                             

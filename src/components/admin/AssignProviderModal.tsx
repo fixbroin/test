@@ -9,7 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Loader2, UserCheck2, UserCircle, PackageSearch, MapPin } from "lucide-react";
 import type { ProviderApplication, FirestoreBooking, FirestoreService, FirestoreSubCategory } from '@/types/firestore';
 import { db } from '@/lib/firebase';
-import { collection, query, where, orderBy, getDocs, doc, getDoc } from '@/lib/mysqlDb';
+import { collection, query, where, orderBy, getDocs, doc, getDoc } from "firebase/firestore";
 import { useToast } from "@/hooks/use-toast";
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { getHaversineDistance } from '@/lib/locationUtils';
@@ -59,15 +59,20 @@ export default function AssignProviderModal({ isOpen, onClose, booking, onAssign
         setBookingCategoryId(categoryId);
         setIsLoadingCategory(false);
 
-        // 2. Fetch all approved providers
-        const providersRef = collection(db, "providerApplications");
-        const q = query(
-          providersRef, 
-          where("status", "==", "approved")
-        );
-        const snapshot = await getDocs(q);
-        const approvedProviders = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as ProviderApplication));
-        setProviders(approvedProviders);
+        // 2. Fetch approved providers for this category
+        if (categoryId) {
+          const providersRef = collection(db, "providerApplications");
+          const q = query(
+            providersRef, 
+            where("status", "==", "approved"),
+            where("workCategoryId", "==", categoryId)
+          );
+          const snapshot = await getDocs(q);
+          const approvedProviders = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as ProviderApplication));
+          setProviders(approvedProviders);
+        } else {
+          setProviders([]);
+        }
       } catch (error) {
         console.error("Error fetching providers:", error);
         toast({ title: "Error", description: "Could not load relevant providers.", variant: "destructive" });
@@ -91,66 +96,8 @@ export default function AssignProviderModal({ isOpen, onClose, booking, onAssign
         );
       }
       return { ...p, distance };
-    });
+    }).sort((a, b) => a.distance - b.distance);
   }, [providers, booking]);
-
-  const { matchingProviders, otherProviders } = useMemo(() => {
-    const matching: typeof providersWithDistance = [];
-    const other: typeof providersWithDistance = [];
-
-    providersWithDistance.forEach(p => {
-      if (bookingCategoryId && p.workCategoryId === bookingCategoryId) {
-        matching.push(p);
-      } else {
-        other.push(p);
-      }
-    });
-
-    matching.sort((a, b) => a.distance - b.distance);
-    other.sort((a, b) => a.distance - b.distance);
-
-    return { matchingProviders: matching, otherProviders: other };
-  }, [providersWithDistance, bookingCategoryId]);
-
-  const renderProviderItem = (provider: typeof providersWithDistance[0]) => {
-    return (
-      <Label
-        key={provider.id}
-        htmlFor={`provider-${provider.id}`}
-        className={cn(
-          "flex items-center gap-3 w-full p-3 border rounded-xl cursor-pointer transition-all hover:bg-accent/50",
-          selectedProviderId === provider.id ? "border-primary ring-1 ring-primary bg-primary/5" : "border-border"
-        )}
-      >
-        <RadioGroupItem value={provider.id!} id={`provider-${provider.id}`} className="shrink-0" />
-        
-        <Avatar className="h-12 w-12 border shadow-sm shrink-0">
-          <AvatarImage src={provider.profilePhotoUrl || undefined} alt={provider.fullName} />
-          <AvatarFallback className="bg-muted text-lg">{provider.fullName ? provider.fullName[0].toUpperCase() : <UserCircle />}</AvatarFallback>
-        </Avatar>
-
-        <div className="flex-grow min-w-0 space-y-0.5">
-          <div className="flex flex-col sm:flex-row sm:justify-between sm:items-baseline gap-1 sm:gap-2">
-            <div className="flex flex-col min-w-0">
-              <p className="font-bold text-sm truncate">{provider.fullName}</p>
-              {booking.suggestedProviderIds?.includes(provider.id!) && (
-                <span className="text-[10px] font-bold text-emerald-600 uppercase tracking-wider">Suggested Match</span>
-              )}
-            </div>
-            {provider.distance !== Infinity && (
-              <span className="text-[10px] font-bold text-primary whitespace-nowrap bg-primary/10 px-1.5 py-0.5 rounded flex items-center w-fit gap-1">
-                <MapPin className="h-3 w-3" /> {provider.distance.toFixed(1)} km away
-              </span>
-            )}
-          </div>
-          <p className="text-[11px] text-muted-foreground font-medium truncate">{provider.workCategoryName}</p>
-          <div className="flex items-center justify-between mt-1">
-            <p className="text-xs text-foreground/70 font-mono">{provider.mobileNumber}</p>
-          </div>
-        </div>
-      </Label>
-    );
-  };
 
   const handleConfirm = async () => {
     if (!selectedProviderId) {
@@ -179,7 +126,7 @@ export default function AssignProviderModal({ isOpen, onClose, booking, onAssign
             <span className="text-xs sm:text-sm text-muted-foreground font-normal">#{booking.bookingId}</span>
           </DialogTitle>
           <DialogDescription>
-            Showing nearest approved providers. Matching category shown first.
+            Showing nearest approved providers for this service category.
           </DialogDescription>
         </DialogHeader>
         
@@ -189,38 +136,54 @@ export default function AssignProviderModal({ isOpen, onClose, booking, onAssign
               <Loader2 className="h-10 w-10 animate-spin text-primary mb-2" />
               <p className="text-sm text-muted-foreground">Finding best providers...</p>
             </div>
-          ) : matchingProviders.length === 0 && otherProviders.length === 0 ? (
+          ) : providersWithDistance.length === 0 ? (
             <div className="text-center py-16 flex flex-col items-center">
               <PackageSearch className="h-16 w-16 text-muted-foreground mb-4" />
               <p className="font-semibold text-lg">No Providers Found</p>
               <p className="text-muted-foreground text-sm max-w-[250px] mx-auto">
-                No approved providers found.
+                No approved providers found for this category.
               </p>
             </div>
           ) : (
             <ScrollArea className="h-full max-h-[500px]">
-              <RadioGroup value={selectedProviderId} onValueChange={setSelectedProviderId} className="p-4 pt-2 gap-4">
-                {matchingProviders.length > 0 && (
-                  <div className="space-y-3">
-                    <div className="text-xs font-bold text-primary uppercase tracking-wider pl-1 flex items-center gap-1.5">
-                      <UserCheck2 className="h-4 w-4" /> Matching Category Providers ({matchingProviders.length})
-                    </div>
-                    <div className="grid gap-3">
-                      {matchingProviders.map((provider) => renderProviderItem(provider))}
-                    </div>
-                  </div>
-                )}
+              <RadioGroup value={selectedProviderId} onValueChange={setSelectedProviderId} className="p-4 pt-0 gap-3">
+                {providersWithDistance.map((provider) => (
+                  <Label
+                    key={provider.id}
+                    htmlFor={`provider-${provider.id}`}
+                    className={cn(
+                      "flex items-center gap-3 w-full p-3 border rounded-xl cursor-pointer transition-all hover:bg-accent/50",
+                      selectedProviderId === provider.id ? "border-primary ring-1 ring-primary bg-primary/5" : "border-border"
+                    )}
+                  >
+                    <RadioGroupItem value={provider.id!} id={`provider-${provider.id}`} className="shrink-0" />
+                    
+                    <Avatar className="h-12 w-12 border shadow-sm shrink-0">
+                      <AvatarImage src={provider.profilePhotoUrl || undefined} alt={provider.fullName} />
+                      <AvatarFallback className="bg-muted text-lg">{provider.fullName ? provider.fullName[0].toUpperCase() : <UserCircle />}</AvatarFallback>
+                    </Avatar>
 
-                {otherProviders.length > 0 && (
-                  <div className="space-y-3 mt-4">
-                    <div className="text-xs font-bold text-muted-foreground uppercase tracking-wider pl-1 flex items-center gap-1.5">
-                      <UserCircle className="h-4 w-4" /> Other Category Providers ({otherProviders.length})
+                    <div className="flex-grow min-w-0 space-y-0.5">
+                      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-baseline gap-1 sm:gap-2">
+                        <div className="flex flex-col min-w-0">
+                          <p className="font-bold text-sm truncate">{provider.fullName}</p>
+                          {booking.suggestedProviderIds?.includes(provider.id!) && (
+                            <span className="text-[10px] font-bold text-emerald-600 uppercase tracking-wider">Suggested Match</span>
+                          )}
+                        </div>
+                        {provider.distance !== Infinity && (
+                          <span className="text-[10px] font-bold text-primary whitespace-nowrap bg-primary/10 px-1.5 py-0.5 rounded flex items-center w-fit gap-1">
+                            <MapPin className="h-3 w-3" /> {provider.distance.toFixed(1)} km away
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-[11px] text-muted-foreground font-medium truncate">{provider.workCategoryName}</p>
+                      <div className="flex items-center justify-between mt-1">
+                        <p className="text-xs text-foreground/70 font-mono">{provider.mobileNumber}</p>
+                      </div>
                     </div>
-                    <div className="grid gap-3">
-                      {otherProviders.map((provider) => renderProviderItem(provider))}
-                    </div>
-                  </div>
-                )}
+                  </Label>
+                ))}
               </RadioGroup>
             </ScrollArea>
           )}

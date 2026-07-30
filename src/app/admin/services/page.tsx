@@ -13,8 +13,8 @@ import { PlusCircle, Edit, Trash2, ShoppingBag, Loader2, Search } from "lucide-r
 import type { FirestoreService, FirestoreSubCategory, FirestoreTax, FirestoreCategory } from '@/types/firestore';
 import ServiceForm from '@/components/admin/ServiceForm';
 import { db, storage } from '@/lib/firebase';
-import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc, getDoc, orderBy, query, Timestamp, where } from '@/lib/mysqlDb';
-import { ref as storageRef, deleteObject } from '@/lib/mysqlStorage';
+import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc, getDoc, orderBy, query, Timestamp, where } from "firebase/firestore";
+import { ref as storageRef, deleteObject } from "firebase/storage";
 import { useToast } from "@/hooks/use-toast";
 import { getIconComponent } from '@/lib/iconMap';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
@@ -25,8 +25,6 @@ import { Switch } from '@/components/ui/switch';
 import { Input } from "@/components/ui/input";
 import PermissionGuard from '@/components/admin/PermissionGuard';
 import { getCache, setCache } from '@/lib/client-cache';
-import { useApplicationConfig } from '@/hooks/useApplicationConfig';
-import { formatCurrency } from '@/lib/utils';
 import { getAdminServices, getAdminCategories, getAdminSubCategories, getTaxes } from '@/lib/webServerUtils';
 
 const generateSlug = (name: string) => {
@@ -34,16 +32,12 @@ const generateSlug = (name: string) => {
   return name.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
 };
 
-const isFirebaseStorageUrl = (url: string | null | undefined): boolean => {
+const isFirebaseStorageUrl = (url: string): boolean => {
   if (!url) return false;
-  return typeof url === 'string' && url.trim().length > 0;
+  return typeof url === 'string' && url.includes("firebasestorage.googleapis.com");
 };
 
 export default function AdminServicesPage() {
-  const { config: appConfig } = useApplicationConfig();
-  const symbol = appConfig?.currencySymbol || '₹';
-  const decimals = appConfig?.currencyDecimalPoints !== undefined ? appConfig.currencyDecimalPoints : 2;
-  const code = appConfig?.currencyCode || 'INR';
   const [services, setServices] = useState<FirestoreService[]>([]);
   const [parentCategories, setParentCategories] = useState<FirestoreCategory[]>([]);
   const [subCategories, setSubCategories] = useState<FirestoreSubCategory[]>([]);
@@ -60,48 +54,82 @@ export default function AdminServicesPage() {
   const servicesCollectionRef = collection(db, "adminServices");
   const categoriesCollectionRef = collection(db, "adminCategories");
   const subCategoriesCollectionRef = collection(db, "adminSubCategories");
-  const taxesCollectionRef = collection(db, "taxes");
+  const taxesCollectionRef = collection(db, "adminTaxes");
 
-  const fetchData = async (forceRefresh?: boolean) => {
+  const fetchData = async (forceRefresh = false) => {
     setIsLoadingData(true);
     try {
-      let fetchedCats: FirestoreCategory[] = [];
-      let fetchedSubCats: FirestoreSubCategory[] = [];
-      let fetchedServices: FirestoreService[] = [];
-      let fetchedTaxes: FirestoreTax[] = [];
+      // --- SmartSync: Version Checking ---
+      let remoteVersion = 0;
+      if (!forceRefresh) {
+        try {
+          const versionDocRef = doc(db, "appConfiguration", "cacheVersions");
+          const versionSnap = await getDoc(versionDocRef);
+          if (versionSnap.exists()) {
+            remoteVersion = versionSnap.data().services || 0;
+          }
+        } catch (e) { console.warn("Failed to fetch cache versions:", e); }
 
-      try {
-        const catData = await getDocs(query(categoriesCollectionRef, orderBy("order", "asc")));
-        fetchedCats = catData.docs.map((doc) => ({ ...doc.data(), id: doc.id } as FirestoreCategory));
-      } catch (e) {
-        console.error("Error fetching categories:", e);
+        const localVersionKey = 'admin-services-full-version';
+        const localVersion = parseInt(localStorage.getItem(localVersionKey) || "0");
+        const cachedServices = getCache<FirestoreService[]>('admin-services-list', true);
+        const cachedCats = getCache<FirestoreCategory[]>('admin-categories-list', true);
+        const cachedSubCats = getCache<FirestoreSubCategory[]>('admin-subcategories-list', true);
+        const cachedTaxes = getCache<FirestoreTax[]>('admin-taxes-list', true);
+
+        if (cachedServices && cachedCats && cachedSubCats && cachedTaxes && remoteVersion <= localVersion) {
+          setServices(cachedServices);
+          setParentCategories(cachedCats);
+          setSubCategories(cachedSubCats);
+          setTaxes(cachedTaxes);
+          setIsLoadingData(false);
+          return;
+        }
       }
 
-      try {
-        const subCatData = await getDocs(query(subCategoriesCollectionRef, orderBy("order", "asc")));
-        fetchedSubCats = subCatData.docs.map((doc) => ({ ...doc.data(), id: doc.id } as FirestoreSubCategory));
-      } catch (e) {
-        console.error("Error fetching sub-categories:", e);
-      }
+      const catQuery = query(categoriesCollectionRef, orderBy("order", "asc"));
+      const subCatQuery = query(subCategoriesCollectionRef, orderBy("order", "asc"));
+      const serviceQuery = query(servicesCollectionRef, orderBy("name", "asc"));
+      const taxQuery = query(taxesCollectionRef, where("isActive", "==", true), orderBy("taxName", "asc"));
 
-      try {
-        const serviceData = await getDocs(query(servicesCollectionRef, orderBy("name", "asc")));
-        fetchedServices = serviceData.docs.map((doc) => ({ ...doc.data(), id: doc.id } as FirestoreService));
-      } catch (e) {
-        console.error("Error fetching services:", e);
-      }
+      // Use getDocs for one-time fetch instead of onSnapshot
+      const [catData, subCatData, serviceData, taxData] = await Promise.all([
+        getDocs(catQuery), getDocs(subCatQuery), getDocs(serviceQuery), getDocs(taxQuery)
+      ]);
+      
+      const fetchedCats = catData.docs.map((doc) => ({ ...doc.data(), id: doc.id } as FirestoreCategory));
+      const fetchedSubCats = subCatData.docs.map((doc) => ({ ...doc.data(), id: doc.id } as FirestoreSubCategory));
+      const fetchedServices = serviceData.docs.map((doc) => ({ ...doc.data(), id: doc.id } as FirestoreService));
+      let fetchedTaxes = taxData.docs.map((doc) => ({ ...doc.data(), id: doc.id } as FirestoreTax));
 
-      try {
-        const taxData = await getDocs(taxesCollectionRef);
-        fetchedTaxes = taxData.docs.map((doc) => ({ ...doc.data(), id: doc.id } as FirestoreTax));
-      } catch (e) {
-        console.error("Error fetching taxes:", e);
+      const hasNoTax = fetchedTaxes.some(t => t.taxPercent === 0 || t.taxName.toLowerCase() === "no tax");
+      if (!hasNoTax) {
+        const defaultTax = {
+          taxName: "No Tax",
+          taxPercent: 0,
+          isActive: true,
+          createdAt: Timestamp.now(),
+          updatedAt: Timestamp.now()
+        };
+        const docRef = await addDoc(taxesCollectionRef, defaultTax);
+        fetchedTaxes.push({ ...defaultTax, id: docRef.id });
+        fetchedTaxes.sort((a, b) => a.taxName.localeCompare(b.taxName));
+        await triggerRefresh('global-cache');
       }
 
       setParentCategories(fetchedCats);
       setSubCategories(fetchedSubCats);
       setServices(fetchedServices);
       setTaxes(fetchedTaxes);
+
+      // Update cache
+      if (!forceRefresh) {
+        setCache('admin-services-list', fetchedServices, true);
+        setCache('admin-categories-list', fetchedCats, true);
+        setCache('admin-subcategories-list', fetchedSubCats, true);
+        setCache('admin-taxes-list', fetchedTaxes, true);
+        localStorage.setItem('admin-services-full-version', remoteVersion.toString());
+      }
 
     } catch (error) {
       console.error("Error fetching prerequisite data: ", error);
@@ -381,7 +409,7 @@ export default function AdminServicesPage() {
                             <TableHead className="p-2">Name</TableHead>
                             <TableHead className="p-2 text-center">Order</TableHead>
                             <TableHead className="p-2">Slug</TableHead>
-                            <TableHead className="text-right p-2">Price ({symbol})</TableHead>
+                            <TableHead className="text-right p-2">Price (₹)</TableHead>
                             <TableHead className="text-right p-2">Tax</TableHead>
                             <TableHead className="text-center p-2">Pay Later</TableHead>
                             <TableHead className="text-center p-2">Active</TableHead>
@@ -404,10 +432,10 @@ export default function AdminServicesPage() {
                                 <TableCell className="text-center p-2 text-xs text-muted-foreground">{service.order || 0}</TableCell>
                                 <TableCell className="p-2 text-xs text-muted-foreground">{service.slug}</TableCell>
                                 <TableCell className="text-right p-2 text-xs">
-                                  <div>{formatCurrency(service.price, symbol, decimals, code)}</div>
+                                  <div>₹{service.price.toLocaleString()}</div>
                                   {service.discountedPrice && (
                                     <div className="text-[10px] text-green-600 font-semibold">
-                                      Disc: {formatCurrency(service.discountedPrice, symbol, decimals, code)}
+                                      Disc: ₹{service.discountedPrice.toLocaleString()}
                                     </div>
                                   )}
                                 </TableCell>

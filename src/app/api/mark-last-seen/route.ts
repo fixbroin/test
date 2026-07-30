@@ -1,5 +1,5 @@
 import { type NextRequest, NextResponse } from 'next/server';
-import { getFirestore, Timestamp } from '@/lib/mysqlDbAdmin';
+import { getFirestore, Timestamp } from 'firebase-admin/firestore';
 import { getAuth } from 'firebase-admin/auth';
 import { initFirebaseAdmin } from '@/lib/firebase-admin';
 

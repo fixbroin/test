@@ -29,8 +29,8 @@ import { CalendarIcon, Loader2, Send, UploadCloud, XIcon, Check } from "lucide-r
 import type { FirestoreCategory, CustomServiceRequest, FirestoreNotification } from "@/types/firestore";
 import { db, storage } from "@/lib/firebase";
 import { triggerPushNotification } from "@/lib/fcmUtils";
-import { collection, addDoc, Timestamp, query, where, getDocs, limit } from '@/lib/mysqlDb';
-import { ref as storageRef, uploadBytesResumable, getDownloadURL } from '@/lib/mysqlStorage';
+import { collection, addDoc, Timestamp, query, where, getDocs, limit } from "firebase/firestore";
+import { ref as storageRef, uploadBytesResumable, getDownloadURL } from "firebase/storage";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import Image from "next/image";
@@ -99,7 +99,6 @@ export default function CustomServiceRequestForm({
   const { toast } = useToast();
   const { user, firestoreUser } = useAuth();
   const { config: appConfig } = useApplicationConfig();
-  const symbol = appConfig?.currencySymbol || "₹";
   const { settings: globalSettings } = useGlobalSettings();
 
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -300,7 +299,6 @@ export default function CustomServiceRequestForm({
               senderEmail: appConfig.senderEmail,
               siteName: globalSettings?.websiteName,
               logoUrl: globalSettings?.logoUrl,
-              currencySymbol: appConfig.currencySymbol || "₹",
           };
           try { 
               const emailResult = await sendNewCustomServiceRequestEmail(emailInput);
@@ -478,7 +476,7 @@ export default function CustomServiceRequestForm({
             render={({ field }) => (
               <FormItem>
                 <FormLabel>
-                  Min. Budget ({symbol}) <span className="text-destructive">*</span>
+                  Min. Budget (₹) <span className="text-destructive">*</span>
                 </FormLabel>
                 <FormControl>
                   <Input
@@ -499,7 +497,7 @@ export default function CustomServiceRequestForm({
             render={({ field }) => (
               <FormItem>
                 <FormLabel>
-                  Max. Budget ({symbol}) <span className="text-destructive">*</span>
+                  Max. Budget (₹) <span className="text-destructive">*</span>
                 </FormLabel>
                 <FormControl>
                   <Input

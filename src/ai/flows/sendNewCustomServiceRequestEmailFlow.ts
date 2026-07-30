@@ -21,16 +21,15 @@ const NewCustomServiceRequestEmailInputSchema = z.object({
   category: z.string().describe("The category (pre-defined or custom) selected by the user."),
   minBudget: z.number().optional().nullable().describe("The minimum budget for the service."), // Added
   maxBudget: z.number().optional().nullable().describe("The maximum budget for the service."), // Added
-  adminUrl: z.string().describe("Direct URL to view the request in the admin panel."),
+  adminUrl: z.string().url().describe("Direct URL to view the request in the admin panel."),
   // SMTP Settings
   smtpHost: z.string().optional().describe("SMTP host for sending emails."),
   smtpPort: z.string().optional().describe("SMTP port (e.g., '587', '465')."),
   smtpUser: z.string().optional().describe("SMTP username."),
   smtpPass: z.string().optional().describe("SMTP password."),
-  senderEmail: z.string().optional().describe("The email address to send from."),
+  senderEmail: z.string().email().optional().describe("The email address to send from."),
   siteName: z.string().optional(),
-  logoUrl: z.string().optional(),
-  currencySymbol: z.string().optional().describe("Currency symbol to use in email templates."),
+  logoUrl: z.string().url().optional(),
 });
 
 export type NewCustomServiceRequestEmailInput = z.infer<typeof NewCustomServiceRequestEmailInputSchema>;
@@ -45,8 +44,7 @@ export async function sendNewCustomServiceRequestEmail(input: NewCustomServiceRe
 }
 
 const createHtmlTemplate = (title: string, bodyContent: string, siteName: string, logoUrl?: string) => {
-    const rawLogoUrl = logoUrl || `${getBaseUrl()}/android-chrome-512x512.png`;
-    const finalLogoUrl = rawLogoUrl.startsWith('http') ? rawLogoUrl : `${getBaseUrl()}${rawLogoUrl.startsWith('/') ? '' : '/'}${rawLogoUrl}`;
+    const finalLogoUrl = logoUrl || `${getBaseUrl()}/default-image.png`;
     return `
 <!DOCTYPE html>
 <html lang="en">
@@ -114,7 +112,7 @@ const newCustomServiceRequestEmailFlow = ai.defineFlow(
   },
   async (details) => {
     try {
-      const { smtpHost, smtpPort, smtpUser, smtpPass, senderEmail, siteName = "FixBro", logoUrl, currencySymbol = "₹", ...requestDetails } = details;
+      const { smtpHost, smtpPort, smtpUser, smtpPass, senderEmail, siteName = "FixBro", logoUrl, ...requestDetails } = details;
 
       const adminEmail = "fixbro.in@gmail.com"; 
       const canAttemptRealEmail = smtpHost && smtpPort && smtpUser && smtpPass && senderEmail;
@@ -130,7 +128,7 @@ const newCustomServiceRequestEmailFlow = ai.defineFlow(
             <li><strong>Customer Mobile:</strong> ${requestDetails.userMobile || 'N/A'}</li>
             <li><strong>Service Title:</strong> ${requestDetails.serviceTitle}</li>
             <li><strong>Category:</strong> ${requestDetails.category}</li>
-            <li><strong>Budget:</strong> ${currencySymbol}${requestDetails.minBudget || 'N/A'} - ${currencySymbol}${requestDetails.maxBudget || 'N/A'}</li>
+            <li><strong>Budget:</strong> ₹${requestDetails.minBudget || 'N/A'} - ₹${requestDetails.maxBudget || 'N/A'}</li>
         </ul>
         <h3>Description:</h3>
         <p>${requestDetails.description}</p>

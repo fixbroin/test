@@ -15,7 +15,7 @@ import { Badge } from '@/components/ui/badge';
 import { getCartEntries, saveCartEntries, syncCartToFirestore } from '@/lib/cartManager';
 import { getIconComponent } from '@/lib/iconMap';
 import { db } from '@/lib/firebase';
-import { collection, query, where, getDocs, limit, orderBy, Timestamp, doc, onSnapshot, type DocumentSnapshot, getDoc } from '@/lib/mysqlDb';
+import { collection, query, where, getDocs, limit, orderBy, Timestamp, doc, onSnapshot, type DocumentSnapshot, getDoc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
 import StickyCartContinueButton from '@/components/category/StickyCartContinueButton';
@@ -28,9 +28,8 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/
 import { getCache, setCache } from '@/lib/client-cache';
 import { useLoading } from '@/contexts/LoadingContext';
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { cn, getTimestampMillis, formatCurrency } from '@/lib/utils';
+import { cn, getTimestampMillis } from '@/lib/utils';
 import { LazySection } from '@/components/shared/LazySection';
-import { useApplicationConfig } from '@/hooks/useApplicationConfig';
 
 interface ServiceDetailPageClientProps {
   serviceSlug: string;
@@ -81,15 +80,15 @@ const getPriceForNthUnit = (service: FirestoreService | ClientServiceData, n: nu
   return service.discountedPrice ?? service.price;
 };
 
-const getPriceDisplayInfo = (service: FirestoreService | ClientServiceData, quantity: number, symbol: string = '₹', decimals: number = 2, code: string = 'INR') => {
+const getPriceDisplayInfo = (service: FirestoreService | ClientServiceData, quantity: number) => {
     if (!service.hasPriceVariants || !service.priceVariants || service.priceVariants.length === 0) {
         const unitSaving = service.discountedPrice && service.discountedPrice < service.price ? service.price - service.discountedPrice : 0;
         const totalSaving = unitSaving * (quantity > 0 ? quantity : 1);
         
         return {
-            mainPrice: formatCurrency(service.discountedPrice ?? service.price, symbol, decimals, code),
-            priceSuffix: unitSaving > 0 ? formatCurrency(service.price, symbol, decimals, code) : null,
-            promoText: unitSaving > 0 ? `Save ${formatCurrency(totalSaving, symbol, decimals, code)}!` : null,
+            mainPrice: `₹${service.discountedPrice ?? service.price}`,
+            priceSuffix: unitSaving > 0 ? `₹${service.price}` : null,
+            promoText: unitSaving > 0 ? `Save ₹${totalSaving.toFixed(0)}!` : null,
         };
     }
 
@@ -103,18 +102,18 @@ const getPriceDisplayInfo = (service: FirestoreService | ClientServiceData, quan
     let promoText = null;
     if (nextCheaperTier) {
         const needed = nextCheaperTier.fromQuantity - quantity;
-        promoText = `Add ${needed} more to unlock ${formatCurrency(nextCheaperTier.price, symbol, decimals, code)} price!`;
+        promoText = `Add ${needed} more to unlock ₹${nextCheaperTier.price} price!`;
     } else {
         const finalTier = sortedVariants[sortedVariants.length - 1];
         if (quantity >= finalTier.fromQuantity) {
-            promoText = `Price continues at ${formatCurrency(finalTier.price, symbol, decimals, code)} each.`;
+            promoText = `Price continues at ₹${finalTier.price} each.`;
         }
     }
 
     const displayPrice = getPriceForNthUnit(service, nextQuantity);
 
     return {
-        mainPrice: formatCurrency(displayPrice, symbol, decimals, code),
+        mainPrice: `₹${displayPrice}`,
         priceSuffix: quantity > 0 ? 'per next unit' : 'onwards',
         promoText,
     };
@@ -125,10 +124,6 @@ export default function ServiceDetailPageClient({
   initialServiceData,
   initialH1Title,
 }: ServiceDetailPageClientProps) {
-  const { config: appConfig } = useApplicationConfig();
-  const symbol = appConfig?.currencySymbol || '₹';
-  const decimals = appConfig?.currencyDecimalPoints !== undefined ? appConfig.currencyDecimalPoints : 2;
-  const code = appConfig?.currencyCode || 'INR';
   const router = useRouter();
   const { toast } = useToast();
   const { user, triggerAuthRedirect } = useAuth();
@@ -498,7 +493,7 @@ export default function ServiceDetailPageClient({
   }
 
   const IconComponent = getIconComponent(undefined);
-  const { mainPrice, priceSuffix, promoText } = getPriceDisplayInfo(service, quantity, symbol, decimals, code);
+  const { mainPrice, priceSuffix, promoText } = getPriceDisplayInfo(service, quantity);
   
   const displayServiceImageUrl = service.imageUrl && service.imageUrl.trim() !== '' ? service.imageUrl : "/default-image.png";
   const aiHintValue = generateAiHint(service.imageHint, service.name);
@@ -573,11 +568,7 @@ export default function ServiceDetailPageClient({
                     <p className="text-2xl sm:text-3xl font-bold text-foreground">{mainPrice}</p>
                     {priceSuffix && (
                       <p className="text-lg sm:text-xl text-muted-foreground font-medium">
-                        {priceSuffix.includes(symbol) || /\d/.test(priceSuffix) ? (
-                          <span className="line-through">{priceSuffix}</span>
-                        ) : (
-                          priceSuffix
-                        )}
+                        <span className="line-through">{priceSuffix.replace(/[^\d₹.,]/g, "")}</span>{" "}{priceSuffix.replace(/[\d₹.,]/g, "")}
                       </p>
                     )}
                     {promoText && (

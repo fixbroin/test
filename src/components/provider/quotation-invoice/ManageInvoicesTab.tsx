@@ -7,7 +7,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Loader2, Edit, Trash2, PackageSearch, AlertTriangle, FileText, MoreHorizontal, Send, Download, Check, ChevronsUpDown } from "lucide-react";
 import { db, storage } from '@/lib/firebase';
-import { collection, query, orderBy, onSnapshot, doc, deleteDoc, updateDoc, Timestamp, getDoc, where } from '@/lib/mysqlDb';
+import { collection, query, orderBy, onSnapshot, doc, deleteDoc, updateDoc, Timestamp, getDoc, where } from "firebase/firestore";
 import type { FirestoreInvoice, InvoicePaymentStatus, CompanyDetailsForPdf } from '@/types/firestore';
 import { useToast } from "@/hooks/use-toast";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
@@ -19,10 +19,8 @@ import { Badge } from '@/components/ui/badge';
 import { generateInvoicePdf } from '@/lib/sriinvoiceGenerator';
 import { uploadPdfToStorage, triggerPdfDownload, dataUriToBlob } from '@/lib/pdfUtils';
 import { useGlobalSettings } from '@/hooks/useGlobalSettings';
-import { useApplicationConfig } from '@/hooks/useApplicationConfig';
 import { useAuth } from '@/hooks/useAuth';
 import { getTimestampMillis } from '@/lib/utils';
-import { deleteObject } from '@/lib/mysqlStorage';
 
 interface ManageInvoicesTabProps {
   onEditInvoice: (invoice: FirestoreInvoice) => void;
@@ -41,22 +39,6 @@ export default function ManageInvoicesTab({ onEditInvoice }: ManageInvoicesTabPr
   const { toast } = useToast();
   const { user: providerUser } = useAuth();
   const { settings: companySettings, isLoading: isLoadingCompanySettings } = useGlobalSettings();
-  const { config: appConfig } = useApplicationConfig();
-  const symbol = appConfig?.currencySymbol || "₹";
-  const [allowDelete, setAllowDelete] = useState(true);
-
-  useEffect(() => {
-    const settingsRef = doc(db, "webSettings", "quotationInvoiceSettings");
-    const unsubscribe = onSnapshot(settingsRef, (docSnap) => {
-      if (docSnap.exists()) {
-        const data = docSnap.data();
-        setAllowDelete(data.allowProviderDelete !== false);
-      } else {
-        setAllowDelete(true);
-      }
-    });
-    return () => unsubscribe();
-  }, []);
 
   useEffect(() => {
     if (!providerUser) {
@@ -89,15 +71,6 @@ export default function ManageInvoicesTab({ onEditInvoice }: ManageInvoicesTabPr
     if (!invoiceId) return;
     setIsUpdating(invoiceId);
     try {
-      const invoice = invoices.find(i => i.id === invoiceId);
-      if (invoice) {
-        try {
-          const deletePath = invoice.pdfUrl || `/uploads/pdf/${invoice.id}_${invoice.invoiceNumber}.pdf`;
-          await deleteObject(deletePath);
-        } catch (storageErr) {
-          console.warn("Storage deletion warning for invoice PDF:", storageErr);
-        }
-      }
       await deleteDoc(doc(db, "invoices", invoiceId));
       toast({ title: "Success", description: "Invoice deleted successfully." });
     } catch (error) {
@@ -133,7 +106,6 @@ export default function ManageInvoicesTab({ onEditInvoice }: ManageInvoicesTabPr
         contactEmail: companySettings?.contactEmail || "",
         contactMobile: companySettings?.contactMobile || "",
         logoUrl: companySettings?.logoUrl || undefined,
-        currencySymbol: appConfig?.currencySymbol || "₹",
       };
       const pdfDataUri = await generateInvoicePdf(invoice, companyInfo);
       const pdfBlob = dataUriToBlob(pdfDataUri);
@@ -141,7 +113,6 @@ export default function ManageInvoicesTab({ onEditInvoice }: ManageInvoicesTabPr
 
       const storagePath = `invoices_pdf/${invoice.id}_${invoice.invoiceNumber}.pdf`;
       const downloadUrl = await uploadPdfToStorage(pdfBlob, storagePath);
-      await updateDoc(doc(db, "invoices", invoice.id), { pdfUrl: downloadUrl, updatedAt: Timestamp.now() });
       
       toast({
         duration: 10000,
@@ -171,7 +142,6 @@ export default function ManageInvoicesTab({ onEditInvoice }: ManageInvoicesTabPr
         contactEmail: companySettings?.contactEmail || "",
         contactMobile: companySettings?.contactMobile || "",
         logoUrl: companySettings?.logoUrl || undefined,
-        currencySymbol: appConfig?.currencySymbol || "₹",
       };
       const pdfDataUri = await generateInvoicePdf(invoice, companyInfo);
       triggerPdfDownload(pdfDataUri, `Invoice-${invoice.invoiceNumber}.pdf`);
@@ -216,7 +186,7 @@ export default function ManageInvoicesTab({ onEditInvoice }: ManageInvoicesTabPr
                     <p>{formatDate(invoice.invoiceDate)}</p>
                 </div>
                 <div>
-                    <p className="text-xs text-muted-foreground">Amount ({symbol})</p>
+                    <p className="text-xs text-muted-foreground">Amount (₹)</p>
                     <p>{invoice.totalAmount.toFixed(2)}</p>
                 </div>
             </div>
@@ -246,7 +216,6 @@ export default function ManageInvoicesTab({ onEditInvoice }: ManageInvoicesTabPr
                 <Button variant="outline" size="sm" className="text-xs h-8" onClick={() => handleDownloadPdf(invoice)} disabled={isUpdating === invoice.id || isSending === invoice.id || isDownloading === invoice.id}>
                   {isDownloading === invoice.id ? <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin"/> : <Download className="mr-1 h-3.5 w-3.5"/>} PDF
                 </Button>
-                {allowDelete && (
                 <AlertDialog>
                   <AlertDialogTrigger asChild>
                     <Button variant="destructive" size="sm" className="text-xs h-8" disabled={isUpdating === invoice.id || isSending === invoice.id || isDownloading === invoice.id}>
@@ -264,7 +233,6 @@ export default function ManageInvoicesTab({ onEditInvoice }: ManageInvoicesTabPr
                     </AlertDialogFooter>
                   </AlertDialogContent>
                 </AlertDialog>
-                )}
             </div>
         </CardContent>
     </Card>
@@ -284,7 +252,7 @@ export default function ManageInvoicesTab({ onEditInvoice }: ManageInvoicesTabPr
         {/* Desktop View */}
         <div className="hidden md:block">
             <Table>
-             <TableHeader><TableRow><TableHead>Invoice #</TableHead><TableHead>Customer</TableHead><TableHead>Date</TableHead><TableHead className="text-right">Amount ({symbol})</TableHead><TableHead>Payment Status</TableHead><TableHead className="text-right">Actions</TableHead></TableRow></TableHeader>
+            <TableHeader><TableRow><TableHead>Invoice #</TableHead><TableHead>Customer</TableHead><TableHead>Date</TableHead><TableHead className="text-right">Amount (₹)</TableHead><TableHead>Payment Status</TableHead><TableHead className="text-right">Actions</TableHead></TableRow></TableHeader>
             <TableBody>
                 {invoices.map((invoice) => (
                 <TableRow key={invoice.id}>
@@ -318,25 +286,23 @@ export default function ManageInvoicesTab({ onEditInvoice }: ManageInvoicesTabPr
                         <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => handleDownloadPdf(invoice)} disabled={isUpdating === invoice.id || isSending === invoice.id || isDownloading === invoice.id} title="Download PDF">
                           {isDownloading === invoice.id ? <Loader2 className="h-4 w-4 animate-spin"/> : <Download className="h-4 w-4"/>}
                         </Button>
-                        {allowDelete && (
-                          <AlertDialog>
-                              <AlertDialogTrigger asChild>
-                              <Button variant="destructive" size="icon" className="h-8 w-8" disabled={isUpdating === invoice.id || isSending === invoice.id || isDownloading === invoice.id} title="Delete">
-                                  <Trash2 className="h-4 w-4" />
-                              </Button>
-                              </AlertDialogTrigger>
-                              <AlertDialogContent>
-                              <AlertDialogHeader>
-                                  <AlertDialogTitle>Confirm Deletion</AlertDialogTitle>
-                                  <AlertDialogDescription>Delete invoice {invoice.invoiceNumber} for {invoice.customerName}?</AlertDialogDescription>
-                              </AlertDialogHeader>
-                              <AlertDialogFooter>
-                                  <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                  <AlertDialogAction onClick={() => handleDeleteInvoice(invoice.id!)} className="bg-destructive hover:bg-destructive/90">Delete</AlertDialogAction>
-                              </AlertDialogFooter>
-                              </AlertDialogContent>
-                          </AlertDialog>
-                        )}
+                        <AlertDialog>
+                            <AlertDialogTrigger asChild>
+                            <Button variant="destructive" size="icon" className="h-8 w-8" disabled={isUpdating === invoice.id || isSending === invoice.id || isDownloading === invoice.id} title="Delete">
+                                <Trash2 className="h-4 w-4" />
+                            </Button>
+                            </AlertDialogTrigger>
+                            <AlertDialogContent>
+                            <AlertDialogHeader>
+                                <AlertDialogTitle>Confirm Deletion</AlertDialogTitle>
+                                <AlertDialogDescription>Delete invoice {invoice.invoiceNumber} for {invoice.customerName}?</AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                <AlertDialogAction onClick={() => handleDeleteInvoice(invoice.id!)} className="bg-destructive hover:bg-destructive/90">Delete</AlertDialogAction>
+                            </AlertDialogFooter>
+                            </AlertDialogContent>
+                        </AlertDialog>
                       </div>
                     </TableCell>
                 </TableRow>

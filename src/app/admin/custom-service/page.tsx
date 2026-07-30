@@ -8,8 +8,8 @@ import { Button } from "@/components/ui/button";
 import { Badge } from '@/components/ui/badge';
 import { Eye, Check, Trash2, Loader2, PackageSearch, Construction, Phone, CheckCircle2, MoreHorizontal } from "lucide-react";
 import { db, storage } from '@/lib/firebase';
-import { collection, query, orderBy, onSnapshot, doc, updateDoc, deleteDoc, Timestamp, addDoc, limit } from '@/lib/mysqlDb';
-import { ref as storageRef, deleteObject } from '@/lib/mysqlStorage';
+import { collection, query, orderBy, onSnapshot, doc, updateDoc, deleteDoc, Timestamp, addDoc, limit } from 'firebase/firestore';
+import { ref as storageRef, deleteObject } from "firebase/storage";
 import type { CustomServiceRequest, CustomRequestStatus, FirestoreNotification } from '@/types/firestore';
 import { useToast } from "@/hooks/use-toast";
 import { triggerPushNotification } from '@/lib/fcmUtils';
@@ -17,8 +17,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose } from "@/components/ui/dialog";
 import AppImage from '@/components/ui/AppImage';
 import { Separator } from "@/components/ui/separator";
-import { getTimestampMillis, formatCurrency } from '@/lib/utils';
-import { useApplicationConfig } from '@/hooks/useApplicationConfig';
+import { getTimestampMillis } from '@/lib/utils';
 import { useAuth } from '@/hooks/useAuth';
 import { hasActionPermission } from '@/config/rbac';
 import PermissionGuard from '@/components/admin/PermissionGuard';
@@ -48,15 +47,10 @@ const DetailItem = ({ label, value }: { label: string; value?: string | number |
 );
 
 const CustomRequestDetailsModal = ({ isOpen, onClose, request }: { isOpen: boolean; onClose: () => void; request: CustomServiceRequest | null; }) => {
-  const { config: appConfig } = useApplicationConfig();
-  const symbol = appConfig?.currencySymbol || '₹';
-  const decimals = appConfig?.currencyDecimalPoints !== undefined ? appConfig.currencyDecimalPoints : 2;
-  const code = appConfig?.currencyCode || 'INR';
-
   if (!request) return null;
 
   const budgetDisplay = (request.minBudget != null && request.maxBudget != null) 
-    ? `${formatCurrency(request.minBudget, symbol, decimals, code)} - ${formatCurrency(request.maxBudget, symbol, decimals, code)}` 
+    ? `₹${request.minBudget} - ₹${request.maxBudget}` 
     : 'Not specified';
 
   return (
@@ -181,20 +175,12 @@ export default function CustomServiceAdminPage() {
     try {
       const requestToDelete = requests.find((r) => r.id === requestId);
       if (requestToDelete?.imageUrls && requestToDelete.imageUrls.length > 0) {
-        // Delete all uploaded images (handles Local VPS, Remote Shared Hosting, and legacy Firebase Storage)
+        // Delete all uploaded images from Firebase Storage
         await Promise.all(
           requestToDelete.imageUrls.map(async (url) => {
             try {
-              if (url.includes('firebasestorage.googleapis.com')) {
-                const imageRef = storageRef(storage, url);
-                await deleteObject(imageRef);
-              } else {
-                await fetch('/api/upload', {
-                  method: 'DELETE',
-                  headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify({ fileUrl: url })
-                });
-              }
+              const imageRef = storageRef(storage, url);
+              await deleteObject(imageRef);
             } catch (err) {
               console.error("Failed to delete image from storage:", url, err);
             }

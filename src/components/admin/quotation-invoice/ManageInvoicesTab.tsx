@@ -7,7 +7,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Loader2, Edit, Trash2, PackageSearch, AlertTriangle, FileText, MoreHorizontal, Send, Download, Check, ChevronsUpDown } from "lucide-react";
 import { db, storage } from '@/lib/firebase';
-import { collection, query, orderBy, onSnapshot, doc, deleteDoc, updateDoc, Timestamp, getDoc } from '@/lib/mysqlDb';
+import { collection, query, orderBy, onSnapshot, doc, deleteDoc, updateDoc, Timestamp, getDoc } from "firebase/firestore";
 import type { FirestoreInvoice, InvoicePaymentStatus, CompanyDetailsForPdf } from '@/types/firestore';
 import { useToast } from "@/hooks/use-toast";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
@@ -19,9 +19,7 @@ import { Badge } from '@/components/ui/badge';
 import { generateInvoicePdf } from '@/lib/sriinvoiceGenerator';
 import { uploadPdfToStorage, triggerPdfDownload, dataUriToBlob } from '@/lib/pdfUtils';
 import { useGlobalSettings } from '@/hooks/useGlobalSettings';
-import { useApplicationConfig } from '@/hooks/useApplicationConfig';
 import { getTimestampMillis } from '@/lib/utils';
-import { deleteObject } from '@/lib/mysqlStorage';
 
 interface ManageInvoicesTabProps {
   onEditInvoice: (invoice: FirestoreInvoice) => void;
@@ -39,8 +37,6 @@ export default function ManageInvoicesTab({ onEditInvoice }: ManageInvoicesTabPr
   const [isStatusDialogOpen, setIsStatusDialogOpen] = useState(false);
   const { toast } = useToast();
   const { settings: companySettings, isLoading: isLoadingCompanySettings } = useGlobalSettings();
-  const { config: appConfig } = useApplicationConfig();
-  const symbol = appConfig?.currencySymbol || "₹";
 
   useEffect(() => {
     setIsLoading(true);
@@ -67,15 +63,6 @@ export default function ManageInvoicesTab({ onEditInvoice }: ManageInvoicesTabPr
     if (!invoiceId) return;
     setIsUpdating(invoiceId);
     try {
-      const invoice = invoices.find(i => i.id === invoiceId);
-      if (invoice) {
-        try {
-          const deletePath = invoice.pdfUrl || `/uploads/pdf/${invoice.id}_${invoice.invoiceNumber}.pdf`;
-          await deleteObject(deletePath);
-        } catch (storageErr) {
-          console.warn("Storage deletion warning for invoice PDF:", storageErr);
-        }
-      }
       await deleteDoc(doc(db, "invoices", invoiceId));
       toast({ title: "Success", description: "Invoice deleted successfully." });
     } catch (error) {
@@ -111,7 +98,6 @@ export default function ManageInvoicesTab({ onEditInvoice }: ManageInvoicesTabPr
         contactEmail: companySettings?.contactEmail || "",
         contactMobile: companySettings?.contactMobile || "",
         logoUrl: companySettings?.logoUrl || undefined,
-        currencySymbol: appConfig?.currencySymbol || "₹",
       };
       const pdfDataUri = await generateInvoicePdf(invoice, companyInfo);
       const pdfBlob = dataUriToBlob(pdfDataUri);
@@ -119,7 +105,6 @@ export default function ManageInvoicesTab({ onEditInvoice }: ManageInvoicesTabPr
 
       const storagePath = `invoices_pdf/${invoice.id}_${invoice.invoiceNumber}.pdf`;
       const downloadUrl = await uploadPdfToStorage(pdfBlob, storagePath);
-      await updateDoc(doc(db, "invoices", invoice.id), { pdfUrl: downloadUrl, updatedAt: Timestamp.now() });
       
       toast({
         duration: 10000,
@@ -149,7 +134,6 @@ export default function ManageInvoicesTab({ onEditInvoice }: ManageInvoicesTabPr
         contactEmail: companySettings?.contactEmail || "",
         contactMobile: companySettings?.contactMobile || "",
         logoUrl: companySettings?.logoUrl || undefined,
-        currencySymbol: appConfig?.currencySymbol || "₹",
       };
       const pdfDataUri = await generateInvoicePdf(invoice, companyInfo);
       triggerPdfDownload(pdfDataUri, `Invoice-${invoice.invoiceNumber}.pdf`);
@@ -195,7 +179,7 @@ export default function ManageInvoicesTab({ onEditInvoice }: ManageInvoicesTabPr
                     <p>{formatDate(invoice.invoiceDate)}</p>
                 </div>
                 <div>
-                    <p className="text-xs text-muted-foreground">Amount ({symbol})</p>
+                    <p className="text-xs text-muted-foreground">Amount (₹)</p>
                     <p>{invoice.totalAmount.toFixed(2)}</p>
                 </div>
             </div>
@@ -276,7 +260,7 @@ export default function ManageInvoicesTab({ onEditInvoice }: ManageInvoicesTabPr
                 <TableHead>Invoice #</TableHead>
                 <TableHead>Customer</TableHead>
                 <TableHead>Date</TableHead>
-                <TableHead className="text-right">Amount ({symbol})</TableHead>
+                <TableHead className="text-right">Amount (₹)</TableHead>
                 <TableHead>Payment Status</TableHead>
                 <TableHead className="text-right">Actions</TableHead>
                 </TableRow>

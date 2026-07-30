@@ -1,12 +1,13 @@
 
 import { initializeApp, getApps, type FirebaseApp } from "firebase/app";
+import { getFirestore, initializeFirestore, persistentLocalCache, persistentMultipleTabManager, type Firestore } from "firebase/firestore";
 import { getAuth, type Auth } from "firebase/auth";
-import { db } from "./mysqlDb";
-import { storage } from "./mysqlStorage";
+import { getStorage, type FirebaseStorage } from "firebase/storage"; // Import Firebase Storage
 
 // Your web app's Firebase configuration
+// IMPORTANT: Make sure these are correct and your Firebase project is set up.
 const firebaseConfig = {
-  apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
+  apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY, // Read from environment variable
   authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
   projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
   storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
@@ -29,7 +30,20 @@ if (!getApps().length) {
   app = getApps()[0];
 }
 
+// Enable offline persistence/local caching on the client side (IndexedDB)
+// Standard Firestore initialization on the server side (Node.js)
+let db: Firestore;
+if (typeof window !== "undefined") {
+  db = initializeFirestore(app, {
+    localCache: persistentLocalCache({
+      tabManager: persistentMultipleTabManager()
+    })
+  });
+} else {
+  db = getFirestore(app);
+}
+
 const auth: Auth = getAuth(app);
+const storage: FirebaseStorage = getStorage(app); // Initialize Firebase Storage
 
-export { app, db, auth, storage };
-
+export { app, db, auth, storage }; // Export storage

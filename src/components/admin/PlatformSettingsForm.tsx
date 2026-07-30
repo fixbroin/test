@@ -14,7 +14,6 @@ import { Switch } from "@/components/ui/switch";
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Trash2, PlusCircle, Percent, Save, Loader2, Check, ChevronsUpDown } from "lucide-react";
 import type { PlatformFeeSetting } from '@/types/firestore';
-import { useApplicationConfig } from "@/hooks/useApplicationConfig";
 import { nanoid } from 'nanoid'; // For generating unique IDs for new fees
 
 const platformFeeItemSchema = z.object({
@@ -27,7 +26,6 @@ const platformFeeItemSchema = z.object({
     .max(100, "Tax rate cannot exceed 100.")
     .default(0),
   isActive: z.boolean().default(true),
-  description: z.string().optional().default("Charged per booking to cover platform security and maintain verified pros."),
 }).refine(data => {
     if (data.type === 'percentage' && (data.value < 0.01 || data.value > 100)) {
         return false;
@@ -52,8 +50,6 @@ interface PlatformSettingsFormProps {
 }
 
 export default function PlatformSettingsForm({ initialFees, onSave, isSaving }: PlatformSettingsFormProps) {
-  const { config: appConfig } = useApplicationConfig();
-  const symbol = appConfig?.currencySymbol || '₹';
   const [openTypePickerIndex, setOpenTypePickerIndex] = useState<number | null>(null);
   const form = useForm<PlatformSettingsFormData>({
     resolver: zodResolver(platformSettingsFormSchema),
@@ -73,7 +69,6 @@ export default function PlatformSettingsForm({ initialFees, onSave, isSaving }: 
         ...fee,
         id: fee.id || nanoid(), // Use existing ID or generate one
         feeTaxRatePercent: fee.feeTaxRatePercent ?? 0, // Ensure default for older data
-        description: fee.description || "Charged per booking to cover platform security and maintain verified pros.",
     }));
     form.reset({ platformFees: feesWithIds });
   }, [initialFees, form]);
@@ -86,7 +81,6 @@ export default function PlatformSettingsForm({ initialFees, onSave, isSaving }: 
       value: 0,
       feeTaxRatePercent: 0,
       isActive: true,
-      description: "Charged per booking to cover platform security and maintain verified pros.",
     });
   };
 
@@ -119,18 +113,7 @@ export default function PlatformSettingsForm({ initialFees, onSave, isSaving }: 
                     render={({ field: itemField }) => (
                       <FormItem>
                         <FormLabel>Fee Name</FormLabel>
-                        <FormControl><Input placeholder="e.g., Platform Fees 1" {...itemField} disabled={isSaving} /></FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <FormField
-                    control={form.control}
-                    name={`platformFees.${index}.description`}
-                    render={({ field: itemField }) => (
-                      <FormItem>
-                        <FormLabel>Fee Description (displayed in info tooltip)</FormLabel>
-                        <FormControl><Input placeholder="e.g., Charged per booking to cover platform security and maintain verified pros." {...itemField} disabled={isSaving} /></FormControl>
+                        <FormControl><Input placeholder="e.g., Convenience Fee" {...itemField} disabled={isSaving} /></FormControl>
                         <FormMessage />
                       </FormItem>
                     )}
@@ -154,7 +137,7 @@ export default function PlatformSettingsForm({ initialFees, onSave, isSaving }: 
                                 disabled={isSaving}
                                 type="button"
                               >
-                                {itemField.value === "fixed" ? `Fixed Amount (${symbol})` : itemField.value === "percentage" ? "Percentage (%)" : "Select type..."}
+                                {itemField.value === "fixed" ? "Fixed Amount (₹)" : itemField.value === "percentage" ? "Percentage (%)" : "Select type..."}
                                 <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                               </Button>
                             </DialogTrigger>
@@ -176,7 +159,7 @@ export default function PlatformSettingsForm({ initialFees, onSave, isSaving }: 
                                     }}
                                     type="button"
                                   >
-                                    <span className="text-sm font-medium">Fixed Amount ({symbol})</span>
+                                    <span className="text-sm font-medium">Fixed Amount (₹)</span>
                                     {itemField.value === "fixed" && (
                                       <Check className="absolute right-3 top-3 h-4 w-4 text-green-500" />
                                     )}
@@ -210,7 +193,7 @@ export default function PlatformSettingsForm({ initialFees, onSave, isSaving }: 
                         <FormItem>
                           <FormLabel>
                             Fee Value
-                            {form.watch(`platformFees.${index}.type`) === 'percentage' ? ' (%)' : ` (${symbol})`}
+                            {form.watch(`platformFees.${index}.type`) === 'percentage' ? ' (%)' : ' (₹)'}
                           </FormLabel>
                           <FormControl><Input type="number" step="0.01" placeholder="e.g., 50 or 2.5" {...itemField} disabled={isSaving}/></FormControl>
                           <FormMessage />

@@ -8,7 +8,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { BellRing, BellOff, CheckCircle2, Info, AlertTriangle, Tag, Loader2, History, Trash2 as TrashIcon } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { db } from "@/lib/firebase";
-import { collection, query, where, onSnapshot, orderBy, doc, updateDoc, writeBatch, Timestamp, getDocs, limit } from '@/lib/mysqlDb';
+import { collection, query, where, onSnapshot, orderBy, doc, updateDoc, writeBatch, Timestamp, getDocs, limit } from "firebase/firestore";
 import type { FirestoreNotification } from "@/types/firestore";
 import { useToast } from "@/hooks/use-toast";
 import { formatDistanceToNow } from 'date-fns';
@@ -73,20 +73,15 @@ export default function AdminNotificationsPage() {
       : query(notificationsCollectionRef, where("userId", "==", user.uid), orderBy("createdAt", "desc"), limit(100));
 
     const unsubscribe = onSnapshot(q, (querySnapshot) => {
-      try {
-        const fetchedNotifications = querySnapshot.docs.map(docSnap => ({
-          ...docSnap.data(),
-          id: docSnap.id,
-        } as FirestoreNotification));
-        setNotifications(fetchedNotifications);
-      } catch (err) {
-        console.warn("Notifications parse note:", err);
-      } finally {
-        setIsLoadingNotifications(false);
-      }
+      const fetchedNotifications = querySnapshot.docs.map(docSnap => ({
+        ...docSnap.data(),
+        id: docSnap.id,
+      } as FirestoreNotification));
+      setNotifications(fetchedNotifications);
+      setIsLoadingNotifications(false);
     }, (error) => {
-      console.warn("Admin notifications listener note:", error);
-      setNotifications([]);
+      console.error("Error fetching admin notifications: ", error);
+      toast({ title: "Error", description: "Could not fetch admin notifications.", variant: "destructive" });
       setIsLoadingNotifications(false);
     });
 

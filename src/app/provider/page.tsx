@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Briefcase, CheckCircle, Clock, Loader2, PackageSearch, ExternalLink, ShoppingBag, XCircle, PlayCircle, Tag, MapPin, User, Calendar, Phone, ArrowRight, TrendingUp } from "lucide-react";
 import type { FirestoreBooking, BookingStatus } from '@/types/firestore';
 import { db, auth } from '@/lib/firebase';
-import { collection, query, where, onSnapshot, orderBy, doc, updateDoc, Timestamp, collectionGroup, getDoc, addDoc, getDocs, limit } from '@/lib/mysqlDb';
+import { collection, query, where, onSnapshot, orderBy, doc, updateDoc, Timestamp, collectionGroup, getDoc, addDoc, getDocs, limit } from "firebase/firestore";
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
 import Link from 'next/link';
@@ -48,7 +48,7 @@ const ProviderJobCard: React.FC<{
   const getStatusVariant = (status: FirestoreBooking['status']) => {
     if (status === 'ProviderAccepted' || status === 'InProgressByProvider') return 'default';
     if (status === 'Completed') return 'default';
-    if (status === 'AssignedToProvider' || status === 'Rescheduled') return 'secondary';
+    if (status === 'AssignedToProvider') return 'secondary';
     return 'outline';
   };
 
@@ -56,7 +56,6 @@ const ProviderJobCard: React.FC<{
     if (status === 'ProviderAccepted' || status === 'InProgressByProvider') return 'bg-blue-500 text-white hover:bg-blue-600 border-none';
     if (status === 'Completed') return 'bg-green-500 text-white hover:bg-green-600 border-none';
     if (status === 'Cancelled' || status === 'ProviderRejected') return 'bg-red-500 text-white border-none';
-    if (status === 'Rescheduled') return 'bg-orange-500 text-white hover:bg-orange-600 border-none';
     return '';
   };
 
@@ -245,13 +244,10 @@ export default function ProviderDashboardPage() {
       const updateData: any = { status: newStatus, updatedAt: Timestamp.now() };
       
       if (newStatus === "Completed") {
-        const job = bookings.find(b => b.id === bookingId);
-        if (job && job.status !== "Completed") {
-          updateData.isReviewedByCustomer = false;
-        }
         if (additionalCharges && additionalCharges.length > 0) {
             updateData.additionalCharges = additionalCharges;
-            updateData.totalAmount = ((job?.totalAmount || 0) + additionalCharges.reduce((sum, c) => sum + c.amount, 0));
+            const job = bookings.find(b => b.id === bookingId);
+            updateData.totalAmount = (job?.totalAmount || 0) + additionalCharges.reduce((sum, c) => sum + c.amount, 0);
         }
         if (finalizedPaymentMethod) updateData.paymentMethod = finalizedPaymentMethod;
       }
@@ -276,7 +272,7 @@ export default function ProviderDashboardPage() {
     }
   };
 
-  const newJobRequests = useMemo(() => bookings.filter(b => b.status === 'AssignedToProvider' || b.status === 'Rescheduled'), [bookings]);
+  const newJobRequests = useMemo(() => bookings.filter(b => b.status === 'AssignedToProvider'), [bookings]);
   const ongoingJobs = useMemo(() => bookings.filter(b => b.status === 'ProviderAccepted' || b.status === 'InProgressByProvider'), [bookings]);
   const completedJobs = useMemo(() => bookings.filter(b => b.status === 'Completed'), [bookings]);
 

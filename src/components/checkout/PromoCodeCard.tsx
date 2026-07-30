@@ -9,10 +9,9 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tag, CheckCircle, XCircle, ListFilter, Loader2, TicketPercent, ChevronRight, Gift, X } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { db, auth } from '@/lib/firebase';
-import { collection, query, where, getDocs } from '@/lib/mysqlDb';
+import { collection, query, where, getDocs } from "firebase/firestore";
 import type { FirestorePromoCode } from '@/types/firestore';
 import { Badge } from '@/components/ui/badge';
-import { useApplicationConfig } from '@/hooks/useApplicationConfig';
 import { getTimestampMillis } from '@/lib/utils';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription, DialogClose } from '@/components/ui/dialog';
 
@@ -32,8 +31,6 @@ interface PromoCodeCardProps {
 
 export default function PromoCodeCard({ sumOfItemPrices, onApply, appliedPromo }: PromoCodeCardProps) {
   const { toast } = useToast();
-  const { config: appConfig } = useApplicationConfig();
-  const symbol = appConfig?.currencySymbol || '₹';
   const [promoCodeInput, setPromoCodeInput] = useState("");
   const [isApplyingPromo, setIsApplyingPromo] = useState(false);
   const [allFetchedPromoCodes, setAllFetchedPromoCodes] = useState<FirestorePromoCode[]>([]);
@@ -96,7 +93,7 @@ export default function PromoCodeCard({ sumOfItemPrices, onApply, appliedPromo }
       if (validUntil && currentDate > new Date(validUntil)) { toast({ title: "Expired Code", variant: "destructive" }); setIsApplyingPromo(false); return; }
 
       if (promoData.minBookingAmount && sumOfItemPrices < promoData.minBookingAmount) {
-        toast({ title: "Min Amount Not Met", description: `Minimum ${symbol}${promoData.minBookingAmount} required.`, variant: "destructive" });
+        toast({ title: "Min Amount Not Met", description: `Minimum ₹${promoData.minBookingAmount} required.`, variant: "destructive" });
         setIsApplyingPromo(false);
         return;
       }
@@ -142,43 +139,30 @@ export default function PromoCodeCard({ sumOfItemPrices, onApply, appliedPromo }
       <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
         <DialogTrigger asChild>
           <Card className="overflow-hidden border-none shadow-md cursor-pointer hover:bg-muted/50 transition-colors">
-            <CardHeader className="bg-muted/30 py-4 flex flex-row items-center justify-between">
-              <div className="flex items-center gap-2">
-                <TicketPercent className="h-5 w-5 text-primary" />
-                <CardTitle className="text-lg">Offers & Promo Code</CardTitle>
-              </div>
-              {appliedPromo ? (
-                <Button variant="outline" size="sm" onClick={handleRemovePromo} className="text-destructive border-destructive/20 hover:border-destructive/40 hover:bg-destructive/5 hover:text-destructive font-bold h-8 px-3 rounded-md">
-                  Remove
-                </Button>
-              ) : (
-                <Button variant="outline" size="sm" className="text-primary border-primary/20 hover:border-primary/40 hover:bg-primary/5 hover:text-primary font-bold h-8 px-3 rounded-md">
-                  Apply
-                </Button>
-              )}
-            </CardHeader>
-            <CardContent className="py-4">
-              <div className="flex items-center gap-4">
-                <div className="bg-primary/10 p-3 rounded-full">
-                  <TicketPercent className="h-6 w-6 text-primary" />
+            <div className="p-4 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="bg-primary/10 p-2 rounded-lg">
+                  <TicketPercent className="h-5 w-5 text-primary" />
                 </div>
                 <div>
+                  <p className="font-bold text-sm">Offers & Promo Code</p>
                   {appliedPromo ? (
-                    <>
-                      <p className="font-bold text-green-600">Code "{appliedPromo.code}" Applied</p>
-                      <p className="text-sm text-muted-foreground">
-                        Saved {appliedPromo.discountType === 'percentage' ? `${appliedPromo.discountValue}%` : `${symbol}${appliedPromo.discountValue}`}
-                      </p>
-                    </>
+                    <p className="text-xs text-green-600 font-bold">Code "{appliedPromo.code}" Applied</p>
                   ) : (
-                    <>
-                      <p className="font-bold">Apply coupon to save more</p>
-                      <p className="text-sm text-muted-foreground">Select from available offers</p>
-                    </>
+                    <p className="text-xs text-muted-foreground">Apply coupon to save more</p>
                   )}
                 </div>
               </div>
-            </CardContent>
+              <div className="flex items-center gap-2">
+                {appliedPromo ? (
+                   <Button variant="ghost" size="sm" onClick={handleRemovePromo} className="text-destructive text-xs font-bold h-7 px-2">
+                     REMOVE
+                   </Button>
+                ) : (
+                  <ChevronRight className="h-5 w-5 text-muted-foreground" />
+                )}
+              </div>
+            </div>
           </Card>
         </DialogTrigger>
         
@@ -245,11 +229,11 @@ export default function PromoCodeCard({ sumOfItemPrices, onApply, appliedPromo }
                           </Badge>
                         </div>
                         <p className="text-sm font-bold">
-                          {promo.discountType === 'percentage' ? `${promo.discountValue}% OFF` : `${symbol}${promo.discountValue} OFF`}
+                          {promo.discountType === 'percentage' ? `${promo.discountValue}% OFF` : `₹${promo.discountValue} OFF`}
                         </p>
                         {promo.minBookingAmount && (
                           <p className="text-[10px] text-muted-foreground uppercase font-bold tracking-tight">
-                            On bookings above {symbol}{promo.minBookingAmount}
+                            On bookings above ₹{promo.minBookingAmount}
                           </p>
                         )}
                       </div>

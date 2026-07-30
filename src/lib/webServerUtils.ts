@@ -2,7 +2,7 @@
 'use server';
 
 import { adminDb } from './firebaseAdmin';
-import { Timestamp } from './mysqlDbAdmin';
+import { Timestamp } from 'firebase-admin/firestore';
 import type { GlobalWebSettings, ThemePalette, MarketingAutomationSettings, FirestoreSlide, ReferralSettings, FeaturesConfiguration } from '@/types/firestore';
 import { DEFAULT_LIGHT_THEME_COLORS_HSL, DEFAULT_DARK_THEME_COLORS_HSL, THEME_PALETTE_KEYS } from '@/lib/colorUtils';
 import { defaultGlobalWebSettings } from '@/config/webDefaults';
@@ -68,7 +68,7 @@ export const getMarketingSettings = cache(async (): Promise<any> => {
     },
     ['marketing-settings'],
     { 
-      revalidate: 86400, 
+      revalidate: false, 
       tags: ['marketing-settings', 'global-cache'] 
     }
   )();
@@ -95,7 +95,7 @@ export const getMarketingAutomationSettings = cache(async (): Promise<MarketingA
     },
     ['marketing-automation-settings'],
     { 
-      revalidate: 86400, 
+      revalidate: false, 
       tags: ['marketing-settings', 'global-cache'] 
     }
   )();
@@ -126,7 +126,7 @@ export const getGlobalAppSettings = cache(async (): Promise<any> => {
     },
     ['global-app-settings'],
     { 
-      revalidate: 86400, 
+      revalidate: false, 
       tags: ['app-settings', 'global-cache'] 
     }
   )();
@@ -184,7 +184,7 @@ export const getGlobalWebSettings = cache(async (): Promise<GlobalWebSettings> =
     },
     ['global-web-settings'],
     { 
-      revalidate: 86400, 
+      revalidate: false, 
       tags: ['web-settings', 'global-cache'] 
     }
   )();
@@ -275,7 +275,7 @@ export const getAdminCategories = cache(async (): Promise<FirestoreCategory[]> =
       }
     },
     ['admin-categories-full'],
-    { revalidate: 86400, tags: ['categories', 'global-cache'] }
+    { revalidate: false, tags: ['categories', 'global-cache'] }
   )();
 });
 
@@ -294,7 +294,7 @@ export const getAdminSubCategories = cache(async (): Promise<FirestoreSubCategor
       }
     },
     ['admin-subcategories-full'],
-    { revalidate: 86400, tags: ['categories', 'global-cache'] }
+    { revalidate: false, tags: ['categories', 'global-cache'] }
   )();
 });
 
@@ -378,65 +378,68 @@ export const getAreas = cache(async (): Promise<FirestoreArea[]> => {
  * Fetches all City-Category SEO settings with caching.
  */
 export const getCityCategorySeoSettings = cache(async (): Promise<CityCategorySeoSetting[]> => {
-  try {
-    const snapshot = await adminDb.collection("cityCategorySeoSettings").orderBy("cityName").orderBy("categoryName").get();
-    return snapshot.docs.map(doc => {
-      const data = serializeFirestoreData(doc.data()) as any;
-      delete data.seo_content;
-      delete data.faqs;
-      return { ...data, id: doc.id } as CityCategorySeoSetting;
-    });
-  } catch (error) {
-    console.error("Error fetching city-category SEO settings:", error);
-    return [];
-  }
+  return unstable_cache(
+    async () => {
+      try {
+        const snapshot = await adminDb.collection("cityCategorySeoSettings").orderBy("cityName").orderBy("categoryName").get();
+        return snapshot.docs.map(doc => ({ ...serializeFirestoreData(doc.data()), id: doc.id } as CityCategorySeoSetting));
+      } catch (error) {
+        console.error("Error fetching city-category SEO settings:", error);
+        return [];
+      }
+    },
+    ['city-category-seo-list'],
+    { revalidate: false, tags: ['seo-settings', 'global-cache'] }
+  )();
 });
 
 /**
  * Fetches all Area-Category SEO settings with caching.
  */
 export const getAreaCategorySeoSettings = cache(async (): Promise<AreaCategorySeoSetting[]> => {
-  try {
-    const snapshot = await adminDb.collection("areaCategorySeoSettings").orderBy("cityName").orderBy("areaName").orderBy("categoryName").get();
-    return snapshot.docs.map(doc => {
-      const data = serializeFirestoreData(doc.data()) as any;
-      delete data.seo_content;
-      delete data.faqs;
-      return { ...data, id: doc.id } as AreaCategorySeoSetting;
-    });
-  } catch (error) {
-    console.error("Error fetching area-category SEO settings:", error);
-    return [];
-  }
+  return unstable_cache(
+    async () => {
+      try {
+        const snapshot = await adminDb.collection("areaCategorySeoSettings").orderBy("cityName").orderBy("areaName").orderBy("categoryName").get();
+        return snapshot.docs.map(doc => ({ ...serializeFirestoreData(doc.data()), id: doc.id } as AreaCategorySeoSetting));
+      } catch (error) {
+        console.error("Error fetching area-category SEO settings:", error);
+        return [];
+      }
+    },
+    ['area-category-seo-list'],
+    { revalidate: false, tags: ['seo-settings', 'global-cache'] }
+  )();
 });
 
 /**
  * Fetches all Area-Service SEO settings with caching.
  */
 export const getAreaServiceSeoSettings = cache(async (): Promise<AreaServiceSeoSetting[]> => {
-  try {
-    const snapshot = await adminDb.collection("areaServiceSeoSettings").get();
-    const settings = snapshot.docs.map(doc => {
-      const data = serializeFirestoreData(doc.data()) as any;
-      delete data.seo_content;
-      delete data.faqs;
-      return { ...data, id: doc.id } as AreaServiceSeoSetting;
-    });
-    
-    // Sort in memory to avoid requiring a Firestore composite index
-    settings.sort((a, b) => {
-      const cityComp = (a.cityName || '').localeCompare(b.cityName || '');
-      if (cityComp !== 0) return cityComp;
-      const areaComp = (a.areaName || '').localeCompare(b.areaName || '');
-      if (areaComp !== 0) return areaComp;
-      return (a.serviceName || '').localeCompare(b.serviceName || '');
-    });
-    
-    return settings;
-  } catch (error) {
-    console.error("Error fetching area-service SEO settings:", error);
-    return [];
-  }
+  return unstable_cache(
+    async () => {
+      try {
+        const snapshot = await adminDb.collection("areaServiceSeoSettings").get();
+        const settings = snapshot.docs.map(doc => ({ ...serializeFirestoreData(doc.data()), id: doc.id } as AreaServiceSeoSetting));
+        
+        // Sort in memory to avoid requiring a Firestore composite index
+        settings.sort((a, b) => {
+          const cityComp = (a.cityName || '').localeCompare(b.cityName || '');
+          if (cityComp !== 0) return cityComp;
+          const areaComp = (a.areaName || '').localeCompare(b.areaName || '');
+          if (areaComp !== 0) return areaComp;
+          return (a.serviceName || '').localeCompare(b.serviceName || '');
+        });
+        
+        return settings;
+      } catch (error) {
+        console.error("Error fetching area-service SEO settings:", error);
+        return [];
+      }
+    },
+    ['area-service-seo-list'],
+    { revalidate: false, tags: ['seo-settings', 'global-cache'] }
+  )();
 });
 
 /**
@@ -457,7 +460,7 @@ export const getRemoteCacheVersionsServer = cache(async (): Promise<any> => {
       }
     },
     ['server-cache-versions'],
-    { revalidate: 86400, tags: ['global-cache'] }
+    { revalidate: false, tags: ['global-cache'] }
   )();
 });
 
@@ -479,7 +482,7 @@ export const getReferralSettingsServer = cache(async (): Promise<ReferralSetting
       }
     },
     ['server-referral-settings'],
-    { revalidate: 86400, tags: ['withdrawal-referral-config', 'global-cache'] }
+    { revalidate: false, tags: ['withdrawal-referral-config', 'global-cache'] }
   )();
 });
 
@@ -504,7 +507,7 @@ export const getHeroSlidesServer = cache(async (): Promise<FirestoreSlide[]> => 
       }
     },
     ['server-hero-slides'],
-    { revalidate: 86400, tags: ['content', 'global-cache'] }
+    { revalidate: false, tags: ['content', 'global-cache'] }
   )();
 });
 
@@ -538,7 +541,7 @@ export const getFeaturesConfigServer = cache(async (): Promise<FeaturesConfigura
       }
     },
     ['server-features-config'],
-    { revalidate: 86400, tags: ['web-settings', 'global-cache'] }
+    { revalidate: false, tags: ['web-settings', 'global-cache'] }
   )();
 });
 
@@ -560,20 +563,9 @@ export const getFaqsServer = cache(async (): Promise<any[]> => {
       }
     },
     ['server-admin-faqs'],
-    { revalidate: 86400, tags: ['faqs', 'global-cache'] }
+    { revalidate: false, tags: ['faqs', 'global-cache'] }
   )();
 });
-
-const getTimestampString = (timestamp: any): string => {
-  if (!timestamp) return new Date().toISOString();
-  if (typeof timestamp === 'string') return timestamp;
-  if (typeof timestamp === 'number') return new Date(timestamp).toISOString();
-  if (timestamp._seconds !== undefined) return new Date(timestamp._seconds * 1000).toISOString();
-  if (timestamp.seconds !== undefined) return new Date(timestamp.seconds * 1000).toISOString();
-  if (timestamp.toDate && typeof timestamp.toDate === 'function') return timestamp.toDate().toISOString();
-  const date = new Date(timestamp);
-  return isNaN(date.getTime()) ? new Date().toISOString() : date.toISOString();
-};
 
 /**
  * Fetches published blog posts from Firestore with caching.
@@ -589,8 +581,8 @@ export const getPublishedPostsServer = cache(async (): Promise<any[]> => {
             return {
               ...data,
               id: doc.id,
-              createdAt: getTimestampString(data.createdAt),
-              updatedAt: data.updatedAt ? getTimestampString(data.updatedAt) : undefined,
+              createdAt: data.createdAt ? (typeof data.createdAt === 'string' ? data.createdAt : new Date().toISOString()) : new Date().toISOString(),
+              updatedAt: data.updatedAt ? (typeof data.updatedAt === 'string' ? data.updatedAt : undefined) : undefined,
             };
           })
           .filter(post => post.isPublished === true)
@@ -603,7 +595,7 @@ export const getPublishedPostsServer = cache(async (): Promise<any[]> => {
       }
     },
     ['server-published-blog-posts'],
-    { revalidate: 86400, tags: ['blog', 'global-cache'] }
+    { revalidate: false, tags: ['blog', 'global-cache'] }
   )();
 });
 

@@ -15,7 +15,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter }
 import { Loader2, Send, AlertTriangle, PackageSearch, History, Check, ChevronsUpDown } from "lucide-react";
 import { useToast } from '@/hooks/use-toast';
 import { db } from '@/lib/firebase';
-import { collection, query, where, onSnapshot, orderBy, runTransaction, getDoc, addDoc, doc, Timestamp, getDocs, limit } from '@/lib/mysqlDb';
+import { collection, query, where, onSnapshot, orderBy, runTransaction, getDoc, addDoc, doc, Timestamp, getDocs, limit } from "firebase/firestore";
 import type { WithdrawalSettings, WithdrawalRequest, WithdrawalMethodType, WithdrawalStatus, FirestoreNotification, FirestoreUser, WithdrawalTabProps } from '@/types/firestore';
 import { useAuth } from '@/hooks/useAuth';
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
@@ -23,7 +23,6 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from '@/components/ui/badge';
 import { ADMIN_EMAIL } from '@/contexts/AuthContext';
 import { getTimestampMillis } from '@/lib/utils';
-import { useApplicationConfig } from "@/hooks/useApplicationConfig";
 
 const withdrawalFormSchema = z.object({
   amount: z.coerce.number().positive("Withdrawal amount must be positive.").nullable(),
@@ -48,8 +47,6 @@ const formatDate = (timestamp?: any) => {
 
 export default function WithdrawalTab({ settings }: WithdrawalTabProps) {
   const { user, firestoreUser, isLoading: authIsLoading } = useAuth();
-  const { config: appConfig } = useApplicationConfig();
-  const symbol = appConfig?.currencySymbol || "₹";
   const { toast } = useToast();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [withdrawalHistory, setWithdrawalHistory] = useState<WithdrawalRequest[]>([]);
@@ -128,7 +125,7 @@ export default function WithdrawalTab({ settings }: WithdrawalTabProps) {
       setIsSubmitting(false); return;
     }
     if (data.amount < settings.minWithdrawalAmount) {
-      form.setError("amount", { message: `Minimum withdrawal is ${symbol}${settings.minWithdrawalAmount}` });
+      form.setError("amount", { message: `Minimum withdrawal is ₹${settings.minWithdrawalAmount}` });
       setIsSubmitting(false); return;
     }
     if (data.amount > (firestoreUser.walletBalance || 0)) {
@@ -181,7 +178,7 @@ export default function WithdrawalTab({ settings }: WithdrawalTabProps) {
             const adminNotification: FirestoreNotification = {
                 userId: adminUid,
                 title: "New Withdrawal Request",
-                message: `${firestoreUser.displayName || 'A user'} has requested a withdrawal of ${symbol}${data.amount.toFixed(2)}.`,
+                message: `${firestoreUser.displayName || 'A user'} has requested a withdrawal of ₹${data.amount.toFixed(2)}.`,
                 type: 'admin_alert',
                 href: `/admin/referral-settings?tab=withdrawal_requests`,
                 read: false,
@@ -266,7 +263,7 @@ export default function WithdrawalTab({ settings }: WithdrawalTabProps) {
         <Card>
         <CardHeader>
             <CardTitle>Request a Withdrawal</CardTitle>
-            <CardDescription>Transfer your wallet balance. Minimum withdrawal is {symbol}{settings.minWithdrawalAmount || 0}.</CardDescription>
+            <CardDescription>Transfer your wallet balance. Minimum withdrawal is ₹{settings.minWithdrawalAmount || 0}.</CardDescription>
         </CardHeader>
         <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)}>
@@ -278,7 +275,7 @@ export default function WithdrawalTab({ settings }: WithdrawalTabProps) {
                         <AlertDescription>You have a withdrawal request that is currently being processed. Please wait for it to be completed before making a new one.</AlertDescription>
                     </Alert>
                 )}
-                <FormField control={form.control} name="amount" render={({ field }) => (<FormItem><FormLabel>Amount to Withdraw ({symbol})</FormLabel><FormControl><Input type="number" placeholder={`Available: ${symbol}${(firestoreUser?.walletBalance || 0).toFixed(2)}`} {...field} value={field.value ?? ""} disabled={isSubmitting || firestoreUser?.withdrawalPending} /></FormControl><FormMessage /></FormItem>)} />
+                <FormField control={form.control} name="amount" render={({ field }) => (<FormItem><FormLabel>Amount to Withdraw (₹)</FormLabel><FormControl><Input type="number" placeholder={`Available: ₹${(firestoreUser?.walletBalance || 0).toFixed(2)}`} {...field} value={field.value ?? ""} disabled={isSubmitting || firestoreUser?.withdrawalPending} /></FormControl><FormMessage /></FormItem>)} />
                 <FormField control={form.control} name="method" render={({ field }) => (
                     <FormItem className="flex flex-col">
                       <FormLabel className="mb-2">Withdrawal Method</FormLabel>
@@ -400,7 +397,7 @@ export default function WithdrawalTab({ settings }: WithdrawalTabProps) {
                     <Table>
                         <TableHeader>
                             <TableRow>
-                                <TableHead>Amount ({symbol})</TableHead>
+                                <TableHead>Amount (₹)</TableHead>
                                 <TableHead>Method</TableHead>
                                 <TableHead>Date Requested</TableHead>
                                 <TableHead>Status</TableHead>
@@ -409,7 +406,7 @@ export default function WithdrawalTab({ settings }: WithdrawalTabProps) {
                         <TableBody>
                             {withdrawalHistory.map(req => (
                                 <TableRow key={req.id}>
-                                    <TableCell className="font-semibold">{symbol}{req.amount.toFixed(2)}</TableCell>
+                                    <TableCell className="font-semibold">₹{req.amount.toFixed(2)}</TableCell>
                                     <TableCell className="capitalize">{req.method.replace('_', ' ')}</TableCell>
                                     <TableCell className="text-xs">{formatDate(req.requestedAt)}</TableCell>
                                     <TableCell>

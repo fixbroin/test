@@ -6,12 +6,11 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Loader2, Wallet, Hourglass, History } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import type { Referral, EnrichedReferral } from '@/types/firestore';
-import { collection, query, where, onSnapshot, doc, getDoc, getDocs } from '@/lib/mysqlDb';
+import { collection, query, where, onSnapshot, doc, getDoc, getDocs } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from '@/components/ui/badge';
 import { getTimestampMillis } from '@/lib/utils';
-import { useApplicationConfig } from "@/hooks/useApplicationConfig";
 
 const formatDate = (timestamp?: any): string => {
     if (!timestamp) return 'N/A';
@@ -31,8 +30,6 @@ type WalletHistoryItem = {
 
 export default function WalletTab() {
   const { firestoreUser, isLoading: authIsLoading } = useAuth();
-  const { config: appConfig } = useApplicationConfig();
-  const symbol = appConfig?.currencySymbol || "₹";
   const [walletHistory, setWalletHistory] = useState<WalletHistoryItem[]>([]);
   const [isLoadingHistory, setIsLoadingHistory] = useState(true);
   
@@ -129,7 +126,7 @@ export default function WalletTab() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-3xl font-bold text-green-600">{symbol}{walletBalance.toFixed(2)}</p>
+            <p className="text-3xl font-bold text-green-600">₹{walletBalance.toFixed(2)}</p>
             <p className="text-xs text-muted-foreground mt-1">Available for withdrawal.</p>
           </CardContent>
         </Card>
@@ -140,7 +137,7 @@ export default function WalletTab() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-3xl font-bold text-yellow-600">{symbol}{pendingBalance.toFixed(2)}</p>
+            <p className="text-3xl font-bold text-yellow-600">₹{pendingBalance.toFixed(2)}</p>
             <p className="text-xs text-muted-foreground mt-1">From referrals with pending first bookings.</p>
           </CardContent>
         </Card>
@@ -176,7 +173,7 @@ export default function WalletTab() {
                                 </TableCell>
                                 <TableCell>
                                     <Badge variant="default" className="bg-green-500 hover:bg-green-600">
-                                        + {symbol}{item.amount.toFixed(2)}
+                                        + ₹{item.amount.toFixed(2)}
                                     </Badge>
                                 </TableCell>
                                 <TableCell className="text-xs">{formatDate(item.date)}</TableCell>

@@ -18,9 +18,9 @@ const WelcomeEmailInputSchema = z.object({
   smtpPort: z.string().optional().describe("SMTP port (e.g., '587', '465')."),
   smtpUser: z.string().optional().describe("SMTP username."),
   smtpPass: z.string().optional().describe("SMTP password."),
-  senderEmail: z.string().optional().describe("The email address to send from."),
+  senderEmail: z.string().email().optional().describe("The email address to send from."),
   siteName: z.string().optional(),
-  logoUrl: z.string().optional(),
+  logoUrl: z.string().url().optional(),
 });
 
 export type WelcomeEmailInput = z.infer<typeof WelcomeEmailInputSchema>;
@@ -35,10 +35,7 @@ export async function sendWelcomeEmail(input: WelcomeEmailInput): Promise<{ succ
 }
 
 const createHtmlTemplate = (title: string, bodyContent: string, siteName: string, logoUrl?: string) => {
-    let finalLogoUrl = logoUrl || `${getBaseUrl()}/default-image.png`;
-    if (finalLogoUrl.startsWith('/')) {
-        finalLogoUrl = getBaseUrl() + finalLogoUrl;
-    }
+    const finalLogoUrl = logoUrl || `${getBaseUrl()}/default-image.png`;
     return `
 <!DOCTYPE html>
 <html lang="en">

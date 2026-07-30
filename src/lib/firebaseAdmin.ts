@@ -1,6 +1,7 @@
+// src/lib/firebaseAdmin.ts
 import { getApps, initializeApp, cert } from "firebase-admin/app";
+import { getFirestore } from "firebase-admin/firestore";
 import { getAuth } from "firebase-admin/auth";
-import { adminDb } from "./mysqlDbAdmin";
 
 // Load full service account JSON from environment
 const serviceAccountJson = process.env.FIREBASE_ADMIN_SDK_CONFIG;
@@ -23,6 +24,5 @@ if (!getApps().length) {
   });
 }
 
+export const adminDb = getFirestore();
 export const adminAuth = getAuth();
-export { adminDb };
-

@@ -6,7 +6,7 @@ import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
 import { BarChart, DollarSign, ShoppingBag, Users, Loader2, AlertTriangle, UserPlus, TagIcon, History, HandCoins, Search } from "lucide-react";
 import { db } from '@/lib/firebase';
-import { collection, onSnapshot, query, where, Timestamp, orderBy, limit, getDocs } from '@/lib/mysqlDb';
+import { collection, onSnapshot, query, where, Timestamp, orderBy, limit, getDocs } from "firebase/firestore";
 import type { FirestoreBooking, FirestoreUser, UserActivity, FirestoreService } from '@/types/firestore';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
@@ -68,7 +68,6 @@ export default function AdminDashboardPage() {
   const [error, setError] = useState<string | null>(null);
   const [activitiesError, setActivitiesError] = useState<string | null>(null);
   const { config: appConfig } = useApplicationConfig();
-  const symbol = appConfig?.currencySymbol || "₹";
 
 
   useEffect(() => {
@@ -250,7 +249,7 @@ export default function AdminDashboardPage() {
             <DollarSign className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{symbol}{dbStats.completedRevenue.toLocaleString()}</div>
+            <div className="text-2xl font-bold">₹{dbStats.completedRevenue.toLocaleString()}</div>
           </CardContent>
         </Card>
          <Card>
@@ -259,7 +258,7 @@ export default function AdminDashboardPage() {
             <HandCoins className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{symbol}{dbStats.earnedCommission.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</div>
+            <div className="text-2xl font-bold">₹{dbStats.earnedCommission.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</div>
           </CardContent>
         </Card>
         <Card>

@@ -4,7 +4,7 @@
 import { google } from 'googleapis';
 import { adminDb } from './firebaseAdmin';
 import { getBaseUrl } from './config';
-import { Timestamp } from './mysqlDbAdmin';
+import { Timestamp } from 'firebase-admin/firestore';
 
 /**
  * Parses the service account config from the environment and initializes Google authentication.

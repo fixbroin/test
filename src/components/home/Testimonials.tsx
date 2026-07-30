@@ -6,13 +6,12 @@ import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/componen
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Star, ShieldCheck } from 'lucide-react';
 import { db } from '@/lib/firebase';
-import { collection, query, where, orderBy, limit, getDocs } from '@/lib/mysqlDb';
+import { collection, query, where, orderBy, limit, getDocs } from 'firebase/firestore';
 import type { FirestoreReview } from '@/types/firestore';
 import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious } from "@/components/ui/carousel";
 import Autoplay from "embla-carousel-autoplay";
 import * as React from "react";
 import { Skeleton } from '@/components/ui/skeleton';
-import { getCache, setCache } from '@/lib/client-cache';
 
 const Testimonials = () => {
   const [testimonials, setTestimonials] = useState<FirestoreReview[]>([]);
@@ -25,42 +24,35 @@ const Testimonials = () => {
   }));
 
   useEffect(() => {
-    const cachedReviews = getCache<FirestoreReview[]>('home_testimonials', false);
-    if (cachedReviews && cachedReviews.length > 0) {
-      setTestimonials(cachedReviews);
-      setIsLoading(false);
-    }
-
     const fetchReviews = async () => {
-      if (!cachedReviews || cachedReviews.length === 0) {
-        setIsLoading(true);
-      }
+      setIsLoading(true);
       try {
         const reviewsRef = collection(db, "adminReviews");
+        // Use 'in' operator for rating to allow primary sorting by createdAt (recency)
         const q = query(
           reviewsRef,
           where("status", "==", "Approved"),
           where("rating", "in", [4, 5]),
           orderBy("createdAt", "desc"),
-          limit(40)
+          limit(40) // Fetch a larger pool to filter for unique users
         );
         const snapshot = await getDocs(q);
         const fetchedReviews = snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id } as FirestoreReview));
         
+        // Filter for unique reviewers by name to prevent same person appearing twice
         const uniqueReviews: FirestoreReview[] = [];
         const seenNames = new Set<string>();
         
         for (const review of fetchedReviews) {
-          const nameKey = (review.userName || '').trim().toLowerCase();
-          if (nameKey && !seenNames.has(nameKey)) {
+          const nameKey = review.userName.trim().toLowerCase();
+          if (!seenNames.has(nameKey)) {
             uniqueReviews.push(review);
             seenNames.add(nameKey);
           }
-          if (uniqueReviews.length >= 12) break;
+          if (uniqueReviews.length >= 12) break; // Keep top 12 unique recent reviews
         }
 
         setTestimonials(uniqueReviews);
-        setCache('home_testimonials', uniqueReviews, false);
 
       } catch (error) {
         console.error("Error fetching testimonials:", error);

@@ -17,7 +17,7 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { Loader2, FileText, UserPlus, PlusCircle, Trash2, CalendarIcon, Save, Send, Download, UserCircle as UserIcon, XCircle, Check, ChevronsUpDown } from "lucide-react";
 import type { FirestoreUser, QuotationItem, FirestoreQuotation, QuotationStatus, CompanyDetailsForPdf } from '@/types/firestore';
 import { db } from '@/lib/firebase';
-import { collection, getDocs, addDoc, Timestamp, query, orderBy, doc, setDoc, updateDoc, getDoc, where, documentId, limit } from '@/lib/mysqlDb';
+import { collection, getDocs, addDoc, Timestamp, query, orderBy, doc, setDoc, updateDoc, getDoc, where, documentId } from "firebase/firestore";
 import { useToast } from "@/hooks/use-toast";
 import { nanoid } from 'nanoid';
 import { cn } from '@/lib/utils';
@@ -27,8 +27,6 @@ import { useGlobalSettings } from '@/hooks/useGlobalSettings';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useAuth } from '@/hooks/useAuth';
 import { getTimestampMillis } from '@/lib/utils';
-import { useApplicationConfig } from '@/hooks/useApplicationConfig';
-import { ADMIN_EMAIL } from '@/contexts/AuthContext';
 
 const quotationItemSchema = z.object({
   id: z.string().optional(),
@@ -73,8 +71,6 @@ export default function CreateQuotationForm({ initialData, onSaveSuccess }: Crea
   const { toast } = useToast();
   const router = useRouter();
   const { user: providerUser } = useAuth();
-  const { config: appConfig } = useApplicationConfig();
-  const symbol = appConfig?.currencySymbol || '₹';
   const { settings: companySettings, isLoading: isLoadingCompanySettings } = useGlobalSettings();
   const [isSaving, setIsSaving] = useState(false);
   const [isSending, setIsSending] = useState(false);
@@ -261,28 +257,6 @@ export default function CreateQuotationForm({ initialData, onSaveSuccess }: Crea
         const docRef = await addDoc(collection(db, "quotations"), quotationDataForFirestore as Omit<FirestoreQuotation, 'id'>);
         savedItem = { ...quotationDataForFirestore, id: docRef.id } as FirestoreQuotation;
         toast({ title: "Success", description: "Quotation saved as draft." });
-
-        // Notify admin when provider creates a quotation
-        try {
-          const usersRef = collection(db, "users");
-          const adminQuery = query(usersRef, where("email", "==", ADMIN_EMAIL), limit(1));
-          const adminSnapshot = await getDocs(adminQuery);
-          if (!adminSnapshot.empty) {
-            const adminUid = adminSnapshot.docs[0].id;
-            const adminNotification = {
-              userId: adminUid,
-              title: "New Quotation Created by Provider",
-              message: `Provider "${providerUser?.displayName || providerUser?.email || 'N/A'}" created quotation #${quotationDataForFirestore.quotationNumber} for ${quotationDataForFirestore.customerName}.`,
-              type: 'admin_alert',
-              href: '/admin/quotation-invoice',
-              read: false,
-              createdAt: Timestamp.now()
-            };
-            await addDoc(collection(db, "userNotifications"), adminNotification);
-          }
-        } catch (notifyErr) {
-          console.warn("Could not notify admin about new quotation:", notifyErr);
-        }
       }
       
       if (onSaveSuccess) onSaveSuccess(savedItem);
@@ -316,9 +290,9 @@ export default function CreateQuotationForm({ initialData, onSaveSuccess }: Crea
         const pdfBlob = dataUriToBlob(pdfDataUri); if (!pdfBlob) throw new Error("Failed to generate PDF blob.");
         const storagePath = `quotations_pdf/${currentInitialData.id}_${savedQuotation.quotationNumber}.pdf`;
         const downloadUrl = await uploadPdfToStorage(pdfBlob, storagePath);
-        await updateDoc(doc(db, "quotations", currentInitialData.id), { status: 'Sent', pdfUrl: downloadUrl, updatedAt: Timestamp.now() });
+        await updateDoc(doc(db, "quotations", currentInitialData.id), { status: 'Sent', updatedAt: Timestamp.now() });
         form.setValue('status', 'Sent'); 
-        if (onSaveSuccess) onSaveSuccess({ ...savedQuotation, status: 'Sent', pdfUrl: downloadUrl, updatedAt: Timestamp.now() });
+        if (onSaveSuccess) onSaveSuccess({ ...savedQuotation, status: 'Sent', updatedAt: Timestamp.now() });
         toast({
           duration: 10000, title: "Quotation Ready to Share",
           description: (<div><p>URL: <a href={downloadUrl} target="_blank" rel="noopener noreferrer" className="text-blue-600 underline break-all">{downloadUrl}</a></p><Button size="sm" variant="outline" className="mt-2" onClick={() => navigator.clipboard.writeText(downloadUrl).then(() => toast({description: "URL Copied!"}))}>Copy URL</Button></div>),
@@ -423,17 +397,17 @@ export default function CreateQuotationForm({ initialData, onSaveSuccess }: Crea
             </div>
             <div className="space-y-3 p-4 border rounded-md">
               <h3 className="text-lg font-medium">Items / Services</h3>
-              {fields.map((item, index) => (<div key={item.id} className="p-3 border rounded-md space-y-3 relative"><div className="grid grid-cols-1 sm:grid-cols-itemized-quotation gap-3 items-end"><FormField control={form.control} name={`items.${index}.itemName`} render={({ field }) => (<FormItem><FormLabel className="text-xs">Item Name <span className="text-destructive">*</span></FormLabel><FormControl><Input placeholder="Service or Product" {...field} disabled={isSaving} /></FormControl><FormMessage /></FormItem>)}/><FormField control={form.control} name={`items.${index}.quantity`} render={({ field }) => (<FormItem><FormLabel className="text-xs">Qty <span className="text-destructive">*</span></FormLabel><FormControl><Input type="number" placeholder="1" {...field} disabled={isSaving} /></FormControl><FormMessage /></FormItem>)}/><FormField control={form.control} name={`items.${index}.ratePerUnit`} render={({ field }) => (<FormItem><FormLabel className="text-xs">Rate/Unit ({symbol}) <span className="text-destructive">*</span></FormLabel><FormControl><Input type="number" step="0.01" placeholder="100.00" {...field} disabled={isSaving} /></FormControl><FormMessage /></FormItem>)}/><FormItem><FormLabel className="text-xs">Total ({symbol})</FormLabel><Input type="text" value={((form.watch(`items.${index}.quantity`) || 0) * (form.watch(`items.${index}.ratePerUnit`) || 0)).toFixed(2)} disabled readOnly className="bg-muted/50"/></FormItem></div>{fields.length > 1 && (<Button type="button" variant="ghost" size="icon" className="absolute top-1 right-1 h-6 w-6 text-destructive" onClick={() => remove(index)} disabled={isSaving}><Trash2 className="h-4 w-4" /></Button>)}</div>))}
+              {fields.map((item, index) => (<div key={item.id} className="p-3 border rounded-md space-y-3 relative"><div className="grid grid-cols-1 sm:grid-cols-itemized-quotation gap-3 items-end"><FormField control={form.control} name={`items.${index}.itemName`} render={({ field }) => (<FormItem><FormLabel className="text-xs">Item Name <span className="text-destructive">*</span></FormLabel><FormControl><Input placeholder="Service or Product" {...field} disabled={isSaving} /></FormControl><FormMessage /></FormItem>)}/><FormField control={form.control} name={`items.${index}.quantity`} render={({ field }) => (<FormItem><FormLabel className="text-xs">Qty <span className="text-destructive">*</span></FormLabel><FormControl><Input type="number" placeholder="1" {...field} disabled={isSaving} /></FormControl><FormMessage /></FormItem>)}/><FormField control={form.control} name={`items.${index}.ratePerUnit`} render={({ field }) => (<FormItem><FormLabel className="text-xs">Rate/Unit (₹) <span className="text-destructive">*</span></FormLabel><FormControl><Input type="number" step="0.01" placeholder="100.00" {...field} disabled={isSaving} /></FormControl><FormMessage /></FormItem>)}/><FormItem><FormLabel className="text-xs">Total (₹)</FormLabel><Input type="text" value={((form.watch(`items.${index}.quantity`) || 0) * (form.watch(`items.${index}.ratePerUnit`) || 0)).toFixed(2)} disabled readOnly className="bg-muted/50"/></FormItem></div>{fields.length > 1 && (<Button type="button" variant="ghost" size="icon" className="absolute top-1 right-1 h-6 w-6 text-destructive" onClick={() => remove(index)} disabled={isSaving}><Trash2 className="h-4 w-4" /></Button>)}</div>))}
               <Button type="button" variant="outline" size="sm" onClick={() => append({ id: nanoid(), itemName: "", quantity: 1, ratePerUnit: 0 })} disabled={isSaving}><PlusCircle className="mr-2 h-4 w-4" /> Add Item</Button>
             </div>
             <div className="space-y-3 p-4 border rounded-md">
               <h3 className="text-lg font-medium">Summary & Notes</h3>
               <FormField control={form.control} name="additionalNotes" render={({ field }) => (<FormItem><FormLabel>Additional Notes (Optional)</FormLabel><FormControl><Textarea placeholder="Terms, validity, etc." {...field} rows={3} disabled={isSaving} /></FormControl><FormMessage /></FormItem>)}/>
               <div className="space-y-1 text-right text-sm">
-                <div>Subtotal: <span className="font-semibold">{symbol}{subtotal.toFixed(2)}</span></div>
+                <div>Subtotal: <span className="font-semibold">₹{subtotal.toFixed(2)}</span></div>
                 <div className="flex items-center justify-end gap-2"><FormLabel htmlFor="taxPercentInput" className="text-sm whitespace-nowrap">Tax (%):</FormLabel><FormField control={form.control} name="taxPercent" render={({ field }) => (<FormItem className="inline-block w-20"><FormControl><Input type="number" id="taxPercentInput" step="0.01" placeholder="0" {...field} disabled={isSaving} className="h-8 text-right" /></FormControl><FormMessage className="text-left text-xs" /></FormItem>)}/></div>
-                <div>Tax Amount: <span className="font-semibold">{symbol}{taxAmount.toFixed(2)}</span></div>
-                <div className="text-lg font-bold text-primary">Grand Total: {symbol}{grandTotal.toFixed(2)}</div>
+                <div>Tax Amount: <span className="font-semibold">₹{taxAmount.toFixed(2)}</span></div>
+                <div className="text-lg font-bold text-primary">Grand Total: ₹{grandTotal.toFixed(2)}</div>
               </div>
             </div>
           </CardContent>

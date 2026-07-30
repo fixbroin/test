@@ -9,7 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { unstable_cache } from 'next/cache';
 import { cache } from 'react';
 
-export const dynamic = 'force-dynamic';
+export const revalidate = false;
 
 export const metadata: Metadata = {
   title: 'Sitemap - FixBro Home Services',
@@ -35,113 +35,97 @@ interface SitemapData {
 }
 
 const getSitemapData = cache(async (): Promise<SitemapData> => {
-  try {
-    // Static Pages
-    const staticPages = [
-      { name: 'Home', url: '/' },
-      { name: 'About Us', url: '/about-us' },
-      { name: 'Contact Us', url: '/contact-us' },
-      { name: 'All Categories', url: '/categories' },
-      { name: 'FAQ', url: '/faq' },
-      { name: 'Blog', url: '/blog' },
-      { name: 'Login', url: '/auth/login' },
-      { name: 'Sign Up', url: '/auth/signup' },
-      { name: 'Join as a Provider', url: '/provider-registration' },
-      { name: 'Damage & Claims Policy', url: '/damage-and-claims-policy' },
-    ];
-    
-    const contentPagesSnap = await adminDb.collection('contentPages').get();
-    const dynamicContentPages = contentPagesSnap.docs.map(doc => {
-        const data = doc.data() as ContentPage;
-        return { name: data.title, url: `/${data.slug}`};
-    }).filter(page => !staticPages.some(p => p.url === page.url));
+  return unstable_cache(
+    async () => {
+      // Static Pages
+      const staticPages = [
+        { name: 'Home', url: '/' },
+        { name: 'About Us', url: '/about-us' },
+        { name: 'Contact Us', url: '/contact-us' },
+        { name: 'All Categories', url: '/categories' },
+        { name: 'FAQ', url: '/faq' },
+        { name: 'Blog', url: '/blog' },
+        { name: 'Login', url: '/auth/login' },
+        { name: 'Sign Up', url: '/auth/signup' },
+        { name: 'Join as a Provider', url: '/provider-registration' },
+        { name: 'Damage & Claims Policy', url: '/damage-and-claims-policy' },
+      ];
+      
+      const contentPagesSnap = await adminDb.collection('contentPages').get();
+      const dynamicContentPages = contentPagesSnap.docs.map(doc => {
+          const data = doc.data() as ContentPage;
+          return { name: data.title, url: `/${data.slug}`};
+      }).filter(page => !staticPages.some(p => p.url === page.url));
 
 
-    // Fetch all data in parallel
-    const [
-      citiesSnap,
-      categoriesSnap,
-      subCategoriesSnap,
-      servicesSnap,
-      blogsSnap,
-      serviceSeoSnap
-    ] = await Promise.all([
-      adminDb.collection('cities').where('isActive', '==', true).orderBy('name').get(),
-      adminDb.collection('adminCategories').where('isActive', '==', true).orderBy('order').get(),
-      adminDb.collection('adminSubCategories').where('isActive', '==', true).orderBy('name').get(),
-      adminDb.collection('adminServices').where('isActive', '==', true).orderBy('name').get(),
-      adminDb.collection('blogPosts').where('isPublished', '==', true).orderBy('createdAt', 'desc').get(),
-      adminDb.collection('areaServiceSeoSettings').where('isActive', '==', true).limit(1000).get()
-    ]);
+      // Fetch all data in parallel
+      const [
+        citiesSnap,
+        categoriesSnap,
+        subCategoriesSnap,
+        servicesSnap,
+        blogsSnap,
+        serviceSeoSnap
+      ] = await Promise.all([
+        adminDb.collection('cities').where('isActive', '==', true).orderBy('name').get(),
+        adminDb.collection('adminCategories').where('isActive', '==', true).orderBy('order').get(),
+        adminDb.collection('adminSubCategories').where('isActive', '==', true).orderBy('name').get(),
+        adminDb.collection('adminServices').where('isActive', '==', true).orderBy('name').get(),
+        adminDb.collection('blogPosts').where('isPublished', '==', true).orderBy('createdAt', 'desc').get(),
+        adminDb.collection('areaServiceSeoSettings').where('isActive', '==', true).get()
+      ]);
 
-    const cities = citiesSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as FirestoreCity));
-    const categories = categoriesSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as FirestoreCategory));
-    const subCategories = subCategoriesSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as FirestoreSubCategory));
-    const services = servicesSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as FirestoreService));
-    
-    // Strip body content of blog posts to minimize size
-    const blogs = blogsSnap.docs.map(doc => {
-      const data = doc.data() as any;
-      delete data.content;
-      return { id: doc.id, ...data } as FirestoreBlogPost;
-    });
-    
-    const parsedServiceOverrides = serviceSeoSnap.docs.map(doc => {
-      const data = doc.data() as any;
-      delete data.seo_content;
-      delete data.faqs;
-      return { id: doc.id, ...data } as AreaServiceSeoSetting;
-    });
-    
-    // Group City-wise Categories
-    const cityCategories = cities.map(city => ({
-      city,
-    }));
-    
-    // Group Area-wise Categories
-    const areaCategoriesPromises = cities.map(async (city) => {
-      const areasSnap = await adminDb.collection('areas').where('cityId', '==', city.id).where('isActive', '==', true).orderBy('name').get();
-      const areas = areasSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as FirestoreArea));
-      return {
+      const cities = citiesSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as FirestoreCity));
+      const categories = categoriesSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as FirestoreCategory));
+      const subCategories = subCategoriesSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as FirestoreSubCategory));
+      const services = servicesSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as FirestoreService));
+      const blogs = blogsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as FirestoreBlogPost));
+      
+      const parsedServiceOverrides = serviceSeoSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as AreaServiceSeoSetting));
+      
+      // Group City-wise Categories
+      const cityCategories = cities.map(city => ({
         city,
-        areas,
+      }));
+      
+      // Group Area-wise Categories
+      const areaCategoriesPromises = cities.map(async (city) => {
+        const areasSnap = await adminDb.collection('areas').where('cityId', '==', city.id).where('isActive', '==', true).orderBy('name').get();
+        const areas = areasSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as FirestoreArea));
+        return {
+          city,
+          areas,
+        };
+      });
+      const areaCategories = await Promise.all(areaCategoriesPromises);
+
+      // Group Services by Category -> SubCategory
+      const servicesByCategory = categories.map(category => {
+        const relevantSubCats = subCategories.filter(sc => sc.parentId === category.id);
+        const subCategoriesWithServices = relevantSubCats.map(subCategory => ({
+          subCategory,
+          services: services.filter(s => s.subCategoryId === subCategory.id)
+        })).filter(sc => sc.services.length > 0);
+        return { category, subCategories: subCategoriesWithServices };
+      }).filter(cat => cat.subCategories.length > 0);
+
+      return {
+        pages: [...staticPages, ...dynamicContentPages],
+        cities,
+        cityCategories,
+        areaCategories,
+        globalCategories: categories,
+        servicesByCategory,
+        blogs,
+        serviceOverrides: parsedServiceOverrides
       };
-    });
-    const areaCategories = await Promise.all(areaCategoriesPromises);
-
-    // Group Services by Category -> SubCategory
-    const servicesByCategory = categories.map(category => {
-      const relevantSubCats = subCategories.filter(sc => sc.parentId === category.id);
-      const subCategoriesWithServices = relevantSubCats.map(subCategory => ({
-        subCategory,
-        services: services.filter(s => s.subCategoryId === subCategory.id)
-      })).filter(sc => sc.services.length > 0);
-      return { category, subCategories: subCategoriesWithServices };
-    }).filter(cat => cat.subCategories.length > 0);
-
-    return {
-      pages: [...staticPages, ...dynamicContentPages],
-      cities,
-      cityCategories,
-      areaCategories,
-      globalCategories: categories,
-      servicesByCategory,
-      blogs,
-      serviceOverrides: parsedServiceOverrides
-    };
-  } catch (error) {
-    console.error("Error fetching sitemap data:", error);
-    return {
-      pages: [],
-      cities: [],
-      cityCategories: [],
-      areaCategories: [],
-      globalCategories: [],
-      servicesByCategory: [],
-      blogs: [],
-      serviceOverrides: []
-    };
-  }
+    },
+    ['visual-sitemap-data'],
+    { 
+      revalidate: false, 
+      tags: ['sitemap', 'cities', 'areas', 'categories', 'services', 'blog', 'global-cache'] 
+    }
+  )();
 });
 
 
@@ -235,30 +219,33 @@ export default async function SitemapPage() {
                 </div>
             </section>
 
-            {/* Section 4: Explore by Localities / Regions */}
+            {/* Section 4: Area-wise Categories */}
             <section>
                 <div className="flex items-center gap-3 mb-6">
                     <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center text-primary"><MapPin className="h-6 w-6"/></div>
-                    <h2 className="text-2xl font-bold font-headline">Explore by Localities</h2>
+                    <h2 className="text-2xl font-bold font-headline">Area Specific Categories</h2>
                 </div>
                 <div className="space-y-8">
                 {data.areaCategories.map(({ city, areas }) => (
-                    <div key={city.id} className="bg-card p-6 rounded-3xl border border-border shadow-sm">
-                        <h3 className="text-xl font-bold text-foreground mb-4 flex items-center gap-2 border-b pb-2">
-                            <span className="bg-primary w-2 h-6 rounded-full"/> Localities in {city.name}
+                    <div key={city.id} className="bg-muted/30 p-3 rounded-3xl border border-border/20">
+                        <h3 className="text-xl font-bold text-foreground mb-6 flex items-center gap-2">
+                            <span className="bg-primary w-2 h-6 rounded-full"/> {city.name} Regions
                         </h3>
-                        {areas.length === 0 ? (
-                          <p className="text-muted-foreground text-sm">No active localities in this city.</p>
-                        ) : (
-                          <ul className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
                             {areas.map(area => (
-                              <li key={area.id} className="group flex items-center gap-1">
-                                <ChevronRight className="h-3.5 w-3.5 text-primary/40 group-hover:text-primary transition-colors shrink-0"/>
-                                <Link href={`/${city.slug}/${area.slug}`} className="text-muted-foreground hover:text-primary text-sm font-medium transition-colors line-clamp-1">{area.name}</Link>
-                              </li>
+                            <div key={area.id} className="bg-card p-4 rounded-xl border border-border/50 shadow-sm">
+                                <h4 className="font-bold text-foreground/90 text-sm mb-3 border-b border-primary/10 pb-2">{area.name}</h4>
+                                <ul className="space-y-2 text-[11px]">
+                                {data.globalCategories.map(cat => (
+                                    <li key={`${area.id}-${cat.id}`} className="group flex items-center gap-1.5">
+                                        <ChevronRight className="h-2.5 w-2.5 text-primary/40 group-hover:text-primary transition-colors"/>
+                                        <Link href={`/${city.slug}/${area.slug}/${cat.slug}`} className="text-muted-foreground hover:text-primary transition-colors line-clamp-1">{cat.name}</Link>
+                                    </li>
+                                ))}
+                                </ul>
+                            </div>
                             ))}
-                          </ul>
-                        )}
+                        </div>
                     </div>
                 ))}
                 </div>
@@ -304,7 +291,7 @@ export default async function SitemapPage() {
                 </div>
                 <div className="bg-card p-8 rounded-3xl shadow-sm border border-border/50">
                     <ul className="space-y-3 columns-1 sm:columns-2 md:columns-3 lg:columns-4 gap-8">
-                    {data.blogs.slice(0, 500).map(blog => (
+                    {data.blogs.map(blog => (
                         <li key={blog.id} className="break-inside-avoid flex items-start gap-2 group">
                             <ChevronRight className="h-3 w-3 text-primary mt-1 opacity-40 group-hover:opacity-100 transition-opacity" />
                             <Link href={`/blog/${blog.slug}`} className="text-muted-foreground hover:text-primary text-sm font-medium transition-colors leading-snug">{blog.title}</Link>
@@ -323,7 +310,7 @@ export default async function SitemapPage() {
                     </div>
                     <div className="bg-card p-8 rounded-3xl shadow-sm border border-border/50">
                         <ul className="space-y-3 columns-1 sm:columns-2 md:columns-3 lg:columns-4 gap-8">
-                        {data.serviceOverrides.slice(0, 500).map(setting => (
+                        {data.serviceOverrides.map(setting => (
                             <li key={setting.id} className="break-inside-avoid flex items-start gap-2 group">
                                 <ChevronRight className="h-3 w-3 text-primary mt-1 opacity-40 group-hover:opacity-100 transition-opacity shrink-0" />
                                 <Link 
@@ -335,11 +322,6 @@ export default async function SitemapPage() {
                             </li>
                         ))}
                         </ul>
-                        {data.serviceOverrides.length > 500 && (
-                          <p className="text-xs text-muted-foreground mt-6 text-center border-t pt-4">
-                            Showing first 500 localized pages. For the complete list, please refer to our XML sitemaps.
-                          </p>
-                        )}
                     </div>
                 </section>
             )}

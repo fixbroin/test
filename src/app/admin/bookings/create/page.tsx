@@ -2,7 +2,6 @@
 "use client";
 
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import dynamic from 'next/dynamic';
 import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -14,7 +13,7 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter, DialogDescription
 } from "@/components/ui/dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { cn, getTimestampMillis, formatCurrency } from "@/lib/utils";
+import { cn, getTimestampMillis } from "@/lib/utils";
 import { 
   Loader2, ArrowLeft, Search, User, MapPin, Phone, Mail, 
   CalendarDays, Clock, CheckCircle2, IndianRupee, Tag, 
@@ -24,7 +23,7 @@ import { db } from '@/lib/firebase';
 import { 
   collection, query, where, getDocs, doc, getDoc, 
   addDoc, Timestamp, limit, orderBy 
-} from '@/lib/mysqlDb';
+} from "firebase/firestore";
 import { useToast } from "@/hooks/use-toast";
 import { useApplicationConfig } from '@/hooks/useApplicationConfig';
 import { triggerPushNotification } from '@/lib/fcmUtils';
@@ -52,18 +51,10 @@ interface AppliedPromoCodeInfo {
   minBookingAmount?: number;
 }
 
-const MapAddressSelector = dynamic(() => import('@/components/checkout/MapAddressSelector'), {
-  ssr: false,
-  loading: () => <div className="flex h-60 items-center justify-center"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>
-});
-
 export default function AdminCreateBookingPage() {
   const router = useRouter();
   const { toast } = useToast();
   const { config: appConfig } = useApplicationConfig();
-  const symbol = appConfig?.currencySymbol || '₹';
-  const decimals = appConfig?.currencyDecimalPoints !== undefined ? appConfig.currencyDecimalPoints : 2;
-  const code = appConfig?.currencyCode || 'INR';
 
   const ignoreNextSearch = useRef(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -73,8 +64,6 @@ export default function AdminCreateBookingPage() {
   const [hasAttemptedSubmit, setHasAttemptedSubmit] = useState(false);
   const [isSuccessDialogOpen, setIsSuccessDialogOpen] = useState(false);
   const [createdBookingId, setCreatedBookingId] = useState("");
-  const [isMapModalOpen, setIsMapModalOpen] = useState(false);
-  const [serviceZones, setServiceZones] = useState<any[]>([]);
   const [appliedPromo, setAppliedPromo] = useState<AppliedPromoCodeInfo | null>(null);
   const [promoCodeInput, setPromoCodeInput] = useState("");
   const [isApplyingPromo, setIsApplyingPromo] = useState(false);
@@ -98,7 +87,6 @@ export default function AdminCreateBookingPage() {
   const [customServiceName, setCustomServiceName] = useState("");
   const [customServicePrice, setCustomServicePrice] = useState("");
   const [selectedQuantity, setSelectedQuantity] = useState(1);
-  const [bookingServices, setBookingServices] = useState<BookingServiceItem[]>([]);
 
   const [categorySearch, setCategorySearch] = useState("");
   const [subCategorySearch, setSubCategorySearch] = useState("");
@@ -108,9 +96,8 @@ export default function AdminCreateBookingPage() {
   const [isServiceDialogOpen, setIsServiceDialogOpen] = useState(false);
 
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(undefined);
-  const [availableSlots, setAvailableSlots] = useState<{ slot: string; remainingCapacity: number; endDateTime: string }[]>([]);
+  const [availableSlots, setAvailableSlots] = useState<{ slot: string; remainingCapacity: number }[]>([]);
   const [selectedSlot, setSelectedSlot] = useState<string>("");
-  const [selectedEndDateTime, setSelectedEndDateTime] = useState<string>("");
   const [isLoadingSlots, setIsLoadingSlots] = useState(false);
 
   const [paymentMode, setPaymentMode] = useState("Pay after service");
@@ -161,17 +148,15 @@ export default function AdminCreateBookingPage() {
   useEffect(() => {
     const fetchPrerequisites = async () => {
       try {
-        const [catSnap, subCatSnap, servSnap, promoSnap, zonesSnap] = await Promise.all([
+        const [catSnap, subCatSnap, servSnap, promoSnap] = await Promise.all([
           getDocs(query(collection(db, "adminCategories"), orderBy("order", "asc"))),
           getDocs(query(collection(db, "adminSubCategories"), orderBy("order", "asc"))),
           getDocs(query(collection(db, "adminServices"), where("isActive", "==", true))),
-          getDocs(collection(db, "adminPromoCodes")),
-          getDocs(query(collection(db, "serviceZones"), where("isActive", "==", true)))
+          getDocs(collection(db, "adminPromoCodes"))
         ]);
         setCategories(catSnap.docs.map(d => ({ ...d.data(), id: d.id } as FirestoreCategory)));
         setSubCategories(subCatSnap.docs.map(d => ({ ...d.data(), id: d.id })));
         setAllServices(servSnap.docs.map(d => ({ ...d.data(), id: d.id } as FirestoreService)));
-        setServiceZones(zonesSnap.docs.map(d => ({ ...d.data(), id: d.id })));
         
         const promos = promoSnap.docs
           .map(d => ({ ...d.data(), id: d.id } as FirestorePromoCode))
@@ -200,24 +185,12 @@ export default function AdminCreateBookingPage() {
   const selectedSubCategory = useMemo(() => subCategories.find(sc => sc.id === selectedSubCategoryId), [subCategories, selectedSubCategoryId]);
   const selectedService = useMemo(() => allServices.find(s => s.id === selectedServiceId), [allServices, selectedServiceId]);
 
-  const handleDateSelect = (date: Date | undefined) => {
-    setSelectedDate(date);
-    setSelectedSlot("");
-    setSelectedEndDateTime("");
-  };
-
   useEffect(() => {
-    if (!selectedDate) {
-      setAvailableSlots([]);
-      return;
-    }
+    if (!selectedDate) return;
     const fetchSlots = async () => {
       setIsLoadingSlots(true);
       try {
-        const cartEntries = bookingServices
-          .filter(s => s.serviceId !== "custom")
-          .map(s => ({ serviceId: s.serviceId, quantity: s.quantity }));
-
+        const cartEntries = (isCustomService || !selectedServiceId) ? [] : [{ serviceId: selectedServiceId, quantity: selectedQuantity }];
         const response = await fetch('/api/checkout/available-slots', {
           method: 'POST', headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ selectedDate: selectedDate.toISOString(), cartEntries })
@@ -227,46 +200,26 @@ export default function AdminCreateBookingPage() {
       } catch (error) { console.error(error); } finally { setIsLoadingSlots(false); }
     };
     fetchSlots();
-  }, [selectedDate, bookingServices]);
-
-  // Synchronize slot details when available slots or selected slot changes
-  useEffect(() => {
-    if (selectedSlot && availableSlots.length > 0) {
-      const match = availableSlots.find(s => s.slot === selectedSlot);
-      if (match) {
-        setSelectedEndDateTime(match.endDateTime);
-      } else {
-        setSelectedSlot("");
-        setSelectedEndDateTime("");
-      }
-    }
-  }, [availableSlots, selectedSlot]);
+  }, [selectedDate, selectedServiceId, selectedQuantity, isCustomService]);
 
   const summary = useMemo(() => {
-    let itemTotal = 0;
-    let taxTotal = 0;
-    let visitingCharge = 0;
-    let platformFeeTotal = 0;
+    let itemTotal = 0; let taxTotal = 0; let visitingCharge = 0; let platformFeeTotal = 0;
     const appliedPlatformFees: any[] = [];
-
-    bookingServices.forEach(item => {
-      itemTotal += item.pricePerUnit * item.quantity;
-      taxTotal += item.taxAmountForItem || 0;
-    });
-
-    const vcAmount = (selectedCategory && typeof selectedCategory.visitingChargeAmount === 'number') ? selectedCategory.visitingChargeAmount : appConfig?.visitingChargeAmount;
-    const minBooking = (selectedCategory && typeof selectedCategory.minimumBookingAmount === 'number') ? selectedCategory.minimumBookingAmount : appConfig?.minimumBookingAmount;
-
-    if (appConfig?.enableMinimumBookingPolicy && typeof minBooking === 'number' && typeof vcAmount === 'number') {
-      if (itemTotal < minBooking) {
-        visitingCharge = vcAmount;
-        if (appConfig.enableTaxOnVisitingCharge) {
-          const vcBase = getBasePriceForInvoice(visitingCharge, !!appConfig.isVisitingChargeTaxInclusive, appConfig.visitingChargeTaxPercent || 0);
-          taxTotal += vcBase * ((appConfig.visitingChargeTaxPercent || 0) / 100);
-        }
+    if (isCustomService) { itemTotal = parseFloat(customServicePrice) || 0; }
+    else if (selectedService) {
+      itemTotal = calculateIncrementalTotalPriceForItem(selectedService, selectedQuantity);
+      const rate = selectedService.taxPercent || 0;
+      const base = getBasePriceForInvoice(itemTotal, !!selectedService.isTaxInclusive, rate);
+      taxTotal = base * (rate / 100);
+    }
+    if (appConfig?.enableMinimumBookingPolicy && itemTotal < (appConfig.minimumBookingAmount || 0)) {
+      visitingCharge = appConfig.visitingChargeAmount || 0;
+      if (appConfig.enableTaxOnVisitingCharge) {
+        const vcBase = getBasePriceForInvoice(visitingCharge, !!appConfig.isVisitingChargeTaxInclusive, appConfig.visitingChargeTaxPercent || 0);
+        taxTotal += vcBase * ((appConfig.visitingChargeTaxPercent || 0) / 100);
       }
     }
-    if (visitingCharge === 0 && appConfig?.platformFees) {
+    if (appConfig?.platformFees) {
       appConfig.platformFees.forEach(fee => {
         if (fee.isActive) {
           const base = fee.type === 'percentage' ? (itemTotal * (fee.value / 100)) : fee.value;
@@ -301,110 +254,19 @@ export default function AdminCreateBookingPage() {
       discountAmount,
       grandTotal 
     };
-  }, [bookingServices, appConfig, appliedPromo]);
+  }, [selectedService, isCustomService, customServicePrice, selectedQuantity, appConfig, appliedPromo]);
 
   const validateForm = () => {
     const errors: string[] = [];
     if (!customerDetails.name.trim()) errors.push("name");
     if (!customerDetails.phone.trim()) errors.push("phone");
     if (!customerDetails.address.trim()) errors.push("address");
-    if (bookingServices.length === 0) errors.push("service");
+    if (!isCustomService && !selectedServiceId) errors.push("service");
+    if (isCustomService && (!customServiceName.trim() || !customServicePrice)) errors.push("customService");
     if (!selectedDate) errors.push("date");
     if (!selectedSlot) errors.push("slot");
     setFormErrors(errors);
     return errors.length === 0;
-  };
-
-  const handleAddService = () => {
-    if (isCustomService) {
-      if (!customServiceName.trim() || !customServicePrice) {
-        toast({ title: "Missing Fields", description: "Please enter a name and price for the custom service.", variant: "destructive" });
-        return;
-      }
-      const price = parseFloat(customServicePrice) || 0;
-      setBookingServices(prev => [...prev, {
-        serviceId: "custom",
-        name: customServiceName.trim(),
-        quantity: 1,
-        pricePerUnit: price,
-        isTaxInclusive: false,
-        taxPercentApplied: 0,
-        taxAmountForItem: 0
-      }]);
-      setCustomServiceName("");
-      setCustomServicePrice("");
-      setIsCustomService(false);
-      toast({ title: "Custom Service Added", description: "Successfully added custom service to booking." });
-    } else {
-      if (!selectedServiceId || !selectedService) {
-        toast({ title: "No Service Selected", description: "Please select a service from the dropdown.", variant: "destructive" });
-        return;
-      }
-      const rate = selectedService.taxPercent || 0;
-      const totalItemPrice = calculateIncrementalTotalPriceForItem(selectedService, selectedQuantity);
-      const base = getBasePriceForInvoice(totalItemPrice, !!selectedService.isTaxInclusive, rate);
-      const taxAmount = totalItemPrice - base;
-
-      setBookingServices(prev => {
-        const existingIdx = prev.findIndex(item => item.serviceId === selectedService.id);
-        if (existingIdx > -1) {
-          const updated = [...prev];
-          const newQty = updated[existingIdx].quantity + selectedQuantity;
-          const newTotal = calculateIncrementalTotalPriceForItem(selectedService, newQty);
-          const newBase = getBasePriceForInvoice(newTotal, !!selectedService.isTaxInclusive, rate);
-          updated[existingIdx].quantity = newQty;
-          updated[existingIdx].pricePerUnit = newTotal / newQty;
-          updated[existingIdx].taxAmountForItem = newTotal - newBase;
-          return updated;
-        } else {
-          return [...prev, {
-            serviceId: selectedService.id!,
-            name: selectedService.name,
-            quantity: selectedQuantity,
-            pricePerUnit: totalItemPrice / selectedQuantity,
-            discountedPricePerUnit: selectedService.discountedPrice ?? undefined,
-            isTaxInclusive: !!selectedService.isTaxInclusive,
-            taxPercentApplied: rate,
-            taxAmountForItem: taxAmount,
-            taskTimeValue: selectedService.taskTimeValue ?? undefined,
-            taskTimeUnit: selectedService.taskTimeUnit ?? undefined,
-            shortDescription: selectedService.shortDescription ?? undefined,
-            imageUrl: selectedService.imageUrl
-          }];
-        }
-      });
-      setSelectedServiceId("");
-      setSelectedQuantity(1);
-      toast({ title: "Service Added", description: `Added ${selectedService.name} to booking.` });
-    }
-  };
-
-  const handleUpdateQuantity = (idx: number, delta: number) => {
-    setBookingServices(prev => {
-      const updated = [...prev];
-      const item = { ...updated[idx] };
-      const newQty = item.quantity + delta;
-      if (newQty < 1) return prev;
-
-      if (item.serviceId !== "custom") {
-        const dbService = allServices.find(s => s.id === item.serviceId);
-        if (dbService) {
-          const totalItemPrice = calculateIncrementalTotalPriceForItem(dbService, newQty);
-          const rate = dbService.taxPercent || 0;
-          const base = getBasePriceForInvoice(totalItemPrice, !!dbService.isTaxInclusive, rate);
-          
-          item.quantity = newQty;
-          item.pricePerUnit = totalItemPrice / newQty;
-          item.taxAmountForItem = totalItemPrice - base;
-          updated[idx] = item;
-          return updated;
-        }
-      }
-      
-      item.quantity = newQty;
-      updated[idx] = item;
-      return updated;
-    });
   };
 
   const handleApplyPromo = async (codeOverride?: string) => {
@@ -444,7 +306,7 @@ export default function AdminCreateBookingPage() {
       if (promoData.minBookingAmount && sumOfItemPrices < promoData.minBookingAmount) {
         toast({ 
           title: "Min Amount Not Met", 
-          description: `Minimum ${formatCurrency(promoData.minBookingAmount, symbol, decimals, code)} required for this code.`, 
+          description: `Minimum ₹${promoData.minBookingAmount} required for this code.`, 
           variant: "destructive" 
         });
         setIsApplyingPromo(false);
@@ -485,7 +347,7 @@ export default function AdminCreateBookingPage() {
       };
       setAppliedPromo(applied);
       setPromoCodeInput("");
-      toast({ title: "Promo Applied!", description: `Saved ${formatCurrency(disc, symbol, decimals, code)}.` });
+      toast({ title: "Promo Applied!", description: `Saved ₹${disc.toFixed(2)}.` });
     } catch (e) {
       console.error(e);
       toast({ title: "Error", description: "Failed to apply promo code.", variant: "destructive" });
@@ -500,39 +362,33 @@ export default function AdminCreateBookingPage() {
     toast({ title: "Promo Removed" });
   };
 
-  const handleMapAddressSelect = (address: any) => {
-    setCustomerDetails(p => ({
-      ...p,
-      address: [address.addressLine1, address.addressLine2].filter(Boolean).join(", "),
-      city: address.city || p.city,
-      pincode: address.pincode || p.pincode,
-      latitude: address.latitude ? String(address.latitude) : p.latitude,
-      longitude: address.longitude ? String(address.longitude) : p.longitude
-    }));
-    setIsMapModalOpen(false);
-    toast({ title: "Location Updated", description: "Selected location loaded from map." });
-  };
-
   const handleSubmit = async () => {
     setHasAttemptedSubmit(true);
     if (!validateForm()) { toast({ title: "Validation Error", description: "Fill all required fields.", variant: "destructive" }); return; }
     setIsSubmitting(true);
     try {
       const newBookingId = generateBookingId();
-
-      let parentCatId = selectedCategoryId || null;
-      let subCatId = selectedSubCategoryId || null;
-      
-      const firstActiveService = bookingServices.find(s => s.serviceId !== "custom");
-      if (firstActiveService) {
-        const servObj = allServices.find(s => s.id === firstActiveService.serviceId);
-        if (servObj) {
-          subCatId = servObj.subCategoryId;
-          const subCatObj = subCategories.find(sc => sc.id === subCatId);
-          if (subCatObj) {
-            parentCatId = subCatObj.parentId;
-          }
-        }
+      const serviceItems: BookingServiceItem[] = [];
+      // ... same logic for serviceItems ...
+      if (isCustomService) {
+        serviceItems.push({ serviceId: "custom", name: customServiceName, quantity: 1, pricePerUnit: summary.itemTotal, isTaxInclusive: false, taxPercentApplied: 0, taxAmountForItem: 0 });
+      } else if (selectedService) {
+        const rate = selectedService.taxPercent || 0;
+        const base = getBasePriceForInvoice(summary.itemTotal, !!selectedService.isTaxInclusive, rate);
+        serviceItems.push({ 
+            serviceId: selectedService.id, 
+            name: selectedService.name, 
+            quantity: selectedQuantity, 
+            pricePerUnit: summary.itemTotal / selectedQuantity, 
+            discountedPricePerUnit: selectedService.discountedPrice ?? undefined, 
+            isTaxInclusive: !!selectedService.isTaxInclusive, 
+            taxPercentApplied: rate, 
+            taxAmountForItem: summary.itemTotal - base,
+            taskTimeValue: selectedService.taskTimeValue ?? undefined,
+            taskTimeUnit: selectedService.taskTimeUnit ?? undefined,
+            shortDescription: selectedService.shortDescription ?? undefined,
+            imageUrl: selectedService.imageUrl
+        });
       }
 
       // Assign Sequential Booking Number
@@ -551,7 +407,7 @@ export default function AdminCreateBookingPage() {
         pincode: customerDetails.pincode, 
         scheduledDate: selectedDate!.toLocaleDateString('en-CA'), 
         scheduledTimeSlot: selectedSlot, 
-        services: bookingServices, 
+        services: serviceItems, 
         appliedPlatformFees: summary.appliedPlatformFees, 
         subTotal: summary.itemTotal, 
         taxAmount: summary.taxTotal, 
@@ -564,9 +420,8 @@ export default function AdminCreateBookingPage() {
         createdAt: Timestamp.now(), 
         updatedAt: Timestamp.now(), 
         isReviewedByCustomer: false,
-        parentCategoryId: parentCatId,
-        subCategoryId: subCatId,
-        estimatedEndTime: selectedEndDateTime || null
+        parentCategoryId: selectedCategoryId || null,
+        subCategoryId: selectedSubCategoryId || null
       };
       if (customerDetails.latitude) bookingData.latitude = Number(customerDetails.latitude);
       if (customerDetails.longitude) bookingData.longitude = Number(customerDetails.longitude);
@@ -611,31 +466,15 @@ export default function AdminCreateBookingPage() {
                 <div className="space-y-2"><Label>Mobile *</Label><Input className={hasAttemptedSubmit && !customerDetails.phone.trim() ? "border-destructive" : ""} value={customerDetails.phone} onChange={e => setCustomerDetails(p => ({...p, phone: e.target.value}))}/></div>
                 <div className="space-y-2"><Label>Email</Label><Input value={customerDetails.email} onChange={e => setCustomerDetails(p => ({...p, email: e.target.value}))}/></div>
                 <div className="space-y-2"><Label>City</Label><Input value={customerDetails.city} onChange={e => setCustomerDetails(p => ({...p, city: e.target.value}))}/></div>
-                <div className="md:col-span-2 space-y-2">
-                  <div className="flex items-center justify-between">
-                    <Label>Address *</Label>
-                    {appConfig?.googleMapsApiKey && (
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        onClick={() => setIsMapModalOpen(true)}
-                        className="h-8 px-2.5 text-xs text-primary border-primary/20 hover:border-primary/40 hover:bg-primary/5 hover:text-primary font-bold rounded-md flex items-center gap-1.5"
-                      >
-                        <MapPin className="h-3.5 w-3.5" /> Select on Map
-                      </Button>
-                    )}
-                  </div>
-                  <Input className={hasAttemptedSubmit && !customerDetails.address.trim() ? "border-destructive" : ""} value={customerDetails.address} onChange={e => setCustomerDetails(p => ({...p, address: e.target.value}))}/>
-                </div>
+                <div className="md:col-span-2 space-y-2"><Label>Address *</Label><Input className={hasAttemptedSubmit && !customerDetails.address.trim() ? "border-destructive" : ""} value={customerDetails.address} onChange={e => setCustomerDetails(p => ({...p, address: e.target.value}))}/></div>
                 <div className="space-y-2"><Label className="flex items-center gap-1.5"><MapPin className="h-3.5 w-3.5 text-muted-foreground" /> Latitude</Label><Input value={customerDetails.latitude} onChange={e => setCustomerDetails(p => ({...p, latitude: e.target.value}))}/></div>
                 <div className="space-y-2"><Label className="flex items-center gap-1.5"><MapPin className="h-3.5 w-3.5 text-muted-foreground" /> Longitude</Label><Input value={customerDetails.longitude} onChange={e => setCustomerDetails(p => ({...p, longitude: e.target.value}))}/></div>
               </div>
             </CardContent>
           </Card>
 
-          <Card className={hasAttemptedSubmit && formErrors.includes("service") ? "border-destructive shadow-md" : ""}>
-            <CardHeader><div className="flex items-center justify-between"><CardTitle className="text-lg flex items-center"><Tag className="mr-2 h-5 w-5 text-primary" /> Service Selection</CardTitle><Button type="button" variant={isCustomService ? "default" : "outline"} size="sm" onClick={() => { setIsCustomService(!isCustomService); if (!isCustomService) setSelectedServiceId(""); }}>{isCustomService ? "Use Standard" : "Add Custom Service"}</Button></div></CardHeader>
+          <Card className={hasAttemptedSubmit && (formErrors.includes("service") || formErrors.includes("customService")) ? "border-destructive shadow-md" : ""}>
+            <CardHeader><div className="flex items-center justify-between"><CardTitle className="text-lg flex items-center"><Tag className="mr-2 h-5 w-5 text-primary" /> Service Selection</CardTitle><Button variant={isCustomService ? "default" : "outline"} size="sm" onClick={() => { setIsCustomService(!isCustomService); if (!isCustomService) setSelectedServiceId(""); }}>{isCustomService ? "Use Standard" : "Add Custom Service"}</Button></div></CardHeader>
             <CardContent className="space-y-4">
               {!isCustomService ? (
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -653,92 +492,19 @@ export default function AdminCreateBookingPage() {
                   </div>
                   <div className="space-y-2"><Label>Service</Label>
                     <Dialog open={isServiceDialogOpen} onOpenChange={setIsServiceDialogOpen}>
-                      <DialogTrigger asChild><Button variant="outline" className={`w-full justify-between font-normal h-10 px-3`} disabled={!selectedSubCategoryId}><span className="truncate">{selectedService ? selectedService.name : "Select Service"}</span><ChevronDown className="h-4 w-4 opacity-50 flex-shrink-0" /></Button></DialogTrigger>
-                      <DialogContent className="sm:max-w-lg"><DialogHeader><DialogTitle>Select Service</DialogTitle></DialogHeader><div className="relative mb-2"><Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" /><Input placeholder="Search..." className="pl-8" value={serviceSearch} onChange={e => setServiceSearch(e.target.value)} /></div><ScrollArea className="h-96 pr-4"><div className="space-y-1">{filteredServices.map(s => (<Button key={s.id} variant="ghost" className={`w-full justify-start h-auto py-3 px-4 flex flex-col items-start gap-0.5 ${selectedServiceId === s.id ? 'bg-primary/10 text-primary' : ''}`} onClick={() => { setSelectedServiceId(s.id!); setIsServiceDialogOpen(false); }}><span className="font-bold text-sm text-left">{s.name}</span><span className="text-xs text-muted-foreground text-left">Price: {formatCurrency(s.discountedPrice ?? s.price, symbol, decimals, code)}</span></Button>))}</div></ScrollArea></DialogContent>
+                      <DialogTrigger asChild><Button variant="outline" className={`w-full justify-between font-normal h-10 px-3 ${hasAttemptedSubmit && !selectedServiceId ? 'border-destructive' : ''}`} disabled={!selectedSubCategoryId}><span className="truncate">{selectedService ? selectedService.name : "Select Service"}</span><ChevronDown className="h-4 w-4 opacity-50 flex-shrink-0" /></Button></DialogTrigger>
+                      <DialogContent className="sm:max-w-lg"><DialogHeader><DialogTitle>Select Service</DialogTitle></DialogHeader><div className="relative mb-2"><Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" /><Input placeholder="Search..." className="pl-8" value={serviceSearch} onChange={e => setServiceSearch(e.target.value)} /></div><ScrollArea className="h-96 pr-4"><div className="space-y-1">{filteredServices.map(s => (<Button key={s.id} variant="ghost" className={`w-full justify-start h-auto py-3 px-4 flex flex-col items-start gap-0.5 ${selectedServiceId === s.id ? 'bg-primary/10 text-primary' : ''}`} onClick={() => { setSelectedServiceId(s.id!); setIsServiceDialogOpen(false); }}><span className="font-bold text-sm text-left">{s.name}</span><span className="text-xs text-muted-foreground text-left">Price: ₹{s.discountedPrice ?? s.price}</span></Button>))}</div></ScrollArea></DialogContent>
                     </Dialog>
                   </div>
                 </div>
               ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-4 bg-primary/5 rounded-lg border border-primary/10">
-                  <div className="space-y-2"><Label>Name</Label><Input value={customServiceName} onChange={e => setCustomServiceName(e.target.value)} placeholder="e.g. Custom Plumbing repair" /></div>
-                  <div className="space-y-2"><Label>Price ({symbol})</Label><Input type="number" value={customServicePrice} onChange={e => setCustomServicePrice(e.target.value)} placeholder="500" /></div>
+                  <div className="space-y-2"><Label>Name</Label><Input className={hasAttemptedSubmit && !customServiceName.trim() ? "border-destructive" : ""} value={customServiceName} onChange={e => setCustomServiceName(e.target.value)} /></div>
+                  <div className="space-y-2"><Label>Price (₹)</Label><Input type="number" className={hasAttemptedSubmit && !customServicePrice ? "border-destructive" : ""} value={customServicePrice} onChange={e => setCustomServicePrice(e.target.value)} /></div>
                 </div>
               )}
-
-              <div className="flex flex-wrap items-center justify-between gap-4 pt-2">
-                {!isCustomService && selectedServiceId ? (
-                  <div className="flex items-center gap-4">
-                    <Label>Quantity</Label>
-                    <div className="flex items-center gap-3">
-                      <Button type="button" variant="outline" size="icon" className="h-8 w-8" onClick={() => setSelectedQuantity(q => Math.max(1, q-1))}>-</Button>
-                      <span className="font-bold">{selectedQuantity}</span>
-                      <Button type="button" variant="outline" size="icon" className="h-8 w-8" onClick={() => setSelectedQuantity(q => q+1)}>+</Button>
-                    </div>
-                  </div>
-                ) : <div />}
-
-                <Button 
-                  type="button" 
-                  onClick={handleAddService} 
-                  disabled={isCustomService ? (!customServiceName.trim() || !customServicePrice) : !selectedServiceId}
-                  className="flex items-center gap-1.5"
-                >
-                  <Plus className="h-4 w-4" /> Add to Booking
-                </Button>
-              </div>
-
-              {bookingServices.length > 0 && (
-                <div className="pt-4 border-t space-y-3">
-                  <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
-                    <CheckCircle className="h-4 w-4 text-primary" /> Added Services ({bookingServices.length})
-                  </Label>
-                  <div className="space-y-2">
-                    {bookingServices.map((item, idx) => (
-                      <div key={idx} className="flex items-center justify-between p-3 border rounded-lg bg-secondary/10 hover:bg-secondary/20 transition-colors">
-                        <div>
-                          <p className="text-sm font-bold text-foreground">{item.name}</p>
-                          <p className="text-xs text-muted-foreground mt-0.5">
-                            {formatCurrency(item.pricePerUnit * item.quantity, symbol, decimals, code)} ({item.quantity} x {formatCurrency(item.pricePerUnit, symbol, decimals, code)})
-                            {item.taxPercentApplied && item.taxPercentApplied > 0 ? ` • Incl. ${item.taxPercentApplied}% Tax (${formatCurrency(item.taxAmountForItem || 0, symbol, decimals, code)})` : ''}
-                          </p>
-                        </div>
-                        <div className="flex items-center gap-3">
-                          <div className="flex items-center gap-2 border rounded-md p-1 bg-background">
-                            <Button 
-                              type="button" 
-                              variant="ghost" 
-                              size="icon" 
-                              className="h-6 w-6 text-foreground font-bold hover:bg-muted" 
-                              onClick={() => handleUpdateQuantity(idx, -1)}
-                              disabled={item.quantity <= 1}
-                            >
-                              -
-                            </Button>
-                            <span className="text-xs font-bold w-4 text-center select-none">{item.quantity}</span>
-                            <Button 
-                              type="button" 
-                              variant="ghost" 
-                              size="icon" 
-                              className="h-6 w-6 text-foreground font-bold hover:bg-muted" 
-                              onClick={() => handleUpdateQuantity(idx, 1)}
-                            >
-                              +
-                            </Button>
-                          </div>
-                          <Button 
-                            type="button" 
-                            variant="ghost" 
-                            size="icon" 
-                            className="h-8 w-8 text-destructive hover:bg-destructive/10 hover:text-destructive rounded-full" 
-                            onClick={() => setBookingServices(prev => prev.filter((_, i) => i !== idx))}
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
+              {selectedServiceId && !isCustomService && (
+                 <div className="flex items-center gap-4 pt-2"><Label>Quantity</Label><div className="flex items-center gap-3"><Button variant="outline" size="icon" className="h-8 w-8" onClick={() => setSelectedQuantity(q => Math.max(1, q-1))}>-</Button><span className="font-bold">{selectedQuantity}</span><Button variant="outline" size="icon" className="h-8 w-8" onClick={() => setSelectedQuantity(q => q+1)}>+</Button></div></div>
               )}
             </CardContent>
           </Card>
@@ -746,45 +512,9 @@ export default function AdminCreateBookingPage() {
           <Card className={hasAttemptedSubmit && (formErrors.includes("date") || formErrors.includes("slot")) ? "border-destructive shadow-md" : ""}>
             <CardHeader><CardTitle className="text-lg flex items-center"><CalendarDays className="mr-2 h-5 w-5 text-primary" /> Schedule</CardTitle></CardHeader>
             <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div className={`border rounded-md p-2 flex justify-center ${hasAttemptedSubmit && !selectedDate ? 'border-destructive' : ''}`}><Calendar mode="single" selected={selectedDate} onSelect={handleDateSelect} disabled={(d) => d < new Date(new Date().setHours(0,0,0,0))} /></div>
-              <div className="space-y-4 flex flex-col"><Label className="flex items-center"><Clock className="mr-2 h-4 w-4" /> Slots</Label>
-                {isLoadingSlots ? (
-                  <div className="flex items-center gap-2 text-muted-foreground py-10"><Loader2 className="h-5 w-5 animate-spin" /> Loading...</div>
-                ) : availableSlots.length > 0 ? (
-                  <>
-                    <div className="grid grid-cols-2 gap-2">
-                      {availableSlots.map(s => (
-                        <Button 
-                          key={s.slot} 
-                          type="button"
-                          variant={selectedSlot === s.slot ? "default" : "outline"} 
-                          className={`text-xs ${hasAttemptedSubmit && !selectedSlot ? 'border-destructive' : ''}`} 
-                          onClick={() => { setSelectedSlot(s.slot); setSelectedEndDateTime(s.endDateTime); }}
-                        >
-                          {s.slot}
-                        </Button>
-                      ))}
-                    </div>
-
-                    {selectedSlot && selectedDate && (
-                      <div className="mt-4 p-3 rounded-lg bg-green-500/5 border border-green-500/10 flex items-center gap-3">
-                        <CheckCircle2 className="h-5 w-5 text-green-600 flex-shrink-0" />
-                        <div>
-                          <p className="text-[10px] font-bold text-green-700 uppercase">Selected Schedule</p>
-                          <p className="text-xs font-bold">{selectedDate.toLocaleDateString()} at {selectedSlot}</p>
-                          {selectedEndDateTime && (
-                            <p className="text-[10px] text-muted-foreground mt-0.5">
-                              Estimated Completion: {new Date(selectedEndDateTime).toLocaleTimeString('en-IN', { timeZone: appConfig?.timezone, hour: '2-digit', minute: '2-digit', hour12: true })}
-                              {new Date(selectedEndDateTime).toLocaleDateString() !== selectedDate.toLocaleDateString() && ` on ${new Date(selectedEndDateTime).toLocaleDateString()}`}
-                            </p>
-                          )}
-                        </div>
-                      </div>
-                    )}
-                  </>
-                ) : (
-                  <div className="text-center py-10 text-muted-foreground border-2 border-dashed rounded-lg">{selectedDate ? "No slots." : "Select date."}</div>
-                )}
+              <div className={`border rounded-md p-2 flex justify-center ${hasAttemptedSubmit && !selectedDate ? 'border-destructive' : ''}`}><Calendar mode="single" selected={selectedDate} onSelect={setSelectedDate} disabled={(d) => d < new Date(new Date().setHours(0,0,0,0))} /></div>
+              <div className="space-y-4"><Label className="flex items-center"><Clock className="mr-2 h-4 w-4" /> Slots</Label>
+                {isLoadingSlots ? <div className="flex items-center gap-2 text-muted-foreground py-10"><Loader2 className="h-5 w-5 animate-spin" /> Loading...</div> : availableSlots.length > 0 ? <div className="grid grid-cols-2 gap-2">{availableSlots.map(s => <Button key={s.slot} variant={selectedSlot === s.slot ? "default" : "outline"} className={`text-xs ${hasAttemptedSubmit && !selectedSlot ? 'border-destructive' : ''}`} onClick={() => setSelectedSlot(s.slot)}>{s.slot}</Button>)}</div> : <div className="text-center py-10 text-muted-foreground border-2 border-dashed rounded-lg">{selectedDate ? "No slots." : "Select date."}</div>}
               </div>
             </CardContent>
           </Card>
@@ -795,17 +525,17 @@ export default function AdminCreateBookingPage() {
             <CardHeader><CardTitle>Summary</CardTitle></CardHeader>
             <CardContent className="space-y-4">
               <div className="space-y-2 text-sm">
-                <div className="flex justify-between"><span>Service:</span><span className="font-medium">{formatCurrency(summary.itemTotal, symbol, decimals, code)}</span></div>
-                <div className="flex justify-between"><span>Visiting:</span><span className="font-medium">{formatCurrency(summary.visitingCharge, symbol, decimals, code)}</span></div>
-                {summary.appliedPlatformFees.map((fee, idx) => (<div key={idx} className="flex justify-between"><span className="flex items-center gap-1 text-muted-foreground"><HandCoins className="h-3 w-3" /> {fee.name}:</span><span className="font-medium">{formatCurrency(fee.calculatedFeeAmount + fee.taxAmountOnFee, symbol, decimals, code)}</span></div>))}
-                <div className="flex justify-between"><span>Tax:</span><span className="font-medium">{formatCurrency(summary.taxTotal, symbol, decimals, code)}</span></div>
+                <div className="flex justify-between"><span>Service:</span><span className="font-medium">₹{summary.itemTotal.toFixed(2)}</span></div>
+                <div className="flex justify-between"><span>Visiting:</span><span className="font-medium">₹{summary.visitingCharge.toFixed(2)}</span></div>
+                {summary.appliedPlatformFees.map((fee, idx) => (<div key={idx} className="flex justify-between"><span className="flex items-center gap-1 text-muted-foreground"><HandCoins className="h-3 w-3" /> {fee.name}:</span><span className="font-medium">₹{(fee.calculatedFeeAmount + fee.taxAmountOnFee).toFixed(2)}</span></div>))}
+                <div className="flex justify-between"><span>Tax:</span><span className="font-medium">₹{summary.taxTotal.toFixed(2)}</span></div>
                 {summary.discountAmount > 0 && (
                   <div className="flex justify-between text-green-600 font-semibold">
                     <span>Discount ({appliedPromo?.code}):</span>
-                    <span>-{formatCurrency(summary.discountAmount, symbol, decimals, code)}</span>
+                    <span>-₹{summary.discountAmount.toFixed(2)}</span>
                   </div>
                 )}
-                <Separator /><div className="flex justify-between text-lg font-bold"><span>Total:</span><span className="text-primary">{formatCurrency(summary.grandTotal, symbol, decimals, code)}</span></div>
+                <Separator /><div className="flex justify-between text-lg font-bold"><span>Total:</span><span className="text-primary">₹{summary.grandTotal.toFixed(2)}</span></div>
               </div>
               <Separator />
               
@@ -818,7 +548,7 @@ export default function AdminCreateBookingPage() {
                       <Tag className="h-4 w-4 text-green-600" />
                       <div>
                         <p className="text-xs font-bold text-green-700 dark:text-green-400">&quot;{appliedPromo.code}&quot; Applied</p>
-                        <p className="text-[10px] text-green-600">Saved {formatCurrency(appliedPromo.calculatedDiscount, symbol, decimals, code)}</p>
+                        <p className="text-[10px] text-green-600">Saved ₹{appliedPromo.calculatedDiscount.toFixed(2)}</p>
                       </div>
                     </div>
                     <Button 
@@ -865,7 +595,7 @@ export default function AdminCreateBookingPage() {
                               <Tag className="h-2.5 w-2.5" />
                               <span>{promo.code}</span>
                               <span className="text-[9px] font-normal text-muted-foreground/85">
-                                ({promo.discountType === 'percentage' ? `${promo.discountValue}%` : formatCurrency(promo.discountValue, symbol, decimals, code)})
+                                ({promo.discountType === 'percentage' ? `${promo.discountValue}%` : `₹${promo.discountValue}`})
                               </span>
                             </button>
                           ))}
@@ -964,35 +694,15 @@ export default function AdminCreateBookingPage() {
             {summary.discountAmount > 0 && (
               <div className="flex justify-between text-green-600 font-semibold">
                 <span>Discount ({appliedPromo?.code}):</span>
-                <span>-{formatCurrency(summary.discountAmount, symbol, decimals, code)}</span>
+                <span>-₹{summary.discountAmount.toFixed(2)}</span>
               </div>
             )}
-            <div className="flex justify-between pt-2 border-t font-bold"><span>Amount:</span><span className="text-primary">{formatCurrency(summary.grandTotal, symbol, decimals, code)}</span></div>
+            <div className="flex justify-between pt-2 border-t font-bold"><span>Amount:</span><span className="text-primary">₹{summary.grandTotal.toFixed(2)}</span></div>
           </div>
           <DialogFooter className="flex flex-col sm:flex-row gap-2 mt-6">
             <Button variant="outline" className="w-full sm:flex-1" onClick={() => router.push('/admin')}>Dashboard</Button>
             <Button className="w-full sm:flex-1" onClick={() => router.push('/admin/bookings')}>All Bookings</Button>
           </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      <Dialog open={isMapModalOpen} onOpenChange={setIsMapModalOpen}>
-        <DialogContent className="max-w-3xl w-[95vw] sm:w-[90vw] h-[80vh] p-0 flex flex-col" aria-describedby={undefined}>
-          <DialogHeader className="p-4 border-b">
-            <DialogTitle>Select Service Location</DialogTitle>
-            <DialogDescription>Select location on map.</DialogDescription>
-          </DialogHeader>
-          <div className="flex-grow">
-            {appConfig?.googleMapsApiKey && (
-              <MapAddressSelector 
-                apiKey={appConfig.googleMapsApiKey} 
-                onAddressSelect={handleMapAddressSelect} 
-                onClose={() => setIsMapModalOpen(false)} 
-                initialCenter={customerDetails.latitude && customerDetails.longitude ? { lat: Number(customerDetails.latitude), lng: Number(customerDetails.longitude) } : null} 
-                serviceZones={serviceZones} 
-              />
-            )}
-          </div>
         </DialogContent>
       </Dialog>
     </div>

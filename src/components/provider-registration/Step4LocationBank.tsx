@@ -16,10 +16,10 @@ import { Loader2, MapPin, Banknote, Camera, Image as ImageIcon, Trash2, Check, L
 import NextImage from 'next/image';
 import { useToast } from "@/hooks/use-toast";
 import { storage, db } from '@/lib/firebase';
-import { ref as storageRefStandard, uploadBytesResumable, getDownloadURL, deleteObject } from '@/lib/mysqlStorage';
+import { ref as storageRefStandard, uploadBytesResumable, getDownloadURL, deleteObject } from "firebase/storage";
 import { Progress } from "@/components/ui/progress";
 import { useEffect, useRef, useState, useCallback } from "react";
-import { Timestamp, doc, getDoc } from '@/lib/mysqlDb';
+import { Timestamp, doc, getDoc } from "firebase/firestore";
 import { nanoid } from 'nanoid';
 import { useApplicationConfig } from '@/hooks/useApplicationConfig';
 import dynamic from 'next/dynamic';

@@ -25,9 +25,9 @@ const InquiryReplyEmailInputSchema = z.object({
   smtpPort: z.string().optional().describe("SMTP port (e.g., '587', '465')."),
   smtpUser: z.string().optional().describe("SMTP username."),
   smtpPass: z.string().optional().describe("SMTP password."),
-  senderEmail: z.string().optional().describe("The email address to send from (e.g., support@yourdomain.com)."),
+  senderEmail: z.string().email().optional().describe("The email address to send from (e.g., support@yourdomain.com)."),
   siteName: z.string().optional(),
-  logoUrl: z.string().optional(),
+  logoUrl: z.string().url().optional(),
 });
 
 export type InquiryReplyEmailInput = z.infer<typeof InquiryReplyEmailInputSchema>;
@@ -49,10 +49,7 @@ export async function sendInquiryReplyEmail(input: InquiryReplyEmailInput): Prom
 }
 
 const createHtmlTemplate = (title: string, bodyContent: string, siteName: string, logoUrl?: string) => {
-    let finalLogoUrl = logoUrl || `${getBaseUrl()}/default-image.png`;
-    if (finalLogoUrl.startsWith('/')) {
-        finalLogoUrl = getBaseUrl() + finalLogoUrl;
-    }
+    const finalLogoUrl = logoUrl || `${getBaseUrl()}/default-image.png`;
     return `
 <!DOCTYPE html>
 <html lang="en">

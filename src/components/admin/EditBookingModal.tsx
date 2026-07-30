@@ -10,14 +10,14 @@ import { Textarea } from '@/components/ui/textarea';
 import { Calendar } from '@/components/ui/calendar';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogTrigger } from "@/components/ui/dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { cn, formatCurrency } from "@/lib/utils";
+import { cn } from "@/lib/utils";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Separator } from "@/components/ui/separator";
 import AppImage from '@/components/ui/AppImage';
 import { Loader2, Save, User, Mail, Phone, MapPin, Edit, Clock, Globe, CalendarDays, Check, ChevronsUpDown, Trash2, PlusCircle, Search, Tag } from 'lucide-react';
-import type { FirestoreBooking, BookingStatus, FirestoreNotification, FirestoreService, FirestorePromoCode, BookingServiceItem, FirestoreCategory } from '@/types/firestore';
+import type { FirestoreBooking, BookingStatus, FirestoreNotification, FirestoreService, FirestorePromoCode, BookingServiceItem } from '@/types/firestore';
 import { db } from '@/lib/firebase';
-import { doc, getDoc, updateDoc, Timestamp, addDoc, collection, query, where, getDocs } from '@/lib/mysqlDb';
+import { doc, getDoc, updateDoc, Timestamp, addDoc, collection, query, where, getDocs } from "firebase/firestore";
 import { useToast } from "@/hooks/use-toast";
 import { triggerPushNotification } from '@/lib/fcmUtils';
 import RescheduleBookingDialog from '@/components/shared/RescheduleBookingDialog';
@@ -83,14 +83,10 @@ export default function EditBookingModal({ bookingId, isOpen, onOpenChange, onSu
   const [isStatusPickerOpen, setIsStatusPickerOpen] = useState(false);
 
   const { config: appConfig } = useApplicationConfig();
-  const symbol = appConfig?.currencySymbol || '₹';
-  const decimals = appConfig?.currencyDecimalPoints !== undefined ? appConfig.currencyDecimalPoints : 2;
-  const code = appConfig?.currencyCode || 'INR';
   const [services, setServices] = useState<BookingServiceItem[]>([]);
   const [allCatalogServices, setAllCatalogServices] = useState<FirestoreService[]>([]);
   const [isAddServiceDialogOpen, setIsAddServiceDialogOpen] = useState(false);
   const [serviceSearchQuery, setServiceSearchQuery] = useState("");
-  const [allCategories, setAllCategories] = useState<FirestoreCategory[]>([]);
   const [availablePromos, setAvailablePromos] = useState<FirestorePromoCode[]>([]);
 
   const form = useForm<BookingEditFormData>({
@@ -189,16 +185,7 @@ export default function EditBookingModal({ bookingId, isOpen, onOpenChange, onSu
         console.error("Error fetching promos:", err);
       }
     };
-    const fetchCategoriesCatalog = async () => {
-      try {
-        const snap = await getDocs(collection(db, "adminCategories"));
-        setAllCategories(snap.docs.map(d => ({ ...d.data(), id: d.id } as FirestoreCategory)));
-      } catch (err) {
-        console.error("Error fetching categories:", err);
-      }
-    };
     fetchServicesCatalog();
-    fetchCategoriesCatalog();
     fetchPromos();
   }, [isOpen]);
   
@@ -295,30 +282,15 @@ export default function EditBookingModal({ bookingId, isOpen, onOpenChange, onSu
       taxTotal += (price - base);
     });
 
-    // Resolve Category ID of the booking from the services
-    let resolvedCategoryId = "";
-    if (services.length > 0) {
-      const firstItem = services[0];
-      const matchedCatalogService = allCatalogServices.find(s => s.id === firstItem.serviceId);
-      if (matchedCatalogService) {
-        resolvedCategoryId = matchedCatalogService.parentCategoryId || "";
-      }
-    }
-    const selectedCategory = allCategories.find(c => c.id === resolvedCategoryId);
-    const vcAmount = (selectedCategory && typeof selectedCategory.visitingChargeAmount === 'number') ? selectedCategory.visitingChargeAmount : appConfig?.visitingChargeAmount;
-    const minBooking = (selectedCategory && typeof selectedCategory.minimumBookingAmount === 'number') ? selectedCategory.minimumBookingAmount : appConfig?.minimumBookingAmount;
-
-    if (appConfig?.enableMinimumBookingPolicy && typeof minBooking === 'number' && typeof vcAmount === 'number') {
-      if (itemTotal < minBooking) {
-        visitingCharge = vcAmount;
-        if (appConfig.enableTaxOnVisitingCharge) {
-          const vcBase = getBasePriceForInvoice(visitingCharge, !!appConfig.isVisitingChargeTaxInclusive, appConfig.visitingChargeTaxPercent || 0);
-          taxTotal += vcBase * ((appConfig.visitingChargeTaxPercent || 0) / 100);
-        }
+    if (appConfig?.enableMinimumBookingPolicy && itemTotal < (appConfig.minimumBookingAmount || 0)) {
+      visitingCharge = appConfig.visitingChargeAmount || 0;
+      if (appConfig.enableTaxOnVisitingCharge) {
+        const vcBase = getBasePriceForInvoice(visitingCharge, !!appConfig.isVisitingChargeTaxInclusive, appConfig.visitingChargeTaxPercent || 0);
+        taxTotal += vcBase * ((appConfig.visitingChargeTaxPercent || 0) / 100);
       }
     }
 
-    if (visitingCharge === 0 && appConfig?.platformFees) {
+    if (appConfig?.platformFees) {
       appConfig.platformFees.forEach(fee => {
         if (fee.isActive) {
           const base = fee.type === 'percentage' ? (itemTotal * (fee.value / 100)) : fee.value;
@@ -386,7 +358,6 @@ export default function EditBookingModal({ bookingId, isOpen, onOpenChange, onSu
         discountAmount: summary.discountAmount,
         totalAmount: summary.grandTotal,
         status: data.status as BookingStatus,
-        isReviewedByCustomer: (data.status === 'Completed' && booking.status !== 'Completed') ? false : booking.isReviewedByCustomer,
         latitude: data.latitude === null ? undefined : data.latitude,
         longitude: data.longitude === null ? undefined : data.longitude,
         updatedAt: Timestamp.now(),
@@ -630,7 +601,7 @@ export default function EditBookingModal({ bookingId, isOpen, onOpenChange, onSu
                                     onClick={() => handleAddServiceFromCatalog(srv)}
                                   >
                                     <span className="font-bold text-sm text-foreground">{srv.name}</span>
-                                    <span className="text-xs text-muted-foreground">Price: {formatCurrency(srv.discountedPrice ?? srv.price, symbol, decimals, code)}</span>
+                                    <span className="text-xs text-muted-foreground">Price: ₹{srv.discountedPrice ?? srv.price}</span>
                                   </Button>
                                 ))}
                               {allCatalogServices.filter(s => s.name.toLowerCase().includes(serviceSearchQuery.toLowerCase())).length === 0 && (
@@ -651,7 +622,7 @@ export default function EditBookingModal({ bookingId, isOpen, onOpenChange, onSu
                             )}
                             <div className="space-y-0.5">
                               <div className="font-bold text-sm leading-tight">{item.name}</div>
-                              <div className="text-xs text-muted-foreground">{formatCurrency(item.pricePerUnit, symbol, decimals, code)} per unit</div>
+                              <div className="text-xs text-muted-foreground">₹{item.pricePerUnit} per unit</div>
                             </div>
                           </div>
                           
@@ -678,7 +649,7 @@ export default function EditBookingModal({ bookingId, isOpen, onOpenChange, onSu
                               </Button>
                             </div>
                             <div className="text-sm font-bold min-w-[70px] text-right">
-                              {formatCurrency(item.pricePerUnit * item.quantity, symbol, decimals, code)}
+                              ₹{(item.pricePerUnit * item.quantity).toLocaleString()}
                             </div>
                             <Button
                               type="button"
@@ -704,34 +675,34 @@ export default function EditBookingModal({ bookingId, isOpen, onOpenChange, onSu
                       <div className="mt-4 border-t pt-4 space-y-2 text-xs">
                         <div className="flex justify-between">
                           <span className="text-muted-foreground">Services Subtotal:</span>
-                          <span className="font-bold">{formatCurrency(summary.itemTotal, symbol, decimals, code)}</span>
+                          <span className="font-bold">₹{summary.itemTotal.toFixed(2)}</span>
                         </div>
                         {summary.visitingCharge > 0 && (
                           <div className="flex justify-between">
                             <span className="text-muted-foreground">Visiting Charge:</span>
-                            <span className="font-bold">{formatCurrency(summary.visitingCharge, symbol, decimals, code)}</span>
+                            <span className="font-bold">₹{summary.visitingCharge.toFixed(2)}</span>
                           </div>
                         )}
                         {summary.appliedPlatformFees.map((fee: any, idx: number) => (
                           <div key={idx} className="flex justify-between">
                             <span className="text-muted-foreground">{fee.name}:</span>
-                            <span className="font-bold">{formatCurrency(fee.calculatedFeeAmount + fee.taxAmountOnFee, symbol, decimals, code)}</span>
+                            <span className="font-bold">₹{(fee.calculatedFeeAmount + fee.taxAmountOnFee).toFixed(2)}</span>
                           </div>
                         ))}
                         <div className="flex justify-between">
                           <span className="text-muted-foreground">Taxes Applied:</span>
-                          <span className="font-bold">{formatCurrency(summary.taxTotal, symbol, decimals, code)}</span>
+                          <span className="font-bold">₹{summary.taxTotal.toFixed(2)}</span>
                         </div>
                         {summary.discountAmount > 0 && (
                           <div className="flex justify-between text-red-500 font-bold">
                             <span>Promo Discount ({booking?.discountCode}):</span>
-                            <span>-{formatCurrency(summary.discountAmount, symbol, decimals, code)}</span>
+                            <span>-₹{summary.discountAmount.toFixed(2)}</span>
                           </div>
                         )}
                         <Separator />
                         <div className="flex justify-between text-sm font-bold text-primary pt-1">
                           <span>Grand Total:</span>
-                          <span>{formatCurrency(summary.grandTotal, symbol, decimals, code)}</span>
+                          <span>₹{summary.grandTotal.toFixed(2)}</span>
                         </div>
                       </div>
                     )}

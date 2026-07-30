@@ -2,7 +2,7 @@
 "use client";
 
 import { db } from '@/lib/firebase';
-import { doc, setDoc, deleteDoc, getDoc, Timestamp } from '@/lib/mysqlDb';
+import { doc, setDoc, deleteDoc, getDoc, Timestamp } from 'firebase/firestore';
 import type { UserCart } from '@/types/firestore';
 
 export interface CartEntry {

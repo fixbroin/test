@@ -8,7 +8,6 @@ import { getBaseUrl } from '@/lib/config';
 import { serializeFirestoreData } from '@/lib/serializeUtils';
 import { getAggregateRating } from '@/lib/homepageUtils';
 import { replacePlaceholders, defaultSeoValues } from '@/lib/seoUtils';
-import { getSpinnedLocalContent } from '@/lib/seoGenerator';
 import { generateBreadcrumbSchema } from '@/lib/seoAdvancedUtils';
 import JsonLdScript from '@/components/shared/JsonLdScript';
 import AreaServiceSeoPageClient from '@/components/service/AreaServiceSeoPageClient';
@@ -42,14 +41,6 @@ const getPageData = cache(async (citySlug: string, areaSlug: string, serviceSlug
         if (areaSnapshot.empty) return null;
         const areaData = { ...serializeFirestoreData<any>(areaSnapshot.docs[0].data()), id: areaSnapshot.docs[0].id } as FirestoreArea;
 
-        // Get all active areas in the same city to dynamically interlink nearby areas
-        const cityAreasQuery = areasRef.where('cityId', '==', cityData.id).where('isActive', '==', true);
-        const cityAreasSnapshot = await cityAreasQuery.get();
-        const cityAreas = cityAreasSnapshot.docs.map(doc => ({
-          ...serializeFirestoreData<any>(doc.data()),
-          id: doc.id
-        })) as FirestoreArea[];
-
         // Get Service
         const servicesRef = adminDb.collection('adminServices');
         const serviceQuery = servicesRef.where('slug', '==', serviceSlug).limit(1);
@@ -60,7 +51,7 @@ const getPageData = cache(async (citySlug: string, areaSlug: string, serviceSlug
         // Get Override Config
         const seoOverride = await getAreaServiceSeoOverride(areaData.id, serviceData.id);
 
-        return { cityData, areaData, serviceData, seoOverride, cityAreas };
+        return { cityData, areaData, serviceData, seoOverride };
       } catch (error) {
         console.error(`[AreaServicePageProps] Error fetching page data:`, error);
         return null;
@@ -145,7 +136,7 @@ export default async function AreaServiceDetailPage({ params }: AreaServicePageP
     notFound();
   }
 
-  const { cityData, areaData, serviceData, seoOverride, cityAreas } = pageData;
+  const { cityData, areaData, serviceData, seoOverride } = pageData;
   const appBaseUrl = getBaseUrl();
   const pagePath = `/${cityData.slug}/${areaData.slug}/service/${serviceData.slug}`;
 
@@ -169,27 +160,8 @@ export default async function AreaServiceDetailPage({ params }: AreaServicePageP
     serviceName: serviceData.name
   };
 
-  let fallbackNearby: Array<{ id: string; name: string; slug: string }> = [];
-  if (areaData.nearbyAreas && areaData.nearbyAreas.length > 0) {
-    fallbackNearby = [...areaData.nearbyAreas];
-  }
-  if (cityAreas) {
-    const cityAreasFiltered = cityAreas.filter(a => a.id !== areaData.id);
-    for (const a of cityAreasFiltered) {
-      if (fallbackNearby.length >= 10) break;
-      if (!fallbackNearby.some(existing => existing.id === a.id)) {
-        fallbackNearby.push({ id: a.id, name: a.name, slug: a.slug });
-      }
-    }
-  }
-
   // Resolve dynamic content templates with local city/area/service placeholders
-  const seoContent = seoOverride?.seo_content || getSpinnedLocalContent({
-    cityName: cityData.name,
-    areaName: areaData.name,
-    serviceName: serviceData.name,
-    nearbyAreas: fallbackNearby
-  });
+  const seoContent = seoOverride?.seo_content || replacePlaceholders(seoSettings.areaServiceSeoContentTemplate || defaultSeoValues.areaServiceSeoContentTemplate, placeholderData);
   const rawFaqs = seoOverride?.faqs || seoSettings.areaServiceFaqsTemplate || defaultSeoValues.areaServiceFaqsTemplate || [];
   const faqs = rawFaqs.map(f => ({
     question: replacePlaceholders(f.question, placeholderData),
@@ -222,6 +194,13 @@ export default async function AreaServiceDetailPage({ params }: AreaServicePageP
     "areaServed": {
       "@type": "City",
       "name": cityData.name
+    },
+    "aggregateRating": {
+      "@type": "AggregateRating",
+      "ratingValue": ratingValNum,
+      "reviewCount": reviewCountNum,
+      "bestRating": 5,
+      "worstRating": 1
     }
   };
 
@@ -235,8 +214,8 @@ export default async function AreaServiceDetailPage({ params }: AreaServicePageP
       "@type": "Brand",
       "name": "FixBro"
     },
-    "sku": serviceData.id,
-    "mpn": serviceData.id,
+    "sku": `${cityData.id}-${areaData.id}-${serviceData.id}`,
+    "mpn": `${cityData.id}-${areaData.id}-${serviceData.id}`,
     "offers": serviceData.price ? {
       "@type": "Offer",
       "price": parseFloat(String(serviceData.discountedPrice || serviceData.price)) || 0,
@@ -317,7 +296,6 @@ export default async function AreaServiceDetailPage({ params }: AreaServicePageP
         seoContent={seoContent}
         faqs={faqs}
         breadcrumbItems={breadcrumbItems}
-        cityAreas={cityAreas}
       />
     </>
   );

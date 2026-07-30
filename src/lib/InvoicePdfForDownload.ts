@@ -6,7 +6,6 @@ import 'jspdf-autotable';
 import type { UserOptions, CellWidthType } from 'jspdf-autotable';
 import type { FirestoreBooking, BookingServiceItem, AppliedPlatformFeeItem } from '@/types/firestore';
 import { formatDateInTimezone } from './utils';
-import { robotoFontBase64 } from './pdfFonts';
 
 interface ExtendedHeadCellDef {
   cellWidth?: CellWidthType;
@@ -27,7 +26,6 @@ interface CompanyDetails {
   contactMobile: string;
   logoUrl?: string;
   timezone?: string;
-  currencySymbol?: string;
 }
 
 const getBasePriceForInvoice = (displayedPrice: number, isTaxInclusive?: boolean, taxPercent?: number): number => {
@@ -39,13 +37,7 @@ const getBasePriceForInvoice = (displayedPrice: number, isTaxInclusive?: boolean
 
 export const generateInvoicePdf = async (booking: FirestoreBooking, companyDetails?: CompanyDetails): Promise<string> => {
   const doc = new jsPDF();
-  doc.addFileToVFS('Roboto-Regular.ttf', robotoFontBase64);
-  doc.addFont('Roboto-Regular.ttf', 'Roboto', 'normal');
-  doc.addFont('Roboto-Regular.ttf', 'Roboto', 'bold');
-  doc.setFont('Roboto', 'normal');
-
   const timezone = companyDetails?.timezone || 'Asia/Kolkata';
-  const sym = companyDetails?.currencySymbol || '₹';
 
   const defaultCompanyDetails: CompanyDetails = {
     name: companyDetails?.name || "FixBro.in",
@@ -57,10 +49,10 @@ export const generateInvoicePdf = async (booking: FirestoreBooking, companyDetai
   };
   
   doc.setFontSize(18);
-  doc.setFont("Roboto", "bold");
+  doc.setFont("helvetica", "bold");
   doc.text(defaultCompanyDetails.name, 14, 22);
   doc.setFontSize(10);
-  doc.setFont("Roboto", "normal");
+  doc.setFont("helvetica", "normal");
   const addressLines = doc.splitTextToSize(defaultCompanyDetails.address, 100);
   doc.text(addressLines[0], 14, 28);
   if (addressLines.length > 1) doc.text(addressLines[1], 14, 34); else if (addressLines.length === 1 && addressLines[0].length > 50) { /* Handle single long line if needed*/ } // Adjusted for potentially shorter second line
@@ -68,9 +60,9 @@ export const generateInvoicePdf = async (booking: FirestoreBooking, companyDetai
 
 
   doc.setFontSize(22);
-  doc.setFont("Roboto", "bold");
+  doc.setFont("helvetica", "bold");
   doc.text("INVOICE", 196, 22, { align: "right" });
-  doc.setFont("Roboto", "normal");
+  doc.setFont("helvetica", "normal");
 
   doc.setFontSize(10);
   doc.text(`Invoice #: ${booking.bookingId}`, 196, 30, { align: "right" });
@@ -87,9 +79,9 @@ export const generateInvoicePdf = async (booking: FirestoreBooking, companyDetai
 
   let startYCustomer = 55;
   doc.setFontSize(12);
-  doc.setFont("Roboto", "bold");
+  doc.setFont("helvetica", "bold");
   doc.text("Bill To:", 14, startYCustomer);
-  doc.setFont("Roboto", "normal");
+  doc.setFont("helvetica", "normal");
   doc.setFontSize(10);
   startYCustomer += 6; doc.text(booking.customerName, 14, startYCustomer);
   startYCustomer += 6; doc.text(booking.addressLine1, 14, startYCustomer);
@@ -98,59 +90,37 @@ export const generateInvoicePdf = async (booking: FirestoreBooking, companyDetai
   startYCustomer += 6; doc.text(`Email: ${booking.customerEmail}`, 14, startYCustomer);
   startYCustomer += 6; doc.text(`Phone: ${booking.customerPhone}`, 14, startYCustomer);
 
-  const hasTax = (booking.taxAmount && booking.taxAmount > 0) || 
-                 booking.services.some(item => (item.taxPercentApplied && item.taxPercentApplied > 0)) ||
-                 (booking.appliedPlatformFees && booking.appliedPlatformFees.some(fee => fee.taxRatePercentOnFee > 0));
-
-  const tableColumnStyles: { [key: string]: Partial<ExtendedHeadCellDef> } = hasTax ? {
-    0: { cellWidth: 10, halign: 'center' }, 1: { cellWidth: 'auto', halign: 'left' }, 2: { cellWidth: 15, halign: 'center' },
-    3: { cellWidth: 30, halign: 'right' }, 4: { cellWidth: 20, halign: 'center' },
-    5: { cellWidth: 30, halign: 'right' }, 6: { cellWidth: 30, halign: 'right' },
-  } : {
-    0: { cellWidth: 10, halign: 'center' }, 1: { cellWidth: 'auto', halign: 'left' }, 2: { cellWidth: 15, halign: 'center' },
-    3: { cellWidth: 35, halign: 'right' }, 4: { cellWidth: 35, halign: 'right' },
+  const tableColumnStyles: { [key: string]: Partial<ExtendedHeadCellDef> } = {
+    0: { cellWidth: 10 }, 1: { cellWidth: 'auto' }, 2: { cellWidth: 15, halign: 'center' },
+    3: { cellWidth: 25, halign: 'right' }, 4: { cellWidth: 20, halign: 'center' },
+    5: { cellWidth: 25, halign: 'right' }, 6: { cellWidth: 25, halign: 'right' },
   };
 
-  const head = hasTax 
-    ? [["#", "Description", "Qty", `Unit Price (${sym})`, "Tax %", `Tax Amt (${sym})`, `Total (${sym})` ]]
-    : [["#", "Description", "Qty", `Unit Price (${sym})`, `Total (${sym})` ]];
-
+  const head = [["#", "Description", "Qty", "Unit Price (Rs)", "Tax %", "Tax Amt (Rs)", "Total (Rs)"]];
   const body = booking.services.map((item, index) => {
     const baseUnitPrice = getBasePriceForInvoice(item.pricePerUnit, item.isTaxInclusive, item.taxPercentApplied);
     const lineItemTotalWithTax = (baseUnitPrice * item.quantity) + (item.taxAmountForItem || 0);
 
-    return hasTax ? [
-      (index + 1).toString(),
+    return [
+      index + 1,
       item.name + (item.isTaxInclusive ? " (incl. tax)" : ""),
-      item.quantity.toString(),
+      item.quantity,
       baseUnitPrice.toFixed(2),
       (item.taxPercentApplied || 0).toFixed(1) + "%",
       (item.taxAmountForItem || 0).toFixed(2),
-      lineItemTotalWithTax.toFixed(2),
-    ] : [
-      (index + 1).toString(),
-      item.name + (item.isTaxInclusive ? " (incl. tax)" : ""),
-      item.quantity.toString(),
-      baseUnitPrice.toFixed(2),
       lineItemTotalWithTax.toFixed(2),
     ];
   });
 
   if (booking.appliedPlatformFees && booking.appliedPlatformFees.length > 0) {
     booking.appliedPlatformFees.forEach((fee, index) => {
-      body.push(hasTax ? [
-        (booking.services.length + index + 1).toString(),
+      body.push([
+        booking.services.length + index + 1,
         fee.name + (fee.taxRatePercentOnFee > 0 ? ` (incl. ${fee.taxRatePercentOnFee}% tax on fee)` : ""),
-        "1",
+        1,
         fee.calculatedFeeAmount.toFixed(2),
         fee.taxRatePercentOnFee.toFixed(1) + "%",
         fee.taxAmountOnFee.toFixed(2),
-        (fee.calculatedFeeAmount + fee.taxAmountOnFee).toFixed(2),
-      ] : [
-        (booking.services.length + index + 1).toString(),
-        fee.name + (fee.taxRatePercentOnFee > 0 ? ` (incl. ${fee.taxRatePercentOnFee}% tax on fee)` : ""),
-        "1",
-        fee.calculatedFeeAmount.toFixed(2),
         (fee.calculatedFeeAmount + fee.taxAmountOnFee).toFixed(2),
       ]);
     });
@@ -163,36 +133,21 @@ if (booking.additionalCharges && booking.additionalCharges.length > 0) {
     (booking.appliedPlatformFees?.length || 0);
 
   booking.additionalCharges.forEach((charge, index) => {
-    body.push(hasTax ? [
-      (startIndex + index + 1).toString(),
+    body.push([
+      startIndex + index + 1,
       charge.name + " (Extra Service/Part)",
-      "1",
+      1,
       charge.amount.toFixed(2),
       "0.0%",
       "0.00",
-      charge.amount.toFixed(2),
-    ] : [
-      (startIndex + index + 1).toString(),
-      charge.name + " (Extra Service/Part)",
-      "1",
-      charge.amount.toFixed(2),
       charge.amount.toFixed(2),
     ]);
   });
 }
 
   doc.autoTable({
-    head: head, 
-    body: body, 
-    startY: startYCustomer + 10, 
-    theme: 'grid',
-    headStyles: { fillColor: [70, 160, 162] }, 
-    columnStyles: tableColumnStyles,
-    styles: { 
-      font: 'Roboto',
-      lineColor: [220, 220, 220],
-      lineWidth: 0.1
-    },
+    head: head, body: body, startY: startYCustomer + 10, theme: 'striped',
+    headStyles: { fillColor: [70, 160, 162] }, columnStyles: tableColumnStyles,
   });
 
   let finalY = doc.lastAutoTable.finalY || startYCustomer + 10 + (body.length + 1) * 10;
@@ -204,22 +159,22 @@ if (booking.additionalCharges && booking.additionalCharges.length > 0) {
   };
 
   doc.setFontSize(10);
-  drawRightAlignedText("Items Subtotal (Base):", `${sym} ${booking.subTotal.toFixed(2)}`, finalY);
+  drawRightAlignedText("Items Subtotal (Base):", `Rs. ${booking.subTotal.toFixed(2)}`, finalY);
 
   if (booking.discountAmount && booking.discountAmount > 0) {
     finalY += 6;
-    drawRightAlignedText(`Discount (${booking.discountCode || 'Applied'}):`, `- ${sym} ${booking.discountAmount.toFixed(2)}`, finalY);
+    drawRightAlignedText(`Discount (${booking.discountCode || 'Applied'}):`, `- Rs. ${booking.discountAmount.toFixed(2)}`, finalY);
   }
   
   if (booking.visitingCharge && booking.visitingCharge > 0) {
     finalY += 6;
-    drawRightAlignedText("Visiting Charge (Base):", `+ ${sym} ${booking.visitingCharge.toFixed(2)}`, finalY);
+    drawRightAlignedText("Visiting Charge (Base):", `+ Rs. ${booking.visitingCharge.toFixed(2)}`, finalY);
   }
 
   const totalBasePlatformFees = booking.appliedPlatformFees?.reduce((sum, fee) => sum + fee.calculatedFeeAmount, 0) || 0;
   if (totalBasePlatformFees > 0) {
     finalY += 6;
-    drawRightAlignedText("Platform Fees (Base):", `+ ${sym} ${totalBasePlatformFees.toFixed(2)}`, finalY);
+    drawRightAlignedText("Platform Fees (Base):", `+ Rs. ${totalBasePlatformFees.toFixed(2)}`, finalY);
   }
 
   // ✅ Additional Charges (On-Site) summary support
@@ -227,20 +182,20 @@ if (booking.additionalCharges && booking.additionalCharges.length > 0) {
     const extraTotal = booking.additionalCharges.reduce((sum, c) => sum + c.amount, 0);
     if (extraTotal > 0) {
       finalY += 6;
-      drawRightAlignedText("Additional Charges:", `+ ${sym} ${extraTotal.toFixed(2)}`, finalY);
+      drawRightAlignedText("Additional Charges:", `+ Rs. ${extraTotal.toFixed(2)}`, finalY);
     }
   }
 
   if (booking.taxAmount && booking.taxAmount > 0) {
     finalY += 6;
-    drawRightAlignedText("Total Tax:", `+ ${sym} ${booking.taxAmount.toFixed(2)}`, finalY);
+    drawRightAlignedText("Total Tax:", `+ Rs. ${booking.taxAmount.toFixed(2)}`, finalY);
   }
 
   finalY += 8;
   doc.setFontSize(12);
-  doc.setFont("Roboto", "bold");
-  drawRightAlignedText("Total Amount Due:", `${sym} ${booking.totalAmount.toFixed(2)}`, finalY);
-  doc.setFont("Roboto", "normal");
+  doc.setFont("helvetica", "bold");
+  drawRightAlignedText("Total Amount Due:", `Rs. ${booking.totalAmount.toFixed(2)}`, finalY);
+  doc.setFont("helvetica", "normal");
 
   finalY += 10;
   doc.setFontSize(10);

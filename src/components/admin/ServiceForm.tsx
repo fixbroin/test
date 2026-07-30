@@ -19,13 +19,12 @@ import { cn } from "@/lib/utils";
 import NextImage from 'next/image';
 import { useToast } from "@/hooks/use-toast";
 import { storage, db } from '@/lib/firebase';
-import { ref as storageRef, uploadBytesResumable, getDownloadURL, deleteObject } from '@/lib/mysqlStorage';
-import { collection, query, where, getDocs, limit } from '@/lib/mysqlDb';
+import { ref as storageRef, uploadBytesResumable, getDownloadURL, deleteObject } from "firebase/storage";
+import { collection, query, where, getDocs, limit } from "firebase/firestore";
 import { Progress } from "@/components/ui/progress";
 import { Separator } from "@/components/ui/separator";
 import { compressImage } from "@/lib/imageCompressor";
 import { nanoid } from 'nanoid';
-import { useApplicationConfig } from "@/hooks/useApplicationConfig";
 import { generateServiceDetails } from '@/ai/flows/generateServiceDetailsFlow';
 
 const generateSlug = (name: string) => {
@@ -62,10 +61,7 @@ const serviceFormSchema = z.object({
   shortDescription: z.string().max(300, {message: "Short description max 300 chars."}).optional().nullable(),
   fullDescription: z.string().optional().nullable(),
   serviceHighlights: z.array(z.object({ value: z.string().min(5, "Highlight must be at least 5 characters.").max(150, "Highlight too long.") })).optional(),
-  imageUrl: z.string().refine(
-    (val) => !val || val === "" || val.startsWith('/') || val.startsWith('http://') || val.startsWith('https://') || val.startsWith('uploads/'),
-    { message: "Must be a valid URL or path if provided." }
-  ).optional().or(z.literal('')),
+  imageUrl: z.string().url({ message: "Must be a valid URL if provided." }).optional().or(z.literal('')),
   imageHint: z.string().max(50, { message: "Image hint should be max 50 characters."}).optional().or(z.literal('')),
   rating: z.coerce.number().min(0).max(5).default(0),
   reviewCount: z.coerce.number().min(0).default(0),
@@ -109,9 +105,9 @@ interface ServiceFormProps {
   isSubmitting?: boolean;
 }
 
-const isFirebaseStorageUrl = (url: string | null | undefined): boolean => {
+const isFirebaseStorageUrl = (url: string): boolean => {
   if (!url) return false;
-  return typeof url === 'string' && url.trim().length > 0;
+  return typeof url === 'string' && url.includes("firebasestorage.googleapis.com");
 };
 
 const generateRandomHexString = (length: number) => {
@@ -136,8 +132,6 @@ const isValidImageSrc = (url: string | null | undefined): url is string => {
 const NO_TAX_VALUE = "__NO_TAX__";
 
 export default function ServiceForm({ onSubmit: onSubmitProp, initialData, onCancel, parentCategories, subCategories, taxes, allServices, isSubmitting: isParentSubmitting = false }: ServiceFormProps) {
-  const { config: appConfig } = useApplicationConfig();
-  const symbol = appConfig?.currencySymbol || '₹';
   const [currentImagePreview, setCurrentImagePreview] = useState<string | null>(null);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -497,7 +491,7 @@ export default function ServiceForm({ onSubmit: onSubmitProp, initialData, onCan
       if (selectedFile) {
         setStatusMessage("Uploading image...");
         setUploadProgress(0);
-        if (originalImageUrlFromInitialData) {
+        if (originalImageUrlFromInitialData && isFirebaseStorageUrl(originalImageUrlFromInitialData)) {
           try { await deleteObject(storageRef(storage, originalImageUrlFromInitialData)); }
           catch (error) { console.warn("Error deleting old image: ", error); }
         }
@@ -522,10 +516,10 @@ export default function ServiceForm({ onSubmit: onSubmitProp, initialData, onCan
           );
         });
         setUploadProgress(100); setStatusMessage("Image uploaded. Saving...");
-      } else if (!formData.imageUrl && originalImageUrlFromInitialData) {
+      } else if (!formData.imageUrl && originalImageUrlFromInitialData && isFirebaseStorageUrl(originalImageUrlFromInitialData)) {
         setStatusMessage("Removing image...");
         try { await deleteObject(storageRef(storage, originalImageUrlFromInitialData)); finalImageUrl = ""; setStatusMessage("Image removed. Saving..."); }
-        catch (error: unknown) { console.error("Error deleting image: ", error); }
+        catch (error: unknown) { throw new Error(`Failed to delete image: ${error instanceof Error ? error.message : 'Unknown error'}. Not saved.`); }
       } else { setStatusMessage(initialData ? "Saving changes..." : "Creating service..."); }
       
       const payload: Omit<FirestoreService, 'id' | 'createdAt' | 'updatedAt'> & { id?: string } = {
@@ -839,7 +833,7 @@ export default function ServiceForm({ onSubmit: onSubmitProp, initialData, onCan
                    <div className="grid grid-cols-3 gap-2 items-end">
                       <FormField control={form.control} name={`priceVariants.${index}.fromQuantity`} render={({ field }) => (<FormItem><FormLabel className="text-xs font-medium">From Qty</FormLabel><FormControl><Input type="number" placeholder="1" {...field} className="h-8 text-xs" /></FormControl><FormMessage /></FormItem>)}/>
                       <FormField control={form.control} name={`priceVariants.${index}.toQuantity`} render={({ field }) => (<FormItem><FormLabel className="text-xs font-medium">To Qty (Opt.)</FormLabel><FormControl><Input type="number" placeholder="5" {...field} value={field.value ?? ''} className="h-8 text-xs" /></FormControl><FormMessage /></FormItem>)}/>
-                      <FormField control={form.control} name={`priceVariants.${index}.price`} render={({ field }) => (<FormItem><FormLabel className="text-xs font-medium">Price ({symbol})</FormLabel><FormControl><Input type="number" step="0.01" placeholder="100" {...field} className="h-8 text-xs" /></FormControl><FormMessage /></FormItem>)}/>
+                      <FormField control={form.control} name={`priceVariants.${index}.price`} render={({ field }) => (<FormItem><FormLabel className="text-xs font-medium">Price (₹)</FormLabel><FormControl><Input type="number" step="0.01" placeholder="100" {...field} className="h-8 text-xs" /></FormControl><FormMessage /></FormItem>)}/>
                    </div>
                   <Button type="button" variant="ghost" size="icon" className="absolute top-1 right-1 h-6 w-6 text-destructive" onClick={() => removePriceVariant(index)} disabled={effectiveIsSubmitting}><Trash2 className="h-4 w-4" /></Button>
                 </div>
@@ -848,8 +842,8 @@ export default function ServiceForm({ onSubmit: onSubmitProp, initialData, onCan
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <FormField control={form.control} name="price" render={({ field }) => (<FormItem><FormLabel>Default Price ({symbol})</FormLabel><FormControl><Input type="number" step="0.01" placeholder="e.g., 1200" {...field} disabled={effectiveIsSubmitting} /></FormControl><FormMessage /></FormItem>)}/>
-              <FormField control={form.control} name="discountedPrice" render={({ field }) => (<FormItem><FormLabel>Default Discounted Price ({symbol}) (Optional)</FormLabel><FormControl><Input type="number" step="0.01" placeholder="e.g., 999" {...field} value={field.value ?? ""} disabled={effectiveIsSubmitting}/></FormControl><FormMessage /></FormItem>)}/>
+              <FormField control={form.control} name="price" render={({ field }) => (<FormItem><FormLabel>Default Price (₹)</FormLabel><FormControl><Input type="number" step="0.01" placeholder="e.g., 1200" {...field} disabled={effectiveIsSubmitting} /></FormControl><FormMessage /></FormItem>)}/>
+              <FormField control={form.control} name="discountedPrice" render={({ field }) => (<FormItem><FormLabel>Default Discounted Price (₹) (Optional)</FormLabel><FormControl><Input type="number" step="0.01" placeholder="e.g., 999" {...field} value={field.value ?? ""} disabled={effectiveIsSubmitting}/></FormControl><FormMessage /></FormItem>)}/>
             </div>
           )}
 

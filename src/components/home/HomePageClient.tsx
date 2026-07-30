@@ -12,7 +12,7 @@ import { useRouter, usePathname } from 'next/navigation';
 import Link from 'next/link';
 import JsonLdScript from '@/components/shared/JsonLdScript';
 import { replacePlaceholders } from '@/lib/seoUtils';
-import { doc, getDoc, collection, query, where, limit, getDocs, orderBy, Timestamp, documentId, onSnapshot } from '@/lib/mysqlDb';
+import { doc, getDoc, collection, query, where, limit, getDocs, orderBy, Timestamp, documentId, onSnapshot } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import type { GlobalWebSettings, FirestoreSEOSettings, FirestoreCity, FirestoreArea, FeaturesConfiguration, FirestoreService, FirestoreCategory, HomepageAd, AdPlacement } from '@/types/firestore';
 import Breadcrumbs from '@/components/shared/Breadcrumbs';
@@ -20,7 +20,7 @@ import type { BreadcrumbItem } from '@/types/ui';
 import { useLoading } from '@/contexts/LoadingContext';
 import AppImage from '@/components/ui/AppImage';
 import { Card, CardContent } from '@/components/ui/card';
-import { cn, formatCurrency } from '@/lib/utils';
+import { cn } from '@/lib/utils';
 import { Star, Clock, ListChecks, Loader2, FileText, ShoppingCart, Users, Ban, Percent, Info } from 'lucide-react';
 import AdBannerCard from '@/components/shared/AdBannerCard';
 import { Carousel, CarouselContent, CarouselItem, type CarouselApi, CarouselPrevious, CarouselNext } from "@/components/ui/carousel";
@@ -173,15 +173,15 @@ const getPriceForNthUnit = (service: FirestoreService, n: number): number => {
   return service.discountedPrice ?? service.price;
 };
 
-const getPriceDisplayInfo = (service: FirestoreService, quantity: number, symbol: string = '₹', decimals: number = 2, code: string = 'INR') => {
+const getPriceDisplayInfo = (service: FirestoreService, quantity: number) => {
     if (!service.hasPriceVariants || !service.priceVariants || service.priceVariants.length === 0) {
         const unitSaving = service.discountedPrice && service.discountedPrice < service.price ? service.price - service.discountedPrice : 0;
         const totalSaving = unitSaving * (quantity > 0 ? quantity : 1);
         
         return {
-            mainPrice: formatCurrency(service.discountedPrice ?? service.price, symbol, decimals, code),
-            priceSuffix: unitSaving > 0 ? formatCurrency(service.price, symbol, decimals, code) : null,
-            promoText: unitSaving > 0 ? `Save ${formatCurrency(totalSaving, symbol, decimals, code)}!` : null,
+            mainPrice: `₹${service.discountedPrice ?? service.price}`,
+            priceSuffix: unitSaving > 0 ? `₹${service.price}` : null,
+            promoText: unitSaving > 0 ? `Save ₹${totalSaving.toFixed(0)}!` : null,
         };
     }
 
@@ -193,28 +193,24 @@ const getPriceDisplayInfo = (service: FirestoreService, quantity: number, symbol
     let promoText = null;
     if (nextCheaperTier) {
         const needed = nextCheaperTier.fromQuantity - quantity;
-        promoText = `Add ${needed} more to unlock ${formatCurrency(nextCheaperTier.price, symbol, decimals, code)} price!`;
+        promoText = `Add ${needed} more to unlock ₹${nextCheaperTier.price} price!`;
     } else {
         const finalTier = sortedVariants[sortedVariants.length - 1];
         if (quantity >= finalTier.fromQuantity) {
-            promoText = `Price continues at ${formatCurrency(finalTier.price, symbol, decimals, code)} each.`;
+            promoText = `Price continues at ₹${finalTier.price} each.`;
         }
     }
 
     const displayPrice = getPriceForNthUnit(service, nextQuantity);
 
     return {
-        mainPrice: formatCurrency(displayPrice, symbol, decimals, code),
+        mainPrice: `₹${displayPrice}`,
         priceSuffix: quantity > 0 ? 'per next unit' : 'onwards',
         promoText,
     };
 };
 
 const HomepageServiceCard: React.FC<{ service: FirestoreService }> = ({ service }) => {
-  const { config: appConfig } = useApplicationConfig();
-  const symbol = appConfig?.currencySymbol || '₹';
-  const decimals = appConfig?.currencyDecimalPoints !== undefined ? appConfig.currencyDecimalPoints : 2;
-  const code = appConfig?.currencyCode || 'INR';
   const router = useRouter();
   const { showLoading } = useLoading();
   const { user, triggerAuthRedirect } = useAuth();
@@ -299,7 +295,7 @@ const HomepageServiceCard: React.FC<{ service: FirestoreService }> = ({ service 
   };
   const taskTimeDisplay = formatTaskTime(service.taskTimeValue, service.taskTimeUnit);
 
-  const { mainPrice, priceSuffix, promoText } = getPriceDisplayInfo(service, quantity, symbol, decimals, code);
+  const { mainPrice, priceSuffix, promoText } = getPriceDisplayInfo(service, quantity);
 
   const isAvailable = service.maxQuantity === undefined || service.maxQuantity === null || service.maxQuantity > 0;
   
@@ -334,13 +330,9 @@ const HomepageServiceCard: React.FC<{ service: FirestoreService }> = ({ service 
                   <div className="flex flex-wrap items-baseline gap-2 mt-2">
                     <p className="text-lg font-bold text-foreground">{mainPrice}</p>
                      {priceSuffix && (
-                       <p className="text-sm text-muted-foreground">
-                         {priceSuffix.includes(symbol) || /\d/.test(priceSuffix) ? (
-                           <span className="line-through">{priceSuffix}</span>
-                         ) : (
-                           priceSuffix
-                         )}
-                       </p>
+                       <p className="text-sm text-muted-foreground"><span className="line-through">
+                          {priceSuffix.replace(/[^\d₹.,]/g, "")}</span>{" "}{priceSuffix.replace(/[\d₹.,]/g, "")}
+                      </p>
                      )}
                   </div>
                   {service.hasMinQuantity && service.minQuantity && service.minQuantity > 1 && (

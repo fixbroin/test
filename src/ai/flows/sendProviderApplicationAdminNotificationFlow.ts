@@ -19,15 +19,15 @@ const NewProviderApplicationAdminEmailInputSchema = z.object({
   providerName: z.string().describe("The name of the provider who applied."),
   providerEmail: z.string().email().describe("The email of the provider."),
   providerCategory: z.string().optional().describe("The primary work category of the provider."),
-  applicationUrl: z.string().describe("Direct URL to view the application in the admin panel."),
+  applicationUrl: z.string().url().describe("Direct URL to view the application in the admin panel."),
   // SMTP Settings
   smtpHost: z.string().optional().describe("SMTP host for sending emails."),
   smtpPort: z.string().optional().describe("SMTP port (e.g., '587', '465')."),
   smtpUser: z.string().optional().describe("SMTP username."),
   smtpPass: z.string().optional().describe("SMTP password."),
-  senderEmail: z.string().optional().describe("The email address to send from."),
+  senderEmail: z.string().email().optional().describe("The email address to send from."),
   siteName: z.string().optional(),
-  logoUrl: z.string().optional(),
+  logoUrl: z.string().url().optional(),
 });
 
 export type NewProviderApplicationAdminEmailInput = z.infer<typeof NewProviderApplicationAdminEmailInputSchema>;
@@ -42,10 +42,7 @@ export async function sendNewProviderApplicationAdminEmail(input: NewProviderApp
 }
 
 const createHtmlTemplate = (title: string, bodyContent: string, siteName: string, logoUrl?: string) => {
-    let finalLogoUrl = logoUrl || `${getBaseUrl()}/default-image.png`;
-    if (finalLogoUrl.startsWith('/')) {
-        finalLogoUrl = getBaseUrl() + finalLogoUrl;
-    }
+    const finalLogoUrl = logoUrl || `${getBaseUrl()}/default-image.png`;
     return `
 <!DOCTYPE html>
 <html lang="en">

@@ -8,7 +8,7 @@ import { Loader2, PackageSearch, Briefcase } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import type { FirestoreBooking, BookingStatus, FirestoreNotification } from '@/types/firestore';
 import { db } from '@/lib/firebase';
-import { collectionGroup, query, where, onSnapshot, orderBy, doc, updateDoc, Timestamp, getDoc, getDocs, limit, addDoc, collection } from '@/lib/mysqlDb';
+import { collectionGroup, query, where, onSnapshot, orderBy, doc, updateDoc, Timestamp, getDoc, getDocs, limit, addDoc, collection } from "firebase/firestore";
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
 import ProviderJobCard from '@/components/provider/ProviderJobCard'; 
@@ -69,13 +69,10 @@ export default function ProviderMyJobsPage() {
       const updateData: any = { status: newStatus, updatedAt: Timestamp.now() };
       
       if (newStatus === "Completed") {
-        const job = bookings.find(b => b.id === bookingId);
-        if (job && job.status !== "Completed") {
-          updateData.isReviewedByCustomer = false;
-        }
         if (additionalCharges && additionalCharges.length > 0) {
             updateData.additionalCharges = additionalCharges;
-            updateData.totalAmount = ((job?.totalAmount || 0) + additionalCharges.reduce((sum, c) => sum + c.amount, 0));
+            const job = bookings.find(b => b.id === bookingId);
+            updateData.totalAmount = (job?.totalAmount || 0) + additionalCharges.reduce((sum, c) => sum + c.amount, 0);
         }
         if (finalizedPaymentMethod) updateData.paymentMethod = finalizedPaymentMethod;
       }
@@ -100,10 +97,10 @@ export default function ProviderMyJobsPage() {
     }
   };
 
-  const newJobRequests = useMemo(() => bookings.filter(b => b.status === 'AssignedToProvider' || b.status === 'Rescheduled'), [bookings]);
+  const newJobRequests = useMemo(() => bookings.filter(b => b.status === 'AssignedToProvider'), [bookings]);
   const ongoingJobs = useMemo(() => bookings.filter(b => b.status === 'ProviderAccepted' || b.status === 'InProgressByProvider'), [bookings]);
   const completedJobs = useMemo(() => bookings.filter(b => b.status === 'Completed'), [bookings]);
-  const otherJobs = useMemo(() => bookings.filter(b => b.status === 'ProviderRejected' || b.status === 'Cancelled' || b.status === 'Pending Payment' || b.status === 'Processing'), [bookings]);
+  const otherJobs = useMemo(() => bookings.filter(b => b.status === 'ProviderRejected' || b.status === 'Cancelled' || b.status === 'Rescheduled' || b.status === 'Pending Payment' || b.status === 'Processing'), [bookings]);
 
 
   if (authIsLoading || isLoadingBookings) {

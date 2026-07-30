@@ -13,7 +13,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import type { FirestoreService, UserCart, PriceVariant } from '@/types/firestore';
 import { getCartEntries, saveCartEntries, syncCartToFirestore, type CartEntry } from '@/lib/cartManager';
 import { db } from '@/lib/firebase'; 
-import { doc, getDoc, onSnapshot } from '@/lib/mysqlDb';
+import { doc, getDoc, onSnapshot } from "firebase/firestore";
 import { useToast } from '@/hooks/use-toast';
 import { useLoading } from '@/contexts/LoadingContext';
 import { useRouter, usePathname } from 'next/navigation';
@@ -89,7 +89,6 @@ function CartPageContent() {
   const currentPathname = usePathname();
 
   const { config: appConfig, isLoading: isLoadingAppSettings } = useApplicationConfig();
-  const symbol = appConfig?.currencySymbol || "₹";
 
   const [subtotal, setSubtotal] = useState(0); 
   const [visitingCharge, setVisitingCharge] = useState(0); 
@@ -264,17 +263,9 @@ function CartPageContent() {
         displayedVisitingChargeAmount = appConfig.visitingChargeAmount;
         calculatedBaseVisitingCharge = getBasePrice(displayedVisitingChargeAmount, appConfig.isVisitingChargeTaxInclusive, appConfig.visitingChargeTaxPercent);
         if (appConfig.minimumBookingPolicyDescription) {
-            const escapedSymbol = (symbol || "₹").replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
-            const patternVc = new RegExp(`(?:₹|\\$|${escapedSymbol})?{VISITING_CHARGE}`, 'g');
-            const patternMin = new RegExp(`(?:₹|\\$|${escapedSymbol})?{MINIMUM_BOOKING_AMOUNT}`, 'g');
-            const normalizedPolicy = appConfig.minimumBookingPolicyDescription
-                .replace(patternMin, "{MINIMUM_BOOKING_AMOUNT}")
-                .replace(patternVc, "{VISITING_CHARGE}");
-            currentPolicyMessage = normalizedPolicy
-                .replace(/{MINIMUM_BOOKING_AMOUNT}/g, `${symbol}${appConfig.minimumBookingAmount}`)
-                .replace(/{VISITING_CHARGE}/g, `${symbol}${appConfig.visitingChargeAmount || 0}`)
-                .replace("{MINIMUM_BOOKING_AMOUNT}", `${symbol}${appConfig.minimumBookingAmount}`)
-                .replace("{VISITING_CHARGE}", `${symbol}${appConfig.visitingChargeAmount || 0}`);
+            currentPolicyMessage = appConfig.minimumBookingPolicyDescription
+                .replace("{MINIMUM_BOOKING_AMOUNT}", appConfig.minimumBookingAmount.toString())
+                .replace("{VISITING_CHARGE}", (appConfig.visitingChargeAmount || 0).toString());
         }
       }
     }
@@ -469,8 +460,8 @@ function CartPageContent() {
                       <p className="text-xs sm:text-sm text-muted-foreground line-clamp-2">{item.description}</p>
                     </Link>
                     <div className="flex items-baseline gap-2 mt-1">
-                      <p className="text-sm sm:text-md font-medium text-foreground">Total: {symbol}{totalPriceForItem.toFixed(2)}</p>
-                       {item.quantity > 1 && <p className="text-xs text-muted-foreground">(Avg. {symbol}{(totalPriceForItem / item.quantity).toFixed(2)} each)</p>}
+                      <p className="text-sm sm:text-md font-medium text-foreground">Total: ₹{totalPriceForItem.toFixed(2)}</p>
+                       {item.quantity > 1 && <p className="text-xs text-muted-foreground">(Avg. ₹{(totalPriceForItem / item.quantity).toFixed(2)} each)</p>}
                       {item.taxPercent && item.taxPercent > 0 ? (
                           <span className="text-xs text-muted-foreground">(+{item.taxPercent}% tax)</span>
                       ) : null}
@@ -512,12 +503,12 @@ function CartPageContent() {
               <CardContent className="space-y-2 sm:space-y-3 text-sm sm:text-base">
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Items Total:</span>
-                  <span>{symbol}{sumOfDisplayedItemPrices.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                  <span>₹{sumOfDisplayedItemPrices.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                 </div>
                 {visitingCharge > 0 && (
                   <div className="flex justify-between text-primary">
                     <span className="text-primary">Visiting Charge:</span>
-                    <span>+ {symbol}{(appConfig.visitingChargeAmount || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                    <span>+ ₹{(appConfig.visitingChargeAmount || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                   </div>
                 )}
                 {estimatedTax > 0 && (
@@ -530,7 +521,7 @@ function CartPageContent() {
                                     <Info className="h-3.5 w-3.5 text-muted-foreground hover:text-primary"/>
                                 </Button>
                             </DialogTrigger>
-                            <DialogContent className="w-[90vw] sm:max-w-2xl md:max-w-3xl max-h-[85vh] overflow-y-auto">
+                            <DialogContent className="w-[90vw] sm:max-w-md max-h-[80vh] overflow-y-auto">
                                 <DialogHeader>
                                     <DialogTitle>Tax Breakdown</DialogTitle>
                                 </DialogHeader>
@@ -549,13 +540,13 @@ function CartPageContent() {
                             </DialogContent>
                         </Dialog>
                     </div>
-                    <span>+ {symbol}{estimatedTax.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                    <span>+ ₹{estimatedTax.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                     </div>
                 )}
                 <Separator />
                 <div className="flex justify-between font-semibold text-md sm:text-lg">
                   <span>Grand Total:</span>
-                  <span>{symbol}{total.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                  <span>₹{total.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                 </div>
               </CardContent>
               <CardFooter className="flex-col items-stretch gap-3 sm:gap-4">
